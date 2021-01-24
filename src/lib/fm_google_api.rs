@@ -28,7 +28,6 @@ type GDriveHub = DriveHub<hyper::Client, ConcreteAuthenticator>;
 type GSheetsHub = Sheets<hyper::Client, ConcreteAuthenticator>;
 
 fn auth_with_google(creds_file : &str, token_file : &str) -> ConcreteAuthenticator {
-    // TODO: make secret file a paramter
     let secret: ApplicationSecret = oauth2::read_application_secret(
         std::path::Path::new(creds_file)).unwrap();
 
@@ -36,7 +35,6 @@ fn auth_with_google(creds_file : &str, token_file : &str) -> ConcreteAuthenticat
         &secret,
         DefaultAuthenticatorDelegate,
         hyper::Client::with_connector(hyper::net::HttpsConnector::new(hyper_rustls::TlsClient::new())),
-        // TODO: make the disk storage location configurable
         oauth2::DiskTokenStorage::new(&std::string::String::from(token_file)).unwrap(),
         Some(oauth2::FlowType::InstalledInteractive)
     )
