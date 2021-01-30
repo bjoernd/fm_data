@@ -24,8 +24,8 @@ use sheets4::{Sheets};
 use table_extract::Table;
 
 type ConcreteAuthenticator = Authenticator<DefaultAuthenticatorDelegate, DiskTokenStorage, hyper::Client>;
-type GDriveHub = DriveHub<hyper::Client, ConcreteAuthenticator>;
-type GSheetsHub = Sheets<hyper::Client, ConcreteAuthenticator>;
+pub type GDriveHub = DriveHub<hyper::Client, ConcreteAuthenticator>;
+pub type GSheetsHub = Sheets<hyper::Client, ConcreteAuthenticator>;
 
 fn auth_with_google(creds_file : &str, token_file : &str) -> ConcreteAuthenticator {
     let secret: ApplicationSecret = oauth2::read_application_secret(
