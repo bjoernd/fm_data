@@ -94,7 +94,6 @@ pub fn sheet_to_id(hub: &GDriveHub, sheetname : &str) -> std::string::String {
 
 pub fn clear_sheet_area(hub: &GSheetsHub, sheetid: &str, sheetname: &str, sheetrange: &str) {
     let request_fmt = format!("{}!{}", sheetname, sheetrange);
-    println!("{}", request_fmt);
     
     let req = sheets4::BatchClearValuesRequest { ranges : Some(vec!(request_fmt)) };
     
