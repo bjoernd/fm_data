@@ -32,3 +32,6 @@ table-extract = "0.2.2"
 serde = "^1.0"
 serde_json = "^1.0"
 yup-oauth2 = "^1.0"
+
+"futures" = "0.3"
+"async-std" = { version = "1.9", features = ["attributes"] }

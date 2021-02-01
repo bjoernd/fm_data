@@ -1,6 +1,9 @@
 use clap::Clap;
 use fm_google_api::{google_drive_hub,google_sheets_hub,GSheetsHub,sheet_to_id,clear_sheet_area,upload_attributes};
 use table_extract::Table;
+use async_std::task;
+use futures::stream::{FuturesUnordered, StreamExt};
+use std::time::Instant;
 
 static GOOGLE_CREDS_FILE : &str = r#"D:\src\fm_data\src\google-credentials.json"#;
 static TOKEN_STORE_FILE : &str = r#"D:\src\fm_data\src\token.json"#;
@@ -57,12 +60,24 @@ fn read_table(html_file : &str) -> Table {
     Table::find_first(&std::fs::read_to_string(html_file).unwrap()).unwrap()
 }
 
-fn html_to_gsheet(hub: &GSheetsHub, sheetid : &str, sheetname : &str, clear_area : &str, html_data : &str) {
+async fn html_to_gsheet(hub: &GSheetsHub, sheetid : &str, sheetname : &str, clear_area : &str, html_data : &str) {
     println!("Clearing data in '{}!{}'...", &sheetname, &clear_area);
     clear_sheet_area(&hub, sheetid, sheetname, clear_area);
     let tab = read_table(html_data);
     println!("Updating '{}' with data read from '{}'...", sheetname, html_data);
     upload_attributes(hub, &tab, sheetid, sheetname);
+}
+
+fn update_google_sheets(hub: &GSheetsHub, sheet_id : &str, opts:&Options)
+{
+    let mut futures = FuturesUnordered::new();
+    futures.push(html_to_gsheet(&hub, sheet_id, &opts.team_attr_sheet, "A2:AX58", &opts.html_file));
+    futures.push(html_to_gsheet(&hub, sheet_id, &opts.team_perf_sheet, "A2:AW58", &opts.team_perf_html_file));
+    futures.push(html_to_gsheet(&hub, sheet_id, &opts.league_perf_sheet, "A2:AU200", &opts.league_perf_html_file));
+    task::block_on(async {
+        while let Some(_value_returned_from_the_future) = futures.next().await {
+        }
+    });
 }
 
 fn do_update_google(opts: &Options) {
@@ -74,13 +89,12 @@ fn do_update_google(opts: &Options) {
 
     /* Step 2: Now we can use the sheet ID to clear the target range and upload new data. */
     let hub = google_sheets_hub(&opts.creds_file, &opts.token_file);
-    
-    html_to_gsheet(&hub, sheet_id.as_str(), &opts.team_attr_sheet, "A2:AX58", &opts.html_file);
-    html_to_gsheet(&hub, sheet_id.as_str(), &opts.team_perf_sheet, "A2:AX58", &opts.team_perf_html_file);
-    html_to_gsheet(&hub, sheet_id.as_str(), &opts.league_perf_sheet, "A2:AU200", &opts.league_perf_html_file);
+    update_google_sheets(&hub, sheet_id.as_str(), &opts);
 }
 
 fn main() {
+    let start_time = Instant::now();
     let opts : Options = Options::parse();
     do_update_google(&opts);
+    println!("Program finished in {} ms", start_time.elapsed().as_millis());
 }

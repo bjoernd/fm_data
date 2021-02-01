@@ -118,6 +118,7 @@ pub fn upload_attributes(hub: &GSheetsHub, tab: &Table, sheetid: &str, sheetname
                 "Left"|"Left Only" => "l",
                 "Right"|"Right Only" => "r",
                 "Either" => "rl",
+                "-" => "0",
                 _ => cell
             };
             line.push(String::from(value))
