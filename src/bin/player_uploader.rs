@@ -1,8 +1,6 @@
 use clap::Clap;
 use fm_google_api::{google_drive_hub,google_sheets_hub,GSheetsHub,sheet_to_id,clear_sheet_area,upload_attributes};
 use table_extract::Table;
-use async_std::task;
-use futures::stream::{FuturesUnordered, StreamExt};
 use std::time::Instant;
 
 static GOOGLE_CREDS_FILE : &str = r#"D:\src\fm_data\src\google-credentials.json"#;
@@ -60,7 +58,7 @@ fn read_table(html_file : &str) -> Table {
     Table::find_first(&std::fs::read_to_string(html_file).unwrap()).unwrap()
 }
 
-async fn html_to_gsheet(hub: &GSheetsHub, sheetid : &str, sheetname : &str, clear_area : &str, html_data : &str) {
+fn html_to_gsheet(hub: &GSheetsHub, sheetid : &str, sheetname : &str, clear_area : &str, html_data : &str) {
     println!("Clearing data in '{}!{}'...", &sheetname, &clear_area);
     clear_sheet_area(&hub, sheetid, sheetname, clear_area);
     let tab = read_table(html_data);
@@ -70,14 +68,9 @@ async fn html_to_gsheet(hub: &GSheetsHub, sheetid : &str, sheetname : &str, clea
 
 fn update_google_sheets(hub: &GSheetsHub, sheet_id : &str, opts:&Options)
 {
-    let mut futures = FuturesUnordered::new();
-    futures.push(html_to_gsheet(&hub, sheet_id, &opts.team_attr_sheet, "A2:AX58", &opts.html_file));
-    futures.push(html_to_gsheet(&hub, sheet_id, &opts.team_perf_sheet, "A2:AW58", &opts.team_perf_html_file));
-    futures.push(html_to_gsheet(&hub, sheet_id, &opts.league_perf_sheet, "A2:AU200", &opts.league_perf_html_file));
-    task::block_on(async {
-        while let Some(_value_returned_from_the_future) = futures.next().await {
-        }
-    });
+    html_to_gsheet(&hub, sheet_id, &opts.team_attr_sheet, "A2:AX58", &opts.html_file);
+    html_to_gsheet(&hub, sheet_id, &opts.team_perf_sheet, "A2:AW58", &opts.team_perf_html_file);
+    html_to_gsheet(&hub, sheet_id, &opts.league_perf_sheet, "A2:AU200", &opts.league_perf_html_file);
 }
 
 fn do_update_google(opts: &Options) {
