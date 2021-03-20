@@ -9,9 +9,13 @@ edition = "2018"
 name = "fm_google_up"
 path = "src/bin/player_uploader.rs"
 
-#[[bin]]
-#name = "fm_aws_up"
-#path = "src/bin/aws_uploader.rs"
+[[bin]]
+name = "plotly"
+path = "src/tryout/plotly-test.rs"
+
+[[bin]]
+name = "plotters"
+path = "src/tryout/plotters-test.rs"
 
 [dependencies]
 clap = "3.0.0-beta.2"
@@ -29,8 +33,11 @@ serde = { version = "^1.0", features = ["derive"] }
 serde_json = "^1.0"
 yup-oauth2 = "^1.0"
 
-rusoto_core = "*"
-rusoto_s3 = "*"
+#rusoto_core = "*"
+#rusoto_s3 = "*"
 
-"futures" = "0.3"
-"async-std" = { version = "1.9", features = ["attributes"] }
+#"futures" = "0.3"
+#"async-std" = { version = "1.9", features = ["attributes"] }
+
+plotly = { version = "0.6.0", features = ["kaleido"] }
+plotters = "^0.3.0"

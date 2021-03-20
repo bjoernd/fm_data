@@ -1,10 +1,12 @@
 mod fm_data;
 use fm_data::config::Configuration;
 
+/*
 extern crate rusoto_core;
 extern crate rusoto_s3;
 use rusoto_core::Region;
 use rusoto_s3::{PutObjectRequest, S3Client, S3};
+*/
 use std::time::Instant;
 
 
