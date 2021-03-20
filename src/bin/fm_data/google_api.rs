@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /* Some functions to access the FM spreadsheet via the Google API.
  *
  * Initialization:

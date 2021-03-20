@@ -1,6 +1,3 @@
-// XXX fixme
-#![allow(dead_code,unused_variables)]
-
 mod fm_data;
 
 use fm_data::google_api::{
@@ -80,23 +77,6 @@ fn do_update_google(opts: &Configuration) {
 
 fn main() {
     let start_time = Instant::now();
-
-    let json_conf = r#"
-    {
-        "google" : {
-            "creds_file" : "D:\\src\\fm_data\\src\\google-credentials.json",
-            "token_file" : "D:\\src\\fm_data\\src\\token.json",
-            "spreadsheet_name" : "Football Manager Spreadsheet",
-            "team_sheet" : "Leipzig",
-            "team_perf_sheet" : "LE_Stats_Team",
-            "league_perf_sheet" : "LE_Stats_Division"
-        },
-        "input" : {
-            "data_html" : "D:\\FM21\\chemie.html",
-            "league_perf_html" : "D:\\FM21\\bundesliga-perf.html",
-            "team_perf_html" : "D:\\FM21\\chemie-perf.html"
-        }
-    }"#;
 
     let config = fm_data::config::read_configuration().unwrap();
     println!("{:?}", config);
