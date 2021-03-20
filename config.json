@@ -1,0 +1,15 @@
+{
+    "google" : {
+        "creds_file" : "D:\\src\\fm_data\\src\\google-credentials.json",
+        "token_file" : "D:\\src\\fm_data\\src\\token.json",
+        "spreadsheet_name" : "Football Manager Spreadsheet",
+        "team_sheet" : "Leipzig",
+        "team_perf_sheet" : "LE_Stats_Team",
+        "league_perf_sheet" : "LE_Stats_Division"
+    },
+    "input" : {
+        "data_html" : "D:\\FM21\\chemie.html",
+        "league_perf_html" : "D:\\FM21\\bundesliga-perf.html",
+        "team_perf_html" : "D:\\FM21\\chemie-perf.html"
+    }
+}
