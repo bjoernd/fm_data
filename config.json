@@ -8,7 +8,7 @@
         "league_perf_sheet" : "Stats_Division"
     },
     "input" : {
-        "data_html" : "C:\\Users\\bjoer\\Documents\\Sports Interactive\\Football Manager 2023\\squad.html",
+        "data_html" : "C:\\Users\\bjoer\\Documents\\Sports Interactive\\Football Manager 2024\\attributes.html",
         "league_perf_html" : "C:\\Users\\bjoer\\Documents\\Sports Interactive\\Football Manager 2021\\bundesliga-perf.html",
         "team_perf_html" : "C:\\Users\\bjoer\\Documents\\Sports Interactive\\Football Manager 2021\\boca-perf.html"
     }
