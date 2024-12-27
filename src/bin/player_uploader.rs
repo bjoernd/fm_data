@@ -23,10 +23,20 @@ static HTML: &str =
 async fn main() {
     let start_time = Instant::now();
 
+    /* This is how we OAuth today.
+     *   1. Create a new OAuth json in Google Cloud console.
+     *   2. Download OAuth config JSON (aka CREDS here)
+     *   3. Read the secrets into yup_oauth2...
+     */
     let secret = yup_oauth2::read_application_secret(CREDS)
         .await
         .expect("JSON file not found");
 
+    /* Here we build an Authenticator that will either use a cached token or redirect the user to
+     * a Google page asking to confirm authorization. The fancy new thing here is the HTTPRedirect
+     * return method, which means the auth page will redirect to a local HTTP socket and thus signal
+     * the application to continue as soon as authentication succeeded.
+     */
     let auth = InstalledFlowAuthenticator::builder(
         secret.clone(),
         InstalledFlowReturnMethod::HTTPRedirect,
@@ -36,11 +46,13 @@ async fn main() {
     .await
     .unwrap();
 
+    /* Here we define what we want to access. In our case this is Spreadsheet access only. */
     let scopes = &["https://www.googleapis.com/auth/spreadsheets"];
 
     let t = auth.token(scopes).await.unwrap();
     println!("Got access token");
 
+    /* Create the sheets client that we will use for our requests below. */
     let sheet_c = sheets::Client::new(
         secret.client_id,
         secret.client_secret,
@@ -50,19 +62,23 @@ async fn main() {
     );
 
     let s = sheets::spreadsheets::Spreadsheets { client: sheet_c };
-    let sc = s.get(SPREAD, false, &[]).await.unwrap();
 
+    /* Spreadsheet metadata */
+    let sc = s.get(SPREAD, false, &[]).await.unwrap();
     println!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
+    /* Read our table from the input HTML file */
     let table = read_table(HTML);
     println!("Got table {:?}", table);
 
+    /* Clear spreadsheet target area */
     s.values_clear(SPREAD, "Squad!A2:AX58", &ClearValuesRequest {})
         .await
         .expect("Error clearing data.");
 
     println!("Cleared old data");
 
+    /* Some minor massaging of the input data to suit the Google Sheet processing */
     let mut matrix = vec![];
     for row in &table {
         let mut line = vec![];
@@ -86,6 +102,7 @@ async fn main() {
         range: new_range.clone(),
     };
 
+    /* And now send the update request... */
     let update = s
         .values_update(
             SPREAD,
