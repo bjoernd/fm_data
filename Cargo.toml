@@ -9,35 +9,14 @@ edition = "2018"
 name = "fm_google_up"
 path = "src/bin/player_uploader.rs"
 
-[[bin]]
-name = "plotly"
-path = "src/tryout/plotly-test.rs"
-
-[[bin]]
-name = "plotters"
-path = "src/tryout/plotters-test.rs"
-
 [dependencies]
 clap = "3.0.0-beta.2"
 
-google-sheets4 = "*"
-google-drive3 = "*"
-# This project intentionally uses an old version of Hyper. See
-# https://github.com/Byron/google-apis-rs/issues/173 for more
-# information.
-hyper = "^0.10"
-hyper-rustls = "^0.6"
-
 table-extract = "0.2.2"
+tokio = { version = "1", features = ["full"] }
+
 serde = { version = "^1.0", features = ["derive"] }
 serde_json = "^1.0"
-yup-oauth2 = "^1.0"
+yup-oauth2 = "^11.0"
 
-#rusoto_core = "*"
-#rusoto_s3 = "*"
-
-#"futures" = "0.3"
-#"async-std" = { version = "1.9", features = ["attributes"] }
-
-plotly = { version = "0.6.0", features = ["kaleido"] }
-plotters = "^0.3.0"
+sheets = "0.7.0"

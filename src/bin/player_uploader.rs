@@ -1,91 +1,105 @@
-mod fm_data;
-
-use fm_data::google_api::{
-    clear_sheet_area, google_sheets_hub, upload_attributes,
-    GSheetsHub,
+use sheets::{
+    self,
+    types::{
+        ClearValuesRequest, DateTimeRenderOption, Dimension, ValueInputOption, ValueRange,
+        ValueRenderOption,
+    },
 };
-use fm_data::config::Configuration;
 use std::time::Instant;
 use table_extract::Table;
+use tokio;
+use yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod};
 
 fn read_table(html_file: &str) -> Table {
     Table::find_first(&std::fs::read_to_string(html_file).unwrap()).unwrap()
 }
 
-fn html_to_gsheet(
-    hub: &GSheetsHub,
-    sheetid: &str,
-    sheetname: &str,
-    clear_area: &str,
-    html_data: &str,
-) {
-    println!("Clearing data in '{}!{}'...", &sheetname, &clear_area);
-    clear_sheet_area(&hub, sheetid, sheetname, clear_area);
-    let tab = read_table(html_data);
-    println!(
-        "Updating '{}' with data read from '{}'...",
-        sheetname, html_data
-    );
-    upload_attributes(hub, &tab, sheetid, sheetname);
-}
+static SPREAD: &str = "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc";
+static CREDS: &str = "/Users/bjoernd/Downloads/client_secret_159115558609-mkiidqjgej4ds1615oukp125c4nn2qcf.apps.googleusercontent.com.json";
+static HTML: &str =
+    "/Users/bjoernd/Library/Application Support/Sports Interactive/Football Manager 2024/bd.html";
 
-fn update_google_sheets(hub: &GSheetsHub, sheet_id: &str, opts: &Configuration) {
-    html_to_gsheet(
-        &hub,
-        sheet_id,
-        &opts.google.team_sheet,
-        "A2:AX58",
-        &opts.input.data_html
-    );
-    /*html_to_gsheet(
-        &hub,
-        sheet_id,
-        &opts.google.team_perf_sheet,
-        "A2:AW58",
-        &opts.input.team_perf_html
-    );*/
-    /*
-    html_to_gsheet(
-        &hub,
-        sheet_id,
-        &opts.google.league_perf_sheet,
-        "A2:AU400",
-        &opts.input.league_perf_html
-    );
-    */
-}
-
-fn do_update_google(opts: &Configuration) {
-
-    /* Removed: we always use the same sheet ID and this call will always require another authentication for the Drive API,
-       which is annoying. Hence, rather hard-code the sheet ID in the config.
-    /* Step 1: We need the sheet ID for our spreadsheet and we get that from Google Drive. */
-    let gdh = google_drive_hub(
-        &opts.google.creds_file,
-        &opts.google.token_file);
-
-    let sheet_id = sheet_to_id(&gdh, opts.google.spreadsheet_name.as_str());
-    println!(
-        "FM sheet '{}' has ID '{}'",
-        &opts.google.spreadsheet_name,
-        sheet_id
-    );
-    */
-
-    /* Step 2: Now we can use the sheet ID to clear the target range and upload new data. */
-    let hub = google_sheets_hub(
-        &opts.google.creds_file,
-        &opts.google.token_file);
-
-    update_google_sheets(&hub, &opts.google.spreadsheet_name, &opts);
-}
-
-fn main() {
+#[tokio::main]
+async fn main() {
     let start_time = Instant::now();
 
-    let config = fm_data::config::read_configuration().unwrap();
+    let secret = yup_oauth2::read_application_secret(CREDS)
+        .await
+        .expect("JSON file not found");
 
-    do_update_google(&config);
+    let auth = InstalledFlowAuthenticator::builder(
+        secret.clone(),
+        InstalledFlowReturnMethod::HTTPRedirect,
+    )
+    .persist_tokens_to_disk("tokencache.json")
+    .build()
+    .await
+    .unwrap();
+
+    let scopes = &["https://www.googleapis.com/auth/spreadsheets"];
+
+    let t = auth.token(scopes).await.unwrap();
+    println!("Got access token");
+
+    let sheet_c = sheets::Client::new(
+        secret.client_id,
+        secret.client_secret,
+        secret.redirect_uris[0].clone(),
+        t.token().unwrap(),
+        t.token().unwrap(),
+    );
+
+    let s = sheets::spreadsheets::Spreadsheets { client: sheet_c };
+    let sc = s.get(SPREAD, false, &[]).await.unwrap();
+
+    println!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
+
+    let table = read_table(HTML);
+    println!("Got table {:?}", table);
+
+    s.values_clear(SPREAD, "Squad!A2:AX58", &ClearValuesRequest {})
+        .await
+        .expect("Error clearing data.");
+
+    println!("Cleared old data");
+
+    let mut matrix = vec![];
+    for row in &table {
+        let mut line = vec![];
+        for cell in row {
+            let value = match cell.as_str() {
+                "Left" | "Left Only" => "l",
+                "Right" | "Right Only" => "r",
+                "Either" => "rl",
+                "-" => "0",
+                _ => cell,
+            };
+            line.push(String::from(value))
+        }
+        matrix.push(line);
+    }
+
+    let new_range = format!("Squad!A2:AX{}", matrix.len() + 1);
+    let update_body = ValueRange {
+        values: matrix,
+        major_dimension: Some(Dimension::Rows),
+        range: new_range.clone(),
+    };
+
+    let update = s
+        .values_update(
+            SPREAD,
+            &new_range,
+            false,
+            DateTimeRenderOption::FormattedString,
+            ValueRenderOption::FormattedValue,
+            ValueInputOption::UserEntered,
+            &update_body,
+        )
+        .await
+        .expect("Failed to upload new data");
+    println!("Updated data: {}", update.status);
+
     println!(
         "Program finished in {} ms",
         start_time.elapsed().as_millis()
