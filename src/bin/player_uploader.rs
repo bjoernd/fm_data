@@ -9,6 +9,7 @@ use std::time::Instant;
 use table_extract::Table;
 use tokio;
 use yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod};
+use clap::Parser;
 
 fn read_table(html_file: &str) -> Table {
     Table::find_first(&std::fs::read_to_string(html_file).unwrap()).unwrap()
@@ -19,16 +20,29 @@ static CREDS: &str = "/Users/bjoernd/Downloads/client_secret_159115558609-mkiidq
 static HTML: &str =
     "/Users/bjoernd/Library/Application Support/Sports Interactive/Football Manager 2024/bd.html";
 
+#[derive(Parser, Debug)]
+#[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
+struct CLIArguments {
+    #[arg(short,long,default_value_t = SPREAD.to_string())]
+    spreadsheet: String,
+    #[arg(short,long,default_value_t = CREDS.to_string())]
+    credfile: String,
+    #[arg(short,long,default_value_t = HTML.to_string())]
+    input: String
+}
+
 #[tokio::main]
 async fn main() {
     let start_time = Instant::now();
+
+    let cli = CLIArguments::parse();
 
     /* This is how we OAuth today.
      *   1. Create a new OAuth json in Google Cloud console.
      *   2. Download OAuth config JSON (aka CREDS here)
      *   3. Read the secrets into yup_oauth2...
      */
-    let secret = yup_oauth2::read_application_secret(CREDS)
+    let secret = yup_oauth2::read_application_secret(cli.credfile)
         .await
         .expect("JSON file not found");
 
@@ -64,15 +78,15 @@ async fn main() {
     let s = sheets::spreadsheets::Spreadsheets { client: sheet_c };
 
     /* Spreadsheet metadata */
-    let sc = s.get(SPREAD, false, &[]).await.unwrap();
+    let sc = s.get(&cli.spreadsheet, false, &[]).await.unwrap();
     println!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
     /* Read our table from the input HTML file */
-    let table = read_table(HTML);
+    let table = read_table(&cli.input);
     println!("Got table {:?}", table);
 
     /* Clear spreadsheet target area */
-    s.values_clear(SPREAD, "Squad!A2:AX58", &ClearValuesRequest {})
+    s.values_clear(&cli.spreadsheet, "Squad!A2:AX58", &ClearValuesRequest {})
         .await
         .expect("Error clearing data.");
 
@@ -105,7 +119,7 @@ async fn main() {
     /* And now send the update request... */
     let update = s
         .values_update(
-            SPREAD,
+            &cli.spreadsheet,
             &new_range,
             false,
             DateTimeRenderOption::FormattedString,
