@@ -1,3 +1,4 @@
+use clap::Parser;
 use sheets::{
     self,
     types::{
@@ -5,14 +6,25 @@ use sheets::{
         ValueRenderOption,
     },
 };
+use std::fs;
+use std::path::Path;
 use std::time::Instant;
 use table_extract::Table;
 use tokio;
 use yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod};
-use clap::Parser;
 
-fn read_table(html_file: &str) -> Table {
-    Table::find_first(&std::fs::read_to_string(html_file).unwrap()).unwrap()
+fn read_table(html_file: &str) -> Result<Table, String> {
+    let html_content = match fs::read_to_string(Path::new(html_file)) {
+        Ok(content) => content,
+        Err(e) => return Err(format!("Error reading HTML file {}: {}", html_file, e)),
+    };
+
+    match Table::find_first(&html_content) {
+        Some(table) => Ok(table),
+        None => Err(String::from(
+            "No table found in the provided HTML document.",
+        )),
+    }
 }
 
 static SPREAD: &str = "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc";
@@ -28,7 +40,7 @@ struct CLIArguments {
     #[arg(short,long,default_value_t = CREDS.to_string())]
     credfile: String,
     #[arg(short,long,default_value_t = HTML.to_string())]
-    input: String
+    input: String,
 }
 
 #[tokio::main]
@@ -82,7 +94,13 @@ async fn main() {
     println!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
     /* Read our table from the input HTML file */
-    let table = read_table(&cli.input);
+    let table = match read_table(&cli.input) {
+        Ok(table) => table,
+        Err(e) => {
+            println!("Error: {}", e);
+            return;
+        }
+    };
     println!("Got table {:?}", table);
 
     /* Clear spreadsheet target area */
