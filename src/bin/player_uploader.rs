@@ -58,13 +58,15 @@ fn read_table(html_file: &str) -> Result<Table> {
 }
 
 fn validate_table_structure(table: &Table) -> Result<()> {
-    // Check if table has at least one row
-    if table.is_empty() {
+    // Check if table is empty
+    if table.iter().count() == 0 {
         return Err(anyhow::anyhow!("Table is empty"));
     }
     
     // Check if all rows have consistent number of columns
-    let first_row_len = table[0].len();
+    let first_row = table.iter().next().unwrap();
+    let first_row_len = first_row.len();
+    
     for (i, row) in table.iter().enumerate() {
         if row.len() != first_row_len {
             return Err(anyhow::anyhow!(
@@ -260,7 +262,11 @@ async fn main() -> Result<()> {
     // Verify the sheet exists in the spreadsheet
     let sheet_name = &config.google.team_sheet;
     let sheet_exists = sc.body.sheets.iter().any(|sheet| {
-        sheet.properties.title == *sheet_name
+        if let Some(props) = &sheet.properties {
+            props.title == *sheet_name
+        } else {
+            false
+        }
     });
     
     if !sheet_exists {
@@ -276,8 +282,12 @@ async fn main() -> Result<()> {
     validate_table_structure(&table)
         .with_context(|| "Invalid table structure")?;
     
-    info!("Got table with {} rows", table.len());
-    debug!("Table first row has {} columns", table[0].len());
+    let row_count = table.iter().count();
+    info!("Got table with {} rows", row_count);
+    
+    if let Some(first_row) = table.iter().next() {
+        debug!("Table first row has {} columns", first_row.len());
+    }
 
     // Clear spreadsheet target area - always clearing the maximum available range in the target spreadsheet
     let clear_range = format!("{}!A2:AX58", sheet_name);
