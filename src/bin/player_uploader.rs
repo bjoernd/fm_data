@@ -99,6 +99,26 @@ fn get_default_paths() -> (String, String, String) {
     (default_spreadsheet, default_creds, default_html)
 }
 
+/// Process the table data to convert certain values to more compact representations
+fn process_table_data(table: &Table) -> Vec<Vec<String>> {
+    let mut matrix = vec![];
+    for row in table {
+        let mut line = vec![];
+        for cell in row {
+            let value = match cell.as_str() {
+                "Left" | "Left Only" => "l",
+                "Right" | "Right Only" => "r",
+                "Either" => "rl",
+                "-" => "0",
+                _ => cell,
+            };
+            line.push(String::from(value))
+        }
+        matrix.push(line);
+    }
+    matrix
+}
+
 #[derive(Parser, Debug)]
 #[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
 struct CLIArguments {
@@ -268,21 +288,7 @@ async fn main() -> Result<()> {
     info!("Cleared old data from {}", clear_range);
 
     // Process table data
-    let mut matrix = vec![];
-    for row in &table {
-        let mut line = vec![];
-        for cell in row {
-            let value = match cell.as_str() {
-                "Left" | "Left Only" => "l",
-                "Right" | "Right Only" => "r",
-                "Either" => "rl",
-                "-" => "0",
-                _ => cell,
-            };
-            line.push(String::from(value))
-        }
-        matrix.push(line);
-    }
+    let matrix = process_table_data(&table);
 
     let new_range = format!("{}!A2:AX{}", sheet_name, matrix.len() + 1);
     let update_body = ValueRange {
