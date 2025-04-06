@@ -9,7 +9,7 @@ use sheets::{
     },
 };
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 use table_extract::Table;
 use tokio;
@@ -43,20 +43,37 @@ fn validate_table_structure(table: &Table) -> Result<()> {
     Ok(())
 }
 
-static SPREAD: &str = "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc";
-static CREDS: &str = "/Users/bjoernd/Downloads/client_secret_159115558609-mkiidqjgej4ds1615oukp125c4nn2qcf.apps.googleusercontent.com.json";
-static HTML: &str =
-    "/Users/bjoernd/Library/Application Support/Sports Interactive/Football Manager 2024/bd.html";
+// Default paths that will be overridden by config or CLI args
+fn get_default_paths() -> (String, String, String) {
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    
+    let default_spreadsheet = String::from("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
+    
+    let default_creds = home.join("Downloads")
+        .join("client_secret.json")
+        .to_string_lossy()
+        .to_string();
+    
+    let default_html = home.join("Library")
+        .join("Application Support")
+        .join("Sports Interactive")
+        .join("Football Manager 2024")
+        .join("bd.html")
+        .to_string_lossy()
+        .to_string();
+    
+    (default_spreadsheet, default_creds, default_html)
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
 struct CLIArguments {
-    #[arg(short,long,default_value_t = SPREAD.to_string())]
-    spreadsheet: String,
-    #[arg(short,long,default_value_t = CREDS.to_string())]
-    credfile: String,
-    #[arg(short,long,default_value_t = HTML.to_string())]
-    input: String,
+    #[arg(short,long)]
+    spreadsheet: Option<String>,
+    #[arg(short,long)]
+    credfile: Option<String>,
+    #[arg(short,long)]
+    input: Option<String>,
     #[arg(short, long)]
     verbose: bool,
 }
@@ -78,25 +95,34 @@ async fn main() -> Result<()> {
     }
 
     info!("Starting FM player data uploader");
-    debug!("Using spreadsheet: {}", cli.spreadsheet);
-    debug!("Using credentials file: {}", cli.credfile);
-    debug!("Using input HTML file: {}", cli.input);
+    
+    // Get default paths
+    let (default_spreadsheet, default_creds, default_html) = get_default_paths();
+    
+    // Use CLI args or defaults
+    let spreadsheet = cli.spreadsheet.unwrap_or(default_spreadsheet);
+    let credfile = cli.credfile.unwrap_or(default_creds);
+    let input = cli.input.unwrap_or(default_html);
+    
+    debug!("Using spreadsheet: {}", spreadsheet);
+    debug!("Using credentials file: {}", credfile);
+    debug!("Using input HTML file: {}", input);
 
     // Validate input files exist
-    if !Path::new(&cli.input).exists() {
-        error!("Input file does not exist: {}", cli.input);
-        return Err(anyhow::anyhow!("Input file does not exist: {}", cli.input));
+    if !Path::new(&input).exists() {
+        error!("Input file does not exist: {}", input);
+        return Err(anyhow::anyhow!("Input file does not exist: {}", input));
     }
 
-    if !Path::new(&cli.credfile).exists() {
-        error!("Credentials file does not exist: {}", cli.credfile);
-        return Err(anyhow::anyhow!("Credentials file does not exist: {}", cli.credfile));
+    if !Path::new(&credfile).exists() {
+        error!("Credentials file does not exist: {}", credfile);
+        return Err(anyhow::anyhow!("Credentials file does not exist: {}", credfile));
     }
 
     // OAuth setup
-    let secret = yup_oauth2::read_application_secret(&cli.credfile)
+    let secret = yup_oauth2::read_application_secret(&credfile)
         .await
-        .with_context(|| format!("JSON file not found: {}", cli.credfile))?;
+        .with_context(|| format!("JSON file not found: {}", credfile))?;
 
     let auth = InstalledFlowAuthenticator::builder(
         secret.clone(),
@@ -127,9 +153,9 @@ async fn main() -> Result<()> {
     let s = sheets::spreadsheets::Spreadsheets { client: sheet_c };
 
     // Spreadsheet metadata
-    let sc = s.get(&cli.spreadsheet, false, &[])
+    let sc = s.get(&spreadsheet, false, &[])
         .await
-        .with_context(|| format!("Failed to access spreadsheet {}", cli.spreadsheet))?;
+        .with_context(|| format!("Failed to access spreadsheet {}", spreadsheet))?;
     
     info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
@@ -145,8 +171,8 @@ async fn main() -> Result<()> {
     }
 
     // Read table from HTML
-    let table = read_table(&cli.input)
-        .with_context(|| format!("Failed to extract table from {}", cli.input))?;
+    let table = read_table(&input)
+        .with_context(|| format!("Failed to extract table from {}", input))?;
     
     // Validate table structure
     validate_table_structure(&table)
@@ -156,7 +182,7 @@ async fn main() -> Result<()> {
     debug!("Table first row has {} columns", table[0].len());
 
     // Clear spreadsheet target area
-    s.values_clear(&cli.spreadsheet, "Squad!A2:AX58", &ClearValuesRequest {})
+    s.values_clear(&spreadsheet, "Squad!A2:AX58", &ClearValuesRequest {})
         .await
         .with_context(|| "Error clearing data")?;
 
@@ -191,7 +217,7 @@ async fn main() -> Result<()> {
     // Update spreadsheet
     let update = s
         .values_update(
-            &cli.spreadsheet,
+            &spreadsheet,
             &new_range,
             false,
             DateTimeRenderOption::FormattedString,
