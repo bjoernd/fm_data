@@ -144,9 +144,6 @@ struct CLIArguments {
 async fn main() -> Result<()> {
     let start_time = Instant::now();
 
-    // Initialize logging
-    env_logger::init();
-
     let cli = CLIArguments::parse();
 
     // Set up logging level based on verbose flag
@@ -155,6 +152,9 @@ async fn main() -> Result<()> {
     } else {
         std::env::set_var("RUST_LOG", "info");
     }
+    
+    // Initialize logging after setting the environment variable
+    env_logger::init();
 
     info!("Starting FM player data uploader");
 
