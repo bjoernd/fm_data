@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use log::{debug, info, warn, error};
+use serde::{Deserialize, Serialize};
 use sheets::{
     self,
     types::{
@@ -14,6 +15,39 @@ use std::time::Instant;
 use table_extract::Table;
 use tokio;
 use yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod};
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Config {
+    google: GoogleConfig,
+    input: InputConfig,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GoogleConfig {
+    creds_file: String,
+    token_file: String,
+    spreadsheet_name: String,
+    team_sheet: String,
+    team_perf_sheet: String,
+    league_perf_sheet: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct InputConfig {
+    data_html: String,
+    league_perf_html: String,
+    team_perf_html: String,
+}
+
+fn read_config(config_path: &Path) -> Result<Config> {
+    let config_str = fs::read_to_string(config_path)
+        .with_context(|| format!("Failed to read config file: {}", config_path.display()))?;
+    
+    let config: Config = serde_json::from_str(&config_str)
+        .with_context(|| "Failed to parse config JSON")?;
+    
+    Ok(config)
+}
 
 fn read_table(html_file: &str) -> Result<Table> {
     let html_content = fs::read_to_string(Path::new(html_file))
@@ -74,6 +108,8 @@ struct CLIArguments {
     credfile: Option<String>,
     #[arg(short,long)]
     input: Option<String>,
+    #[arg(short, long, default_value = "config.json")]
+    config: String,
     #[arg(short, long)]
     verbose: bool,
 }
@@ -96,13 +132,51 @@ async fn main() -> Result<()> {
 
     info!("Starting FM player data uploader");
     
+    // Read config file
+    let config_path = Path::new(&cli.config);
+    let config = match read_config(config_path) {
+        Ok(cfg) => {
+            info!("Successfully loaded config from {}", config_path.display());
+            cfg
+        },
+        Err(e) => {
+            warn!("Failed to load config: {}. Using default values.", e);
+            Config {
+                google: GoogleConfig {
+                    creds_file: String::new(),
+                    token_file: String::from("tokencache.json"),
+                    spreadsheet_name: String::new(),
+                    team_sheet: String::from("Squad"),
+                    team_perf_sheet: String::from("Stats_Team"),
+                    league_perf_sheet: String::from("Stats_Division"),
+                },
+                input: InputConfig {
+                    data_html: String::new(),
+                    league_perf_html: String::new(),
+                    team_perf_html: String::new(),
+                },
+            }
+        }
+    };
+    
     // Get default paths
     let (default_spreadsheet, default_creds, default_html) = get_default_paths();
     
-    // Use CLI args or defaults
-    let spreadsheet = cli.spreadsheet.unwrap_or(default_spreadsheet);
-    let credfile = cli.credfile.unwrap_or(default_creds);
-    let input = cli.input.unwrap_or(default_html);
+    // Determine actual paths to use (CLI args override config, which overrides defaults)
+    let spreadsheet = cli.spreadsheet
+        .or_else(|| Some(config.google.spreadsheet_name.clone()))
+        .filter(|s| !s.is_empty())
+        .unwrap_or(default_spreadsheet);
+    
+    let credfile = cli.credfile
+        .or_else(|| Some(config.google.creds_file.clone()))
+        .filter(|s| !s.is_empty())
+        .unwrap_or(default_creds);
+    
+    let input = cli.input
+        .or_else(|| Some(config.input.data_html.clone()))
+        .filter(|s| !s.is_empty())
+        .unwrap_or(default_html);
     
     debug!("Using spreadsheet: {}", spreadsheet);
     debug!("Using credentials file: {}", credfile);
@@ -124,11 +198,15 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("JSON file not found: {}", credfile))?;
 
+    // Determine token cache path - use config if available
+    let token_cache = config.google.token_file.clone();
+    let token_cache = if token_cache.is_empty() { "tokencache.json" } else { &token_cache };
+    
     let auth = InstalledFlowAuthenticator::builder(
         secret.clone(),
         InstalledFlowReturnMethod::HTTPRedirect,
     )
-    .persist_tokens_to_disk("tokencache.json")
+    .persist_tokens_to_disk(token_cache)
     .build()
     .await
     .with_context(|| "Failed to build authenticator")?;
@@ -160,9 +238,9 @@ async fn main() -> Result<()> {
     info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
     // Verify the sheet exists in the spreadsheet
-    let sheet_name = "Squad";
+    let sheet_name = &config.google.team_sheet;
     let sheet_exists = sc.body.sheets.iter().any(|sheet| {
-        sheet.properties.title == sheet_name
+        sheet.properties.title == *sheet_name
     });
     
     if !sheet_exists {
@@ -182,9 +260,10 @@ async fn main() -> Result<()> {
     debug!("Table first row has {} columns", table[0].len());
 
     // Clear spreadsheet target area
-    s.values_clear(&spreadsheet, "Squad!A2:AX58", &ClearValuesRequest {})
+    let clear_range = format!("{}!A2:AX58", sheet_name);
+    s.values_clear(&spreadsheet, &clear_range, &ClearValuesRequest {})
         .await
-        .with_context(|| "Error clearing data")?;
+        .with_context(|| format!("Error clearing data in range {}", clear_range))?;
 
     info!("Cleared old data");
 
@@ -205,7 +284,7 @@ async fn main() -> Result<()> {
         matrix.push(line);
     }
 
-    let new_range = format!("Squad!A2:AX{}", matrix.len() + 1);
+    let new_range = format!("{}!A2:AX{}", sheet_name, matrix.len() + 1);
     let update_body = ValueRange {
         values: matrix,
         major_dimension: Some(Dimension::Rows),
