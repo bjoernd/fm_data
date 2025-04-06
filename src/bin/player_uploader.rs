@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use clap::Parser;
 use sheets::{
     self,
@@ -13,18 +14,12 @@ use table_extract::Table;
 use tokio;
 use yup_oauth2::{InstalledFlowAuthenticator, InstalledFlowReturnMethod};
 
-fn read_table(html_file: &str) -> Result<Table, String> {
-    let html_content = match fs::read_to_string(Path::new(html_file)) {
-        Ok(content) => content,
-        Err(e) => return Err(format!("Error reading HTML file {}: {}", html_file, e)),
-    };
+fn read_table(html_file: &str) -> Result<Table> {
+    let html_content = fs::read_to_string(Path::new(html_file))
+        .with_context(|| format!("Error reading HTML file {}", html_file))?;
 
-    match Table::find_first(&html_content) {
-        Some(table) => Ok(table),
-        None => Err(String::from(
-            "No table found in the provided HTML document.",
-        )),
-    }
+    Table::find_first(&html_content)
+        .ok_or_else(|| anyhow::anyhow!("No table found in the provided HTML document"))
 }
 
 static SPREAD: &str = "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc";
@@ -44,25 +39,16 @@ struct CLIArguments {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     let start_time = Instant::now();
 
     let cli = CLIArguments::parse();
 
-    /* This is how we OAuth today.
-     *   1. Create a new OAuth json in Google Cloud console.
-     *   2. Download OAuth config JSON (aka CREDS here)
-     *   3. Read the secrets into yup_oauth2...
-     */
-    let secret = yup_oauth2::read_application_secret(cli.credfile)
+    // OAuth setup
+    let secret = yup_oauth2::read_application_secret(&cli.credfile)
         .await
-        .expect("JSON file not found");
+        .with_context(|| format!("JSON file not found: {}", cli.credfile))?;
 
-    /* Here we build an Authenticator that will either use a cached token or redirect the user to
-     * a Google page asking to confirm authorization. The fancy new thing here is the HTTPRedirect
-     * return method, which means the auth page will redirect to a local HTTP socket and thus signal
-     * the application to continue as soon as authentication succeeded.
-     */
     let auth = InstalledFlowAuthenticator::builder(
         secret.clone(),
         InstalledFlowReturnMethod::HTTPRedirect,
@@ -70,47 +56,48 @@ async fn main() {
     .persist_tokens_to_disk("tokencache.json")
     .build()
     .await
-    .unwrap();
+    .with_context(|| "Failed to build authenticator")?;
 
-    /* Here we define what we want to access. In our case this is Spreadsheet access only. */
     let scopes = &["https://www.googleapis.com/auth/spreadsheets"];
 
-    let t = auth.token(scopes).await.unwrap();
+    let t = auth.token(scopes)
+        .await
+        .with_context(|| "Failed to obtain OAuth token")?;
+    
     println!("Got access token");
 
-    /* Create the sheets client that we will use for our requests below. */
+    // Create sheets client
     let sheet_c = sheets::Client::new(
         secret.client_id,
         secret.client_secret,
         secret.redirect_uris[0].clone(),
-        t.token().unwrap(),
-        t.token().unwrap(),
+        t.token().ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?,
+        t.token().ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?,
     );
 
     let s = sheets::spreadsheets::Spreadsheets { client: sheet_c };
 
-    /* Spreadsheet metadata */
-    let sc = s.get(&cli.spreadsheet, false, &[]).await.unwrap();
+    // Spreadsheet metadata
+    let sc = s.get(&cli.spreadsheet, false, &[])
+        .await
+        .with_context(|| format!("Failed to access spreadsheet {}", cli.spreadsheet))?;
+    
     println!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
-    /* Read our table from the input HTML file */
-    let table = match read_table(&cli.input) {
-        Ok(table) => table,
-        Err(e) => {
-            println!("Error: {}", e);
-            return;
-        }
-    };
-    println!("Got table {:?}", table);
+    // Read table from HTML
+    let table = read_table(&cli.input)
+        .with_context(|| format!("Failed to extract table from {}", cli.input))?;
+    
+    println!("Got table with {} rows", table.len());
 
-    /* Clear spreadsheet target area */
+    // Clear spreadsheet target area
     s.values_clear(&cli.spreadsheet, "Squad!A2:AX58", &ClearValuesRequest {})
         .await
-        .expect("Error clearing data.");
+        .with_context(|| "Error clearing data")?;
 
     println!("Cleared old data");
 
-    /* Some minor massaging of the input data to suit the Google Sheet processing */
+    // Process table data
     let mut matrix = vec![];
     for row in &table {
         let mut line = vec![];
@@ -134,7 +121,7 @@ async fn main() {
         range: new_range.clone(),
     };
 
-    /* And now send the update request... */
+    // Update spreadsheet
     let update = s
         .values_update(
             &cli.spreadsheet,
@@ -146,11 +133,13 @@ async fn main() {
             &update_body,
         )
         .await
-        .expect("Failed to upload new data");
+        .with_context(|| "Failed to upload data to spreadsheet")?;
+    
     println!("Updated data: {}", update.status);
-
     println!(
         "Program finished in {} ms",
         start_time.elapsed().as_millis()
     );
+
+    Ok(())
 }
