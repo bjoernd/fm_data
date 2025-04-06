@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use log::{debug, info, warn, error};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use sheets::{
     self,
@@ -42,10 +42,10 @@ struct InputConfig {
 fn read_config(config_path: &Path) -> Result<Config> {
     let config_str = fs::read_to_string(config_path)
         .with_context(|| format!("Failed to read config file: {}", config_path.display()))?;
-    
-    let config: Config = serde_json::from_str(&config_str)
-        .with_context(|| "Failed to parse config JSON")?;
-    
+
+    let config: Config =
+        serde_json::from_str(&config_str).with_context(|| "Failed to parse config JSON")?;
+
     Ok(config)
 }
 
@@ -62,42 +62,46 @@ fn validate_table_structure(table: &Table) -> Result<()> {
     if table.iter().count() == 0 {
         return Err(anyhow::anyhow!("Table is empty"));
     }
-    
+
     // Check if all rows have consistent number of columns
     let first_row = table.iter().next().unwrap();
     let first_row_len = first_row.len();
-    
+
     for (i, row) in table.iter().enumerate() {
         if row.len() != first_row_len {
             return Err(anyhow::anyhow!(
                 "Inconsistent row length: row {} has {} columns, expected {}",
-                i, row.len(), first_row_len
+                i,
+                row.len(),
+                first_row_len
             ));
         }
     }
-    
+
     Ok(())
 }
 
 // Default paths that will be overridden by config or CLI args
 fn get_default_paths() -> (String, String, String) {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
-    
+
     let default_spreadsheet = String::from("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
-    
-    let default_creds = home.join("Downloads")
+
+    let default_creds = home
+        .join("Downloads")
         .join("client_secret.json")
         .to_string_lossy()
         .to_string();
-    
-    let default_html = home.join("Library")
+
+    let default_html = home
+        .join("Library")
         .join("Application Support")
         .join("Sports Interactive")
         .join("Football Manager 2024")
         .join("bd.html")
         .to_string_lossy()
         .to_string();
-    
+
     (default_spreadsheet, default_creds, default_html)
 }
 
@@ -124,11 +128,11 @@ fn process_table_data(table: &Table) -> Vec<Vec<String>> {
 #[derive(Parser, Debug)]
 #[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
 struct CLIArguments {
-    #[arg(short,long)]
+    #[arg(short, long)]
     spreadsheet: Option<String>,
-    #[arg(short,long)]
+    #[arg(long)]
     credfile: Option<String>,
-    #[arg(short,long)]
+    #[arg(short, long)]
     input: Option<String>,
     #[arg(short, long, default_value = "config.json")]
     config: String,
@@ -142,9 +146,9 @@ async fn main() -> Result<()> {
 
     // Initialize logging
     env_logger::init();
-    
+
     let cli = CLIArguments::parse();
-    
+
     // Set up logging level based on verbose flag
     if cli.verbose {
         std::env::set_var("RUST_LOG", "debug");
@@ -153,14 +157,14 @@ async fn main() -> Result<()> {
     }
 
     info!("Starting FM player data uploader");
-    
+
     // Read config file
     let config_path = Path::new(&cli.config);
     let config = match read_config(config_path) {
         Ok(cfg) => {
             info!("Successfully loaded config from {}", config_path.display());
             cfg
-        },
+        }
         Err(e) => {
             warn!("Failed to load config: {}. Using default values.", e);
             Config {
@@ -180,26 +184,29 @@ async fn main() -> Result<()> {
             }
         }
     };
-    
+
     // Get default paths
     let (default_spreadsheet, default_creds, default_html) = get_default_paths();
-    
+
     // Determine actual paths to use (CLI args override config, which overrides defaults)
-    let spreadsheet = cli.spreadsheet
+    let spreadsheet = cli
+        .spreadsheet
         .or_else(|| Some(config.google.spreadsheet_name.clone()))
         .filter(|s| !s.is_empty())
         .unwrap_or(default_spreadsheet);
-    
-    let credfile = cli.credfile
+
+    let credfile = cli
+        .credfile
         .or_else(|| Some(config.google.creds_file.clone()))
         .filter(|s| !s.is_empty())
         .unwrap_or(default_creds);
-    
-    let input = cli.input
+
+    let input = cli
+        .input
         .or_else(|| Some(config.input.data_html.clone()))
         .filter(|s| !s.is_empty())
         .unwrap_or(default_html);
-    
+
     debug!("Using spreadsheet: {}", spreadsheet);
     debug!("Using credentials file: {}", credfile);
     debug!("Using input HTML file: {}", input);
@@ -212,7 +219,10 @@ async fn main() -> Result<()> {
 
     if !Path::new(&credfile).exists() {
         error!("Credentials file does not exist: {}", credfile);
-        return Err(anyhow::anyhow!("Credentials file does not exist: {}", credfile));
+        return Err(anyhow::anyhow!(
+            "Credentials file does not exist: {}",
+            credfile
+        ));
     }
 
     // OAuth setup
@@ -222,8 +232,12 @@ async fn main() -> Result<()> {
 
     // Determine token cache path - use config if available
     let token_cache = config.google.token_file.clone();
-    let token_cache = if token_cache.is_empty() { "tokencache.json" } else { &token_cache };
-    
+    let token_cache = if token_cache.is_empty() {
+        "tokencache.json"
+    } else {
+        &token_cache
+    };
+
     let auth = InstalledFlowAuthenticator::builder(
         secret.clone(),
         InstalledFlowReturnMethod::HTTPRedirect,
@@ -235,10 +249,11 @@ async fn main() -> Result<()> {
 
     let scopes = &["https://www.googleapis.com/auth/spreadsheets"];
 
-    let t = auth.token(scopes)
+    let t = auth
+        .token(scopes)
         .await
         .with_context(|| "Failed to obtain OAuth token")?;
-    
+
     info!("Successfully obtained access token");
 
     // Create sheets client
@@ -246,17 +261,20 @@ async fn main() -> Result<()> {
         secret.client_id,
         secret.client_secret,
         secret.redirect_uris[0].clone(),
-        t.token().ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?,
-        t.token().ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?,
+        t.token()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?,
+        t.token()
+            .ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?,
     );
 
     let s = sheets::spreadsheets::Spreadsheets { client: sheet_c };
 
     // Spreadsheet metadata
-    let sc = s.get(&spreadsheet, false, &[])
+    let sc = s
+        .get(&spreadsheet, false, &[])
         .await
         .with_context(|| format!("Failed to access spreadsheet {}", spreadsheet))?;
-    
+
     info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
     // Verify the sheet exists in the spreadsheet
@@ -268,23 +286,25 @@ async fn main() -> Result<()> {
             false
         }
     });
-    
+
     if !sheet_exists {
         error!("Sheet '{}' not found in spreadsheet", sheet_name);
-        return Err(anyhow::anyhow!("Sheet '{}' not found in spreadsheet", sheet_name));
+        return Err(anyhow::anyhow!(
+            "Sheet '{}' not found in spreadsheet",
+            sheet_name
+        ));
     }
 
     // Read table from HTML
-    let table = read_table(&input)
-        .with_context(|| format!("Failed to extract table from {}", input))?;
-    
+    let table =
+        read_table(&input).with_context(|| format!("Failed to extract table from {}", input))?;
+
     // Validate table structure
-    validate_table_structure(&table)
-        .with_context(|| "Invalid table structure")?;
-    
+    validate_table_structure(&table).with_context(|| "Invalid table structure")?;
+
     let row_count = table.iter().count();
     info!("Got table with {} rows", row_count);
-    
+
     if let Some(first_row) = table.iter().next() {
         debug!("Table first row has {} columns", first_row.len());
     }
@@ -308,7 +328,7 @@ async fn main() -> Result<()> {
     };
 
     debug!("Updating range: {}", new_range);
-    
+
     // Update spreadsheet
     let update = s
         .values_update(
@@ -322,7 +342,7 @@ async fn main() -> Result<()> {
         )
         .await
         .with_context(|| "Failed to upload data to spreadsheet")?;
-    
+
     info!("Updated data: {}", update.status);
     info!(
         "Program finished in {} ms",
