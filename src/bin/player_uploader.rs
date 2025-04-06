@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
-use log::{debug, info, warn};
+use log::{debug, info, warn, error};
 use sheets::{
     self,
     types::{
@@ -21,6 +21,26 @@ fn read_table(html_file: &str) -> Result<Table> {
 
     Table::find_first(&html_content)
         .ok_or_else(|| anyhow::anyhow!("No table found in the provided HTML document"))
+}
+
+fn validate_table_structure(table: &Table) -> Result<()> {
+    // Check if table has at least one row
+    if table.is_empty() {
+        return Err(anyhow::anyhow!("Table is empty"));
+    }
+    
+    // Check if all rows have consistent number of columns
+    let first_row_len = table[0].len();
+    for (i, row) in table.iter().enumerate() {
+        if row.len() != first_row_len {
+            return Err(anyhow::anyhow!(
+                "Inconsistent row length: row {} has {} columns, expected {}",
+                i, row.len(), first_row_len
+            ));
+        }
+    }
+    
+    Ok(())
 }
 
 static SPREAD: &str = "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc";
@@ -62,6 +82,17 @@ async fn main() -> Result<()> {
     debug!("Using credentials file: {}", cli.credfile);
     debug!("Using input HTML file: {}", cli.input);
 
+    // Validate input files exist
+    if !Path::new(&cli.input).exists() {
+        error!("Input file does not exist: {}", cli.input);
+        return Err(anyhow::anyhow!("Input file does not exist: {}", cli.input));
+    }
+
+    if !Path::new(&cli.credfile).exists() {
+        error!("Credentials file does not exist: {}", cli.credfile);
+        return Err(anyhow::anyhow!("Credentials file does not exist: {}", cli.credfile));
+    }
+
     // OAuth setup
     let secret = yup_oauth2::read_application_secret(&cli.credfile)
         .await
@@ -102,9 +133,24 @@ async fn main() -> Result<()> {
     
     info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
+    // Verify the sheet exists in the spreadsheet
+    let sheet_name = "Squad";
+    let sheet_exists = sc.body.sheets.iter().any(|sheet| {
+        sheet.properties.title == sheet_name
+    });
+    
+    if !sheet_exists {
+        error!("Sheet '{}' not found in spreadsheet", sheet_name);
+        return Err(anyhow::anyhow!("Sheet '{}' not found in spreadsheet", sheet_name));
+    }
+
     // Read table from HTML
     let table = read_table(&cli.input)
         .with_context(|| format!("Failed to extract table from {}", cli.input))?;
+    
+    // Validate table structure
+    validate_table_structure(&table)
+        .with_context(|| "Invalid table structure")?;
     
     info!("Got table with {} rows", table.len());
     debug!("Table first row has {} columns", table[0].len());
