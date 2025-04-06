@@ -149,11 +149,11 @@ async fn main() -> Result<()> {
     // Set up logging level based on verbose flag
     if cli.verbose {
         // Set debug level only for our crate, info for others
-        std::env::set_var("RUST_LOG", "fm_data=debug,info");
+        std::env::set_var("RUST_LOG", "fm_google_up=debug,info");
     } else {
         std::env::set_var("RUST_LOG", "info");
     }
-    
+
     // Initialize logging after setting the environment variable
     env_logger::init();
 
