@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use clap::Parser;
+use log::{debug, info, warn};
 use sheets::{
     self,
     types::{
@@ -36,13 +37,30 @@ struct CLIArguments {
     credfile: String,
     #[arg(short,long,default_value_t = HTML.to_string())]
     input: String,
+    #[arg(short, long)]
+    verbose: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let start_time = Instant::now();
 
+    // Initialize logging
+    env_logger::init();
+    
     let cli = CLIArguments::parse();
+    
+    // Set up logging level based on verbose flag
+    if cli.verbose {
+        std::env::set_var("RUST_LOG", "debug");
+    } else {
+        std::env::set_var("RUST_LOG", "info");
+    }
+
+    info!("Starting FM player data uploader");
+    debug!("Using spreadsheet: {}", cli.spreadsheet);
+    debug!("Using credentials file: {}", cli.credfile);
+    debug!("Using input HTML file: {}", cli.input);
 
     // OAuth setup
     let secret = yup_oauth2::read_application_secret(&cli.credfile)
@@ -64,7 +82,7 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| "Failed to obtain OAuth token")?;
     
-    println!("Got access token");
+    info!("Successfully obtained access token");
 
     // Create sheets client
     let sheet_c = sheets::Client::new(
@@ -82,20 +100,21 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| format!("Failed to access spreadsheet {}", cli.spreadsheet))?;
     
-    println!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
+    info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
     // Read table from HTML
     let table = read_table(&cli.input)
         .with_context(|| format!("Failed to extract table from {}", cli.input))?;
     
-    println!("Got table with {} rows", table.len());
+    info!("Got table with {} rows", table.len());
+    debug!("Table first row has {} columns", table[0].len());
 
     // Clear spreadsheet target area
     s.values_clear(&cli.spreadsheet, "Squad!A2:AX58", &ClearValuesRequest {})
         .await
         .with_context(|| "Error clearing data")?;
 
-    println!("Cleared old data");
+    info!("Cleared old data");
 
     // Process table data
     let mut matrix = vec![];
@@ -121,6 +140,8 @@ async fn main() -> Result<()> {
         range: new_range.clone(),
     };
 
+    debug!("Updating range: {}", new_range);
+    
     // Update spreadsheet
     let update = s
         .values_update(
@@ -135,8 +156,8 @@ async fn main() -> Result<()> {
         .await
         .with_context(|| "Failed to upload data to spreadsheet")?;
     
-    println!("Updated data: {}", update.status);
-    println!(
+    info!("Updated data: {}", update.status);
+    info!(
         "Program finished in {} ms",
         start_time.elapsed().as_millis()
     );
