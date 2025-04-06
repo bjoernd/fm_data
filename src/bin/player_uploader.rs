@@ -259,13 +259,13 @@ async fn main() -> Result<()> {
     info!("Got table with {} rows", table.len());
     debug!("Table first row has {} columns", table[0].len());
 
-    // Clear spreadsheet target area
+    // Clear spreadsheet target area - always clearing the maximum available range in the target spreadsheet
     let clear_range = format!("{}!A2:AX58", sheet_name);
     s.values_clear(&spreadsheet, &clear_range, &ClearValuesRequest {})
         .await
         .with_context(|| format!("Error clearing data in range {}", clear_range))?;
 
-    info!("Cleared old data");
+    info!("Cleared old data from {}", clear_range);
 
     // Process table data
     let mut matrix = vec![];
