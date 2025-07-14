@@ -306,6 +306,16 @@ async fn main() -> Result<()> {
     let row_count = table.iter().count();
     info!("Got table with {} rows", row_count);
 
+    // Validate data fits within hardcoded range (A2:AX58 allows max 57 data rows)
+    const MAX_DATA_ROWS: usize = 57;
+    if row_count > MAX_DATA_ROWS {
+        return Err(anyhow::anyhow!(
+            "Data has {} rows but maximum allowed is {} rows (hardcoded range limit)",
+            row_count,
+            MAX_DATA_ROWS
+        ));
+    }
+
     if let Some(first_row) = table.iter().next() {
         debug!("Table first row has {} columns", first_row.len());
     }
