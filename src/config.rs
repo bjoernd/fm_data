@@ -37,7 +37,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn default() -> Config {
+    pub fn new_default() -> Config {
         Config {
             google: GoogleConfig {
                 creds_file: String::new(),

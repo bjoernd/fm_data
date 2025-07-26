@@ -8,6 +8,7 @@ use sheets::{
     },
 };
 use yup_oauth2::{AccessToken, ApplicationSecret};
+use crate::progress::ProgressCallback;
 
 pub struct SheetsManager {
     client: sheets::spreadsheets::Spreadsheets,
@@ -42,7 +43,11 @@ impl SheetsManager {
         })
     }
 
-    pub async fn verify_spreadsheet_access(&self) -> Result<()> {
+    pub async fn verify_spreadsheet_access(&self, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+        if let Some(p) = progress {
+            p.set_message("Verifying spreadsheet access...");
+        }
+
         let sc = self
             .client
             .get(&self.spreadsheet_id, false, &[])
@@ -50,10 +55,19 @@ impl SheetsManager {
             .with_context(|| format!("Failed to access spreadsheet {}", self.spreadsheet_id))?;
 
         info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
+        
+        if let Some(p) = progress {
+            p.inc(1);
+        }
+        
         Ok(())
     }
 
-    pub async fn verify_sheet_exists(&self, sheet_name: &str) -> Result<()> {
+    pub async fn verify_sheet_exists(&self, sheet_name: &str, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+        if let Some(p) = progress {
+            p.set_message(&format!("Verifying sheet '{}' exists...", sheet_name));
+        }
+
         let sc = self
             .client
             .get(&self.spreadsheet_id, false, &[])
@@ -76,10 +90,18 @@ impl SheetsManager {
             ));
         }
 
+        if let Some(p) = progress {
+            p.inc(1);
+        }
+
         Ok(())
     }
 
-    pub async fn clear_range(&self, sheet_name: &str) -> Result<()> {
+    pub async fn clear_range(&self, sheet_name: &str, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+        if let Some(p) = progress {
+            p.set_message("Clearing existing data...");
+        }
+
         let clear_range = format!("{}!A2:AX58", sheet_name);
         self.client
             .values_clear(&self.spreadsheet_id, &clear_range, &ClearValuesRequest {})
@@ -87,10 +109,21 @@ impl SheetsManager {
             .with_context(|| format!("Error clearing data in range {}", clear_range))?;
 
         info!("Cleared old data from {}", clear_range);
+        
+        if let Some(p) = progress {
+            p.inc(1);
+        }
+        
         Ok(())
     }
 
-    pub async fn upload_data(&self, sheet_name: &str, matrix: Vec<Vec<String>>) -> Result<()> {
+    pub async fn upload_data(&self, sheet_name: &str, matrix: Vec<Vec<String>>, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+        let row_count = matrix.len();
+        
+        if let Some(p) = progress {
+            p.set_message(&format!("Uploading {} rows of data...", row_count));
+        }
+
         let new_range = format!("{}!A2:AX{}", sheet_name, matrix.len() + 1);
         let update_body = ValueRange {
             values: matrix,
@@ -115,6 +148,11 @@ impl SheetsManager {
             .with_context(|| "Failed to upload data to spreadsheet")?;
 
         info!("Updated data: {}", update.status);
+        
+        if let Some(p) = progress {
+            p.inc(1);
+        }
+        
         Ok(())
     }
 }
