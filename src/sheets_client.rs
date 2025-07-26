@@ -72,7 +72,7 @@ impl SheetsManager {
         progress: Option<&dyn ProgressCallback>,
     ) -> Result<()> {
         if let Some(p) = progress {
-            p.set_message(&format!("Verifying sheet '{}' exists...", sheet_name));
+            p.set_message(&format!("Verifying sheet '{sheet_name}' exists..."));
         }
 
         let sc = self
@@ -113,11 +113,11 @@ impl SheetsManager {
             p.set_message("Clearing existing data...");
         }
 
-        let clear_range = format!("{}!A2:AX58", sheet_name);
+        let clear_range = format!("{sheet_name}!A2:AX58");
         self.client
             .values_clear(&self.spreadsheet_id, &clear_range, &ClearValuesRequest {})
             .await
-            .with_context(|| format!("Error clearing data in range {}", clear_range))?;
+            .with_context(|| format!("Error clearing data in range {clear_range}"))?;
 
         info!("Cleared old data from {}", clear_range);
 
@@ -137,7 +137,7 @@ impl SheetsManager {
         let row_count = matrix.len();
 
         if let Some(p) = progress {
-            p.set_message(&format!("Uploading {} rows of data...", row_count));
+            p.set_message(&format!("Uploading {row_count} rows of data..."));
         }
 
         let new_range = format!("{}!A2:AX{}", sheet_name, matrix.len() + 1);
@@ -179,7 +179,7 @@ mod tests {
     #[test]
     fn test_upload_data_matrix_structure() {
         // Test that we can create the expected data structure for upload
-        let test_data = vec![
+        let test_data = [
             vec![
                 "Name".to_string(),
                 "Age".to_string(),
@@ -210,7 +210,7 @@ mod tests {
         let sheet_name = "TestSheet";
         let row_count = 10;
 
-        let clear_range = format!("{}!A2:AX58", sheet_name);
+        let clear_range = format!("{sheet_name}!A2:AX58");
         let update_range = format!("{}!A2:AX{}", sheet_name, row_count + 1);
 
         assert_eq!(clear_range, "TestSheet!A2:AX58");

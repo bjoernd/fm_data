@@ -17,7 +17,7 @@ pub async fn create_authenticator_and_token(
 
     let secret = yup_oauth2::read_application_secret(credfile)
         .await
-        .with_context(|| format!("JSON file not found: {}", credfile))?;
+        .with_context(|| format!("JSON file not found: {credfile}"))?;
 
     let auth = InstalledFlowAuthenticator::builder(
         secret.clone(),
@@ -41,7 +41,7 @@ pub async fn create_authenticator_and_token(
 pub async fn read_application_secret(credfile: &str) -> Result<ApplicationSecret> {
     yup_oauth2::read_application_secret(credfile)
         .await
-        .with_context(|| format!("Failed to read application secret from {}", credfile))
+        .with_context(|| format!("Failed to read application secret from {credfile}"))
 }
 
 #[cfg(test)]

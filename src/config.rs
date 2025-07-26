@@ -37,7 +37,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn default() -> Config {
+    pub fn create_default() -> Config {
         Config {
             google: GoogleConfig {
                 creds_file: String::new(),
@@ -113,7 +113,7 @@ mod tests {
 
     #[test]
     fn test_config_default() {
-        let config = Config::default();
+        let config = Config::create_default();
         assert_eq!(config.google.team_sheet, "Squad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_resolve_paths_default_fallback() {
-        let config = Config::default();
+        let config = Config::create_default();
         let (spreadsheet, credfile, input) = config.resolve_paths(None, None, None);
 
         // Should fall back to defaults when config values are empty

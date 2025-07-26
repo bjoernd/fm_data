@@ -5,7 +5,7 @@ use table_extract::Table;
 
 pub fn read_table(html_file: &str) -> Result<Table> {
     let html_content = fs::read_to_string(Path::new(html_file))
-        .with_context(|| format!("Error reading HTML file {}", html_file))?;
+        .with_context(|| format!("Error reading HTML file {html_file}"))?;
 
     Table::find_first(&html_content)
         .ok_or_else(|| anyhow::anyhow!("No table found in the provided HTML document"))

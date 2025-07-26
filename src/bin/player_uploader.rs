@@ -7,7 +7,6 @@ use fm_data::{
 use log::{debug, error, info, warn};
 use std::path::Path;
 use std::time::Instant;
-use tokio;
 
 #[derive(Parser, Debug)]
 #[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
@@ -62,7 +61,7 @@ async fn main() -> Result<()> {
         }
         Err(e) => {
             warn!("Failed to load config: {}. Using default values.", e);
-            Config::default()
+            Config::create_default()
         }
     };
 
@@ -106,7 +105,7 @@ async fn main() -> Result<()> {
     // Read table from HTML
     progress.update(40, 100, "Reading HTML table data...");
     let table =
-        read_table(&input).with_context(|| format!("Failed to extract table from {}", input))?;
+        read_table(&input).with_context(|| format!("Failed to extract table from {input}"))?;
 
     // Validate table structure
     progress.update(50, 100, "Validating table structure...");
@@ -117,11 +116,7 @@ async fn main() -> Result<()> {
 
     // Validate data size
     validate_data_size(row_count)?;
-    progress.update(
-        60,
-        100,
-        &format!("Processing {} rows of data...", row_count),
-    );
+    progress.update(60, 100, &format!("Processing {row_count} rows of data..."));
 
     if let Some(first_row) = table.iter().next() {
         debug!("Table first row has {} columns", first_row.len());

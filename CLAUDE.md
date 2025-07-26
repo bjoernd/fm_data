@@ -26,6 +26,12 @@ cargo test
 
 # Run tests with output
 cargo test -- --nocapture
+
+# Run clippy for code quality checks
+cargo clippy
+
+# Format code
+cargo fmt
 ```
 
 ## Architecture
@@ -86,6 +92,15 @@ The application features a comprehensive progress tracking system:
 - **Optional display**: Progress bar automatically disabled when using `--verbose` or `--no-progress` flags
 - **Non-blocking**: Progress updates don't impact performance
 - **Professional UX**: Spinner for indeterminate operations, progress bar for measured operations
+- **Clean logging**: INFO messages are suppressed in normal mode to avoid interfering with progress bar display
+
+### Logging Configuration
+
+The application uses smart logging that adapts to the runtime mode:
+
+- **Normal mode**: Only warnings and errors are shown, allowing clean progress bar display
+- **Verbose mode (-v)**: All INFO and DEBUG messages are displayed for detailed troubleshooting
+- **Progress integration**: Logging is coordinated with progress display to avoid visual conflicts
 
 ## Testing
 
@@ -107,3 +122,13 @@ Integration tests with Google APIs are not included due to authentication comple
 - The application validates that both input HTML files and Google credentials exist before processing
 - Range validation ensures data fits within the hardcoded Google Sheets range (A2:AX58)
 - All modules include comprehensive unit tests (29 tests total)
+
+## Code Quality
+
+The codebase follows Rust best practices and coding standards:
+
+- **Clippy compliance**: All clippy lints are resolved, including modern format string usage
+- **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
+- **Error handling**: Comprehensive error context using `anyhow` throughout
+- **Testing**: 100% module coverage with unit tests for all public APIs
+- **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance
