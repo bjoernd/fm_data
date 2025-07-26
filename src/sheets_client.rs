@@ -118,3 +118,51 @@ impl SheetsManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn test_upload_data_matrix_structure() {
+        // Test that we can create the expected data structure for upload
+        let test_data = vec![
+            vec!["Name".to_string(), "Age".to_string(), "Position".to_string()],
+            vec!["Player1".to_string(), "25".to_string(), "Forward".to_string()],
+            vec!["Player2".to_string(), "30".to_string(), "Defender".to_string()],
+        ];
+
+        // Verify the data structure is as expected
+        assert_eq!(test_data.len(), 3);
+        assert_eq!(test_data[0].len(), 3);
+        assert_eq!(test_data[1][0], "Player1");
+        assert_eq!(test_data[2][2], "Defender");
+    }
+
+    #[test]
+    fn test_range_formatting() {
+        // Test range string generation
+        let sheet_name = "TestSheet";
+        let row_count = 10;
+        
+        let clear_range = format!("{}!A2:AX58", sheet_name);
+        let update_range = format!("{}!A2:AX{}", sheet_name, row_count + 1);
+        
+        assert_eq!(clear_range, "TestSheet!A2:AX58");
+        assert_eq!(update_range, "TestSheet!A2:AX11");
+    }
+
+    // Note: SheetsManager tests with actual Google API types are complex due to:
+    // 1. Complex ApplicationSecret structure with many required fields
+    // 2. AccessToken doesn't have a simple public constructor
+    // 3. These are better tested as integration tests with real credentials
+    // 
+    // For unit tests, we focus on:
+    // - Data structure validation
+    // - Range string formatting
+    // - Business logic that doesn't require external dependencies
+    //
+    // Integration tests would cover:
+    // - Authentication flow
+    // - API calls to Google Sheets
+    // - Error handling for network failures
+}

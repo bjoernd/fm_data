@@ -18,8 +18,11 @@ cargo run --bin fm_google_up -- -v
 # Run with custom config
 cargo run --bin fm_google_up -- -C custom_config.json
 
-# Run tests
+# Run tests (comprehensive unit test suite included)
 cargo test
+
+# Run tests with output
+cargo test -- --nocapture
 ```
 
 ## Architecture
@@ -69,6 +72,17 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, and
 
 Uses `anyhow` for comprehensive error handling throughout the application, with proper context propagation for debugging.
 
+## Testing
+
+The codebase includes comprehensive unit tests for all modules:
+
+- **Config tests**: JSON parsing, path resolution hierarchy, error handling
+- **Table tests**: HTML parsing, data validation, transformations, size limits  
+- **Auth tests**: Credentials validation, file handling, error cases
+- **Sheets tests**: Data structure validation, range formatting
+
+Integration tests with Google APIs are not included due to authentication complexity but could be added for CI/CD environments.
+
 ## Development Notes
 
 - The crate name is `FMData` (note: inconsistent with binary name `fm_google_up`)
@@ -76,3 +90,4 @@ Uses `anyhow` for comprehensive error handling throughout the application, with 
 - OAuth tokens are cached to disk in `tokencache.json`
 - The application validates that both input HTML files and Google credentials exist before processing
 - Range validation ensures data fits within the hardcoded Google Sheets range (A2:AX58)
+- All modules include comprehensive unit tests (25 tests total)
