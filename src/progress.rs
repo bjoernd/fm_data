@@ -37,7 +37,7 @@ impl ProgressTracker {
             pb.set_style(
                 ProgressStyle::default_spinner()
                     .template("{spinner:.green} {elapsed_precise} {msg}")
-                    .unwrap()
+                    .unwrap(),
             );
             pb.set_message(message.to_string());
             pb.enable_steady_tick(Duration::from_millis(100));

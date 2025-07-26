@@ -1,3 +1,4 @@
+use crate::progress::ProgressCallback;
 use anyhow::{Context, Result};
 use log::{debug, error, info};
 use sheets::{
@@ -8,7 +9,6 @@ use sheets::{
     },
 };
 use yup_oauth2::{AccessToken, ApplicationSecret};
-use crate::progress::ProgressCallback;
 
 pub struct SheetsManager {
     client: sheets::spreadsheets::Spreadsheets,
@@ -43,7 +43,10 @@ impl SheetsManager {
         })
     }
 
-    pub async fn verify_spreadsheet_access(&self, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+    pub async fn verify_spreadsheet_access(
+        &self,
+        progress: Option<&dyn ProgressCallback>,
+    ) -> Result<()> {
         if let Some(p) = progress {
             p.set_message("Verifying spreadsheet access...");
         }
@@ -55,15 +58,19 @@ impl SheetsManager {
             .with_context(|| format!("Failed to access spreadsheet {}", self.spreadsheet_id))?;
 
         info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
-        
+
         if let Some(p) = progress {
             p.inc(1);
         }
-        
+
         Ok(())
     }
 
-    pub async fn verify_sheet_exists(&self, sheet_name: &str, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+    pub async fn verify_sheet_exists(
+        &self,
+        sheet_name: &str,
+        progress: Option<&dyn ProgressCallback>,
+    ) -> Result<()> {
         if let Some(p) = progress {
             p.set_message(&format!("Verifying sheet '{}' exists...", sheet_name));
         }
@@ -97,7 +104,11 @@ impl SheetsManager {
         Ok(())
     }
 
-    pub async fn clear_range(&self, sheet_name: &str, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+    pub async fn clear_range(
+        &self,
+        sheet_name: &str,
+        progress: Option<&dyn ProgressCallback>,
+    ) -> Result<()> {
         if let Some(p) = progress {
             p.set_message("Clearing existing data...");
         }
@@ -109,17 +120,22 @@ impl SheetsManager {
             .with_context(|| format!("Error clearing data in range {}", clear_range))?;
 
         info!("Cleared old data from {}", clear_range);
-        
+
         if let Some(p) = progress {
             p.inc(1);
         }
-        
+
         Ok(())
     }
 
-    pub async fn upload_data(&self, sheet_name: &str, matrix: Vec<Vec<String>>, progress: Option<&dyn ProgressCallback>) -> Result<()> {
+    pub async fn upload_data(
+        &self,
+        sheet_name: &str,
+        matrix: Vec<Vec<String>>,
+        progress: Option<&dyn ProgressCallback>,
+    ) -> Result<()> {
         let row_count = matrix.len();
-        
+
         if let Some(p) = progress {
             p.set_message(&format!("Uploading {} rows of data...", row_count));
         }
@@ -148,11 +164,11 @@ impl SheetsManager {
             .with_context(|| "Failed to upload data to spreadsheet")?;
 
         info!("Updated data: {}", update.status);
-        
+
         if let Some(p) = progress {
             p.inc(1);
         }
-        
+
         Ok(())
     }
 }
@@ -164,9 +180,21 @@ mod tests {
     fn test_upload_data_matrix_structure() {
         // Test that we can create the expected data structure for upload
         let test_data = vec![
-            vec!["Name".to_string(), "Age".to_string(), "Position".to_string()],
-            vec!["Player1".to_string(), "25".to_string(), "Forward".to_string()],
-            vec!["Player2".to_string(), "30".to_string(), "Defender".to_string()],
+            vec![
+                "Name".to_string(),
+                "Age".to_string(),
+                "Position".to_string(),
+            ],
+            vec![
+                "Player1".to_string(),
+                "25".to_string(),
+                "Forward".to_string(),
+            ],
+            vec![
+                "Player2".to_string(),
+                "30".to_string(),
+                "Defender".to_string(),
+            ],
         ];
 
         // Verify the data structure is as expected
@@ -181,10 +209,10 @@ mod tests {
         // Test range string generation
         let sheet_name = "TestSheet";
         let row_count = 10;
-        
+
         let clear_range = format!("{}!A2:AX58", sheet_name);
         let update_range = format!("{}!A2:AX{}", sheet_name, row_count + 1);
-        
+
         assert_eq!(clear_range, "TestSheet!A2:AX58");
         assert_eq!(update_range, "TestSheet!A2:AX11");
     }
@@ -193,7 +221,7 @@ mod tests {
     // 1. Complex ApplicationSecret structure with many required fields
     // 2. AccessToken doesn't have a simple public constructor
     // 3. These are better tested as integration tests with real credentials
-    // 
+    //
     // For unit tests, we focus on:
     // - Data structure validation
     // - Range string formatting

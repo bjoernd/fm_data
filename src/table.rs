@@ -95,8 +95,14 @@ mod tests {
 
         let row_count = table.iter().count();
         assert!(row_count >= 2); // At least 2 data rows
-        
-        let first_row: Vec<String> = table.iter().next().unwrap().iter().map(|s| s.to_string()).collect();
+
+        let first_row: Vec<String> = table
+            .iter()
+            .next()
+            .unwrap()
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
         assert_eq!(first_row, vec!["Name", "Age", "Position"]);
 
         Ok(())
@@ -114,7 +120,7 @@ mod tests {
 
         let temp_file = create_test_html_file(html_content);
         let result = read_table(temp_file.path().to_str().unwrap());
-        
+
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("No table found"));
     }
@@ -123,7 +129,10 @@ mod tests {
     fn test_read_table_nonexistent_file() {
         let result = read_table("/nonexistent/file.html");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Error reading HTML file"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Error reading HTML file"));
     }
 
     #[test]
@@ -138,7 +147,7 @@ mod tests {
 
         let temp_file = create_test_html_file(html_content);
         let table = read_table(temp_file.path().to_str().unwrap())?;
-        
+
         // Should not error
         validate_table_structure(&table)?;
         Ok(())
@@ -156,10 +165,13 @@ mod tests {
 
         let temp_file = create_test_html_file(html_content);
         let table = read_table(temp_file.path().to_str().unwrap())?;
-        
+
         let result = validate_table_structure(&table);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Inconsistent row length"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Inconsistent row length"));
         Ok(())
     }
 
@@ -174,13 +186,13 @@ mod tests {
 
         let temp_file = create_test_html_file(html_content);
         let table = read_table(temp_file.path().to_str().unwrap())?;
-        
+
         let processed = process_table_data(&table);
-        
+
         assert_eq!(processed.len(), 2);
         assert_eq!(processed[0], vec!["l", "r", "rl", "0", "Normal"]);
         assert_eq!(processed[1], vec!["l", "r", "rl", "0", "Value"]);
-        
+
         Ok(())
     }
 
@@ -195,13 +207,13 @@ mod tests {
 
         let temp_file = create_test_html_file(html_content);
         let table = read_table(temp_file.path().to_str().unwrap())?;
-        
+
         let processed = process_table_data(&table);
-        
+
         assert_eq!(processed.len(), 2);
         assert_eq!(processed[0], vec!["Name", "Age", "Score"]);
         assert_eq!(processed[1], vec!["Player1", "25", "100"]);
-        
+
         Ok(())
     }
 
@@ -216,11 +228,17 @@ mod tests {
     fn test_validate_data_size_too_large() {
         let result = validate_data_size(58);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("maximum allowed is 57 rows"));
-        
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("maximum allowed is 57 rows"));
+
         let result = validate_data_size(100);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("hardcoded range limit"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("hardcoded range limit"));
     }
 
     #[test]

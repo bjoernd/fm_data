@@ -37,7 +37,7 @@ impl Config {
         Ok(config)
     }
 
-    pub fn new_default() -> Config {
+    pub fn default() -> Config {
         Config {
             google: GoogleConfig {
                 creds_file: String::new(),
@@ -78,7 +78,12 @@ impl Config {
         (default_spreadsheet, default_creds, default_html)
     }
 
-    pub fn resolve_paths(&self, spreadsheet: Option<String>, credfile: Option<String>, input: Option<String>) -> (String, String, String) {
+    pub fn resolve_paths(
+        &self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        input: Option<String>,
+    ) -> (String, String, String) {
         let (default_spreadsheet, default_creds, default_html) = Self::get_default_paths();
 
         let resolved_spreadsheet = spreadsheet
@@ -139,32 +144,38 @@ mod tests {
         temp_file.write_all(config_json.as_bytes())?;
 
         let config = Config::from_file(temp_file.path())?;
-        
+
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
         assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
         assert_eq!(config.google.team_sheet, "MySquad");
         assert_eq!(config.input.data_html, "/path/to/data.html");
-        
+
         Ok(())
     }
 
     #[test]
     fn test_config_from_file_invalid_json() {
         let invalid_json = r#"{ invalid json }"#;
-        
+
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(invalid_json.as_bytes()).unwrap();
 
         let result = Config::from_file(temp_file.path());
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Failed to parse config JSON"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to parse config JSON"));
     }
 
     #[test]
     fn test_config_from_file_nonexistent() {
         let result = Config::from_file(Path::new("/nonexistent/config.json"));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Failed to read config file"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read config file"));
     }
 
     #[test]
@@ -235,7 +246,7 @@ mod tests {
     #[test]
     fn test_get_default_paths() {
         let (spreadsheet, credfile, input) = Config::get_default_paths();
-        
+
         assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
         assert!(credfile.ends_with("client_secret.json"));
         assert!(input.contains("Football Manager 2024"));

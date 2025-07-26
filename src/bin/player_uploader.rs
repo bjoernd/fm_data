@@ -1,17 +1,13 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use fm_data::{
-    Config,
-    read_table, validate_table_structure, process_table_data, validate_data_size,
-    create_authenticator_and_token,
-    SheetsManager,
-    ProgressTracker, ProgressCallback,
+    create_authenticator_and_token, process_table_data, read_table, validate_data_size,
+    validate_table_structure, Config, ProgressCallback, ProgressTracker, SheetsManager,
 };
 use log::{debug, error, info, warn};
 use std::path::Path;
 use std::time::Instant;
 use tokio;
-
 
 #[derive(Parser, Debug)]
 #[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
@@ -53,7 +49,7 @@ async fn main() -> Result<()> {
     let show_progress = !cli.no_progress && !cli.verbose; // Don't show progress if verbose logging is on
     let progress_tracker = ProgressTracker::new(100, show_progress);
     let progress: &dyn ProgressCallback = &progress_tracker;
-    
+
     progress.update(0, 100, "Starting upload process...");
 
     // Read config file
@@ -71,7 +67,8 @@ async fn main() -> Result<()> {
 
     // Resolve configuration paths
     progress.update(5, 100, "Resolving configuration paths...");
-    let (spreadsheet, credfile, input) = config.resolve_paths(cli.spreadsheet, cli.credfile, cli.input);
+    let (spreadsheet, credfile, input) =
+        config.resolve_paths(cli.spreadsheet, cli.credfile, cli.input);
 
     debug!("Using spreadsheet: {}", spreadsheet);
     debug!("Using credentials file: {}", credfile);
@@ -98,8 +95,12 @@ async fn main() -> Result<()> {
     // Create sheets manager
     progress.update(30, 100, "Creating sheets manager...");
     let sheets_manager = SheetsManager::new(secret, token, spreadsheet)?;
-    sheets_manager.verify_spreadsheet_access(Some(progress)).await?;
-    sheets_manager.verify_sheet_exists(&config.google.team_sheet, Some(progress)).await?;
+    sheets_manager
+        .verify_spreadsheet_access(Some(progress))
+        .await?;
+    sheets_manager
+        .verify_sheet_exists(&config.google.team_sheet, Some(progress))
+        .await?;
 
     // Read table from HTML
     progress.update(40, 100, "Reading HTML table data...");
@@ -115,7 +116,11 @@ async fn main() -> Result<()> {
 
     // Validate data size
     validate_data_size(row_count)?;
-    progress.update(60, 100, &format!("Processing {} rows of data...", row_count));
+    progress.update(
+        60,
+        100,
+        &format!("Processing {} rows of data...", row_count),
+    );
 
     if let Some(first_row) = table.iter().next() {
         debug!("Table first row has {} columns", first_row.len());
@@ -124,11 +129,18 @@ async fn main() -> Result<()> {
     // Clear and upload data
     progress.update(70, 100, "Preparing data for upload...");
     let matrix = process_table_data(&table);
-    
-    sheets_manager.clear_range(&config.google.team_sheet, Some(progress)).await?;
-    sheets_manager.upload_data(&config.google.team_sheet, matrix, Some(progress)).await?;
-    
-    progress.finish(&format!("Upload completed in {} ms", start_time.elapsed().as_millis()));
+
+    sheets_manager
+        .clear_range(&config.google.team_sheet, Some(progress))
+        .await?;
+    sheets_manager
+        .upload_data(&config.google.team_sheet, matrix, Some(progress))
+        .await?;
+
+    progress.finish(&format!(
+        "Upload completed in {} ms",
+        start_time.elapsed().as_millis()
+    ));
     info!(
         "Program finished in {} ms",
         start_time.elapsed().as_millis()
