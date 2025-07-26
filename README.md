@@ -3,7 +3,7 @@
 A  CLI tool for uploading Football Manager player data to Google Sheets.
 
 ## Overview
-This tool extracts player data from Football Manager HTML exports and uploads it to Google Sheets for advanced analysis and visualization. Built with Rust for performance and reliability.
+This tool extracts player data from Football Manager HTML exports and uploads it to Google Sheets for advanced analysis and visualization.
 
 ## 🚀 Quick Start
 
