@@ -4,6 +4,9 @@ version = "0.2.0"
 authors = ["Bjoern Doebel <bjoern.doebel@gmail.com>"]
 edition = "2021"
 
+[lib]
+name = "fm_data"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "fm_google_up"
