@@ -37,7 +37,8 @@ async fn main() -> Result<()> {
         // Set debug level only for our crate, info for others
         std::env::set_var("RUST_LOG", "fm_google_up=debug,info");
     } else {
-        std::env::set_var("RUST_LOG", "info");
+        // Only show warnings and errors when not in verbose mode to avoid interfering with progress bar
+        std::env::set_var("RUST_LOG", "warn");
     }
 
     // Initialize logging after setting the environment variable
