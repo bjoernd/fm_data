@@ -243,10 +243,12 @@ async fn main() -> Result<()> {
 
     // Ensure secure config directory exists
     let _secure_dir = get_secure_config_dir()
+        .await
         .with_context(|| "Failed to setup secure configuration directory")?;
 
     let token_cache = if config.google.token_file.is_empty() {
-        get_secure_config_dir()?
+        get_secure_config_dir()
+            .await?
             .join("tokencache.json")
             .to_string_lossy()
             .to_string()
@@ -270,8 +272,9 @@ async fn main() -> Result<()> {
 
     // Read table from HTML
     progress.update(40, 100, "Reading HTML table data...");
-    let table =
-        read_table(&input).with_context(|| format!("Failed to extract table from {input}"))?;
+    let table = read_table(&input)
+        .await
+        .with_context(|| format!("Failed to extract table from {input}"))?;
 
     // Validate table structure
     progress.update(50, 100, "Validating table structure...");

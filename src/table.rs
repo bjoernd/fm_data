@@ -1,10 +1,11 @@
 use anyhow::{Context, Result};
-use std::fs;
 use std::path::Path;
 use table_extract::Table;
+use tokio::fs as async_fs;
 
-pub fn read_table(html_file: &str) -> Result<Table> {
-    let html_content = fs::read_to_string(Path::new(html_file))
+pub async fn read_table(html_file: &str) -> Result<Table> {
+    let html_content = async_fs::read_to_string(Path::new(html_file))
+        .await
         .with_context(|| format!("Error reading HTML file {html_file}"))?;
 
     Table::find_first(&html_content)
@@ -76,8 +77,8 @@ mod tests {
         temp_file
     }
 
-    #[test]
-    fn test_read_table_valid_html() -> Result<()> {
+    #[tokio::test]
+    async fn test_read_table_valid_html() -> Result<()> {
         let html_content = r#"
             <html>
                 <body>
@@ -91,7 +92,7 @@ mod tests {
         "#;
 
         let temp_file = create_test_html_file(html_content);
-        let table = read_table(temp_file.path().to_str().unwrap())?;
+        let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
         let row_count = table.iter().count();
         assert!(row_count >= 2); // At least 2 data rows
@@ -108,8 +109,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_read_table_no_table() {
+    #[tokio::test]
+    async fn test_read_table_no_table() {
         let html_content = r#"
             <html>
                 <body>
@@ -119,15 +120,15 @@ mod tests {
         "#;
 
         let temp_file = create_test_html_file(html_content);
-        let result = read_table(temp_file.path().to_str().unwrap());
+        let result = read_table(temp_file.path().to_str().unwrap()).await;
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("No table found"));
     }
 
-    #[test]
-    fn test_read_table_nonexistent_file() {
-        let result = read_table("/nonexistent/file.html");
+    #[tokio::test]
+    async fn test_read_table_nonexistent_file() {
+        let result = read_table("/nonexistent/file.html").await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -135,8 +136,8 @@ mod tests {
             .contains("Error reading HTML file"));
     }
 
-    #[test]
-    fn test_validate_table_structure_valid() -> Result<()> {
+    #[tokio::test]
+    async fn test_validate_table_structure_valid() -> Result<()> {
         let html_content = r#"
             <table>
                 <tr><td>A</td><td>B</td><td>C</td></tr>
@@ -146,15 +147,15 @@ mod tests {
         "#;
 
         let temp_file = create_test_html_file(html_content);
-        let table = read_table(temp_file.path().to_str().unwrap())?;
+        let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
         // Should not error
         validate_table_structure(&table)?;
         Ok(())
     }
 
-    #[test]
-    fn test_validate_table_structure_inconsistent_columns() -> Result<()> {
+    #[tokio::test]
+    async fn test_validate_table_structure_inconsistent_columns() -> Result<()> {
         let html_content = r#"
             <table>
                 <tr><td>A</td><td>B</td><td>C</td></tr>
@@ -164,7 +165,7 @@ mod tests {
         "#;
 
         let temp_file = create_test_html_file(html_content);
-        let table = read_table(temp_file.path().to_str().unwrap())?;
+        let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
         let result = validate_table_structure(&table);
         assert!(result.is_err());
@@ -175,8 +176,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_process_table_data_transformations() -> Result<()> {
+    #[tokio::test]
+    async fn test_process_table_data_transformations() -> Result<()> {
         let html_content = r#"
             <table>
                 <tr><td>Left</td><td>Right</td><td>Either</td><td>-</td><td>Normal</td></tr>
@@ -185,7 +186,7 @@ mod tests {
         "#;
 
         let temp_file = create_test_html_file(html_content);
-        let table = read_table(temp_file.path().to_str().unwrap())?;
+        let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
         let processed = process_table_data(&table);
 
@@ -196,8 +197,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_process_table_data_no_transformations() -> Result<()> {
+    #[tokio::test]
+    async fn test_process_table_data_no_transformations() -> Result<()> {
         let html_content = r#"
             <table>
                 <tr><td>Name</td><td>Age</td><td>Score</td></tr>
@@ -206,7 +207,7 @@ mod tests {
         "#;
 
         let temp_file = create_test_html_file(html_content);
-        let table = read_table(temp_file.path().to_str().unwrap())?;
+        let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
         let processed = process_table_data(&table);
 

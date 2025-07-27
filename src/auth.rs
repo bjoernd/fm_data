@@ -1,38 +1,42 @@
 use anyhow::{Context, Result};
-use std::fs;
 use std::path::{Path, PathBuf};
+use tokio::fs as async_fs;
 use yup_oauth2::{
     AccessToken, ApplicationSecret, InstalledFlowAuthenticator, InstalledFlowReturnMethod,
 };
 use zeroize::Zeroizing;
 
 /// Get the secure default directory for credentials and tokens
-pub fn get_secure_config_dir() -> Result<PathBuf> {
+pub async fn get_secure_config_dir() -> Result<PathBuf> {
     let config_dir = dirs::config_dir()
         .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?
         .join("fm_data");
 
     // Create directory if it doesn't exist with secure permissions
     if !config_dir.exists() {
-        fs::create_dir_all(&config_dir).with_context(|| {
-            format!(
-                "Failed to create config directory: {}",
-                config_dir.display()
-            )
-        })?;
+        async_fs::create_dir_all(&config_dir)
+            .await
+            .with_context(|| {
+                format!(
+                    "Failed to create config directory: {}",
+                    config_dir.display()
+                )
+            })?;
 
         // Set secure permissions on Unix systems
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(&config_dir)?.permissions();
+            let mut perms = async_fs::metadata(&config_dir).await?.permissions();
             perms.set_mode(0o700); // rwx------ (owner only)
-            fs::set_permissions(&config_dir, perms).with_context(|| {
-                format!(
-                    "Failed to set secure permissions on {}",
-                    config_dir.display()
-                )
-            })?;
+            async_fs::set_permissions(&config_dir, perms)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to set secure permissions on {}",
+                        config_dir.display()
+                    )
+                })?;
         }
     }
 
@@ -40,8 +44,9 @@ pub fn get_secure_config_dir() -> Result<PathBuf> {
 }
 
 /// Check if a file has secure permissions (readable only by owner)
-pub fn check_file_permissions(file_path: &Path) -> Result<()> {
-    let metadata = fs::metadata(file_path)
+pub async fn check_file_permissions(file_path: &Path) -> Result<()> {
+    let metadata = async_fs::metadata(file_path)
+        .await
         .with_context(|| format!("Failed to read metadata for {}", file_path.display()))?;
 
     #[cfg(unix)]
@@ -129,12 +134,14 @@ pub async fn read_application_secret_secure(credfile: &str) -> Result<Applicatio
 
     // Check file permissions
     check_file_permissions(cred_path)
+        .await
         .with_context(|| "Credentials file has insecure permissions")?;
 
     // Read file content into secure memory and validate
     {
         let content = Zeroizing::new(
-            fs::read_to_string(cred_path)
+            async_fs::read_to_string(cred_path)
+                .await
                 .with_context(|| format!("Failed to read credentials file: {credfile}"))?,
         );
 
@@ -170,7 +177,7 @@ pub async fn create_authenticator_and_token(
     let token_cache_path = Path::new(token_cache);
     if let Some(parent) = token_cache_path.parent() {
         if !parent.exists() {
-            fs::create_dir_all(parent).with_context(|| {
+            async_fs::create_dir_all(parent).await.with_context(|| {
                 format!(
                     "Failed to create token cache directory: {}",
                     parent.display()
@@ -181,11 +188,13 @@ pub async fn create_authenticator_and_token(
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                let mut perms = fs::metadata(parent)?.permissions();
+                let mut perms = async_fs::metadata(parent).await?.permissions();
                 perms.set_mode(0o700); // rwx------ (owner only)
-                fs::set_permissions(parent, perms).with_context(|| {
-                    format!("Failed to set secure permissions on {}", parent.display())
-                })?;
+                async_fs::set_permissions(parent, perms)
+                    .await
+                    .with_context(|| {
+                        format!("Failed to set secure permissions on {}", parent.display())
+                    })?;
             }
         }
     }
@@ -211,14 +220,16 @@ pub async fn create_authenticator_and_token(
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = fs::metadata(token_cache_path)?.permissions();
+            let mut perms = async_fs::metadata(token_cache_path).await?.permissions();
             perms.set_mode(0o600); // rw------- (owner only)
-            fs::set_permissions(token_cache_path, perms).with_context(|| {
-                format!(
-                    "Failed to set secure permissions on {}",
-                    token_cache_path.display()
-                )
-            })?;
+            async_fs::set_permissions(token_cache_path, perms)
+                .await
+                .with_context(|| {
+                    format!(
+                        "Failed to set secure permissions on {}",
+                        token_cache_path.display()
+                    )
+                })?;
         }
     }
 
@@ -319,9 +330,9 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("must use HTTPS"));
     }
 
-    #[test]
-    fn test_get_secure_config_dir() -> Result<()> {
-        let config_dir = get_secure_config_dir()?;
+    #[tokio::test]
+    async fn test_get_secure_config_dir() -> Result<()> {
+        let config_dir = get_secure_config_dir().await?;
         assert!(config_dir.ends_with("fm_data"));
         Ok(())
     }

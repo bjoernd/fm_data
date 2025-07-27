@@ -71,7 +71,6 @@ impl Default for GoogleConfig {
     }
 }
 
-
 impl Config {
     pub fn from_file(config_path: &Path) -> Result<Config> {
         let config_str = fs::read_to_string(config_path)
