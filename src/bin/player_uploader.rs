@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use fm_data::{
-    create_authenticator_and_token, get_secure_config_dir, process_table_data, read_table, validate_data_size,
-    validate_table_structure, Config, ProgressCallback, ProgressTracker, SheetsManager,
+    create_authenticator_and_token, get_secure_config_dir, process_table_data, read_table,
+    validate_data_size, validate_table_structure, Config, ProgressCallback, ProgressTracker,
+    SheetsManager,
 };
 use log::{debug, error, info, warn};
 use std::path::Path;
@@ -29,7 +30,7 @@ Examples:
 )]
 struct CLIArguments {
     #[arg(
-        short, 
+        short,
         long,
         env = "FM_SPREADSHEET_ID",
         help = "Google Sheets spreadsheet ID",
@@ -38,7 +39,7 @@ Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
 Can also be set via FM_SPREADSHEET_ID environment variable."
     )]
     spreadsheet: Option<String>,
-    
+
     #[arg(
         long,
         env = "FM_CREDENTIALS_FILE",
@@ -49,9 +50,9 @@ Example: /path/to/service-account-key.json
 Can also be set via FM_CREDENTIALS_FILE environment variable."
     )]
     credfile: Option<String>,
-    
+
     #[arg(
-        short, 
+        short,
         long,
         env = "FM_INPUT_FILE",
         help = "Path to Football Manager HTML export file",
@@ -61,10 +62,10 @@ Example: /path/to/players_export.html
 Can also be set via FM_INPUT_FILE environment variable."
     )]
     input: Option<String>,
-    
+
     #[arg(
-        short, 
-        long, 
+        short,
+        long,
         default_value = "config.json",
         help = "Path to configuration file",
         long_help = "Path to JSON configuration file containing default settings.
@@ -81,16 +82,12 @@ Example config.json structure:
 }"
     )]
     config: String,
-    
-    #[arg(
-        short, 
-        long,
-        help = "Enable verbose logging for debugging"
-    )]
+
+    #[arg(short, long, help = "Enable verbose logging for debugging")]
     verbose: bool,
-    
+
     #[arg(
-        long, 
+        long,
         help = "Disable progress bar (useful for scripting)",
         long_help = "Disable the progress bar display. Useful when running in scripts 
 or CI/CD environments where progress bars may interfere with output parsing."
@@ -121,7 +118,7 @@ impl CLIArguments {
                     input
                 ));
             }
-            
+
             // Check file extension
             if let Some(extension) = input_path.extension() {
                 if extension.to_string_lossy().to_lowercase() != "html" {
@@ -139,7 +136,7 @@ impl CLIArguments {
                     credfile
                 ));
             }
-            
+
             // Check file extension
             if let Some(extension) = cred_path.extension() {
                 if extension.to_string_lossy().to_lowercase() != "json" {
@@ -155,18 +152,24 @@ impl CLIArguments {
                     "Spreadsheet ID cannot be empty. Please provide a valid Google Sheets spreadsheet ID."
                 ));
             }
-            
+
             // Basic validation for Google Sheets ID format (alphanumeric, hyphens, underscores)
-            if !spreadsheet.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+            if !spreadsheet
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+            {
                 return Err(anyhow::anyhow!(
                     "Invalid spreadsheet ID format: '{}'. Google Sheets IDs should contain only letters, numbers, hyphens, and underscores.",
                     spreadsheet
                 ));
             }
-            
+
             // Check minimum length (Google Sheets IDs are typically quite long)
             if spreadsheet.len() < 20 {
-                warn!("Spreadsheet ID '{}' seems unusually short. Please verify this is correct.", spreadsheet);
+                warn!(
+                    "Spreadsheet ID '{}' seems unusually short. Please verify this is correct.",
+                    spreadsheet
+                );
             }
         }
 
@@ -237,11 +240,11 @@ async fn main() -> Result<()> {
 
     // Authentication setup
     progress.update(10, 100, "Setting up authentication...");
-    
+
     // Ensure secure config directory exists
     let _secure_dir = get_secure_config_dir()
         .with_context(|| "Failed to setup secure configuration directory")?;
-    
+
     let token_cache = if config.google.token_file.is_empty() {
         get_secure_config_dir()?
             .join("tokencache.json")
