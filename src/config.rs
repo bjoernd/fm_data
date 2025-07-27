@@ -38,10 +38,18 @@ impl Config {
     }
 
     pub fn create_default() -> Config {
+        // Get secure default token location
+        let default_token_file = dirs::config_dir()
+            .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
+            .join("fm_data")
+            .join("tokencache.json")
+            .to_string_lossy()
+            .to_string();
+
         Config {
             google: GoogleConfig {
                 creds_file: String::new(),
-                token_file: String::from("tokencache.json"),
+                token_file: default_token_file,
                 spreadsheet_name: String::new(),
                 team_sheet: String::from("Squad"),
                 team_perf_sheet: String::from("Stats_Team"),
@@ -60,9 +68,11 @@ impl Config {
 
         let default_spreadsheet = String::from("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
 
-        let default_creds = home
-            .join("Downloads")
-            .join("client_secret.json")
+        // Use secure config directory for credentials
+        let default_creds = dirs::config_dir()
+            .unwrap_or_else(|| home.join(".config"))
+            .join("fm_data")
+            .join("credentials.json")
             .to_string_lossy()
             .to_string();
 
@@ -117,7 +127,8 @@ mod tests {
         assert_eq!(config.google.team_sheet, "Squad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
-        assert_eq!(config.google.token_file, "tokencache.json");
+        assert!(config.google.token_file.contains("fm_data"));
+        assert!(config.google.token_file.contains("tokencache.json"));
         assert!(config.google.creds_file.is_empty());
         assert!(config.google.spreadsheet_name.is_empty());
     }
@@ -239,7 +250,8 @@ mod tests {
 
         // Should fall back to defaults when config values are empty
         assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
-        assert!(credfile.contains("client_secret.json"));
+        assert!(credfile.contains("fm_data"));
+        assert!(credfile.contains("credentials.json"));
         assert!(input.contains("bd.html"));
     }
 
@@ -248,7 +260,8 @@ mod tests {
         let (spreadsheet, credfile, input) = Config::get_default_paths();
 
         assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
-        assert!(credfile.ends_with("client_secret.json"));
+        assert!(credfile.contains("fm_data"));
+        assert!(credfile.ends_with("credentials.json"));
         assert!(input.contains("Football Manager 2024"));
         assert!(input.ends_with("bd.html"));
     }

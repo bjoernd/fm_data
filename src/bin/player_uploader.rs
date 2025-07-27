@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use clap::Parser;
 use fm_data::{
-    create_authenticator_and_token, process_table_data, read_table, validate_data_size,
+    create_authenticator_and_token, get_secure_config_dir, process_table_data, read_table, validate_data_size,
     validate_table_structure, Config, ProgressCallback, ProgressTracker, SheetsManager,
 };
 use log::{debug, error, info, warn};
@@ -237,13 +237,21 @@ async fn main() -> Result<()> {
 
     // Authentication setup
     progress.update(10, 100, "Setting up authentication...");
+    
+    // Ensure secure config directory exists
+    let _secure_dir = get_secure_config_dir()
+        .with_context(|| "Failed to setup secure configuration directory")?;
+    
     let token_cache = if config.google.token_file.is_empty() {
-        "tokencache.json"
+        get_secure_config_dir()?
+            .join("tokencache.json")
+            .to_string_lossy()
+            .to_string()
     } else {
-        &config.google.token_file
+        config.google.token_file.clone()
     };
 
-    let (secret, token) = create_authenticator_and_token(&credfile, token_cache).await?;
+    let (secret, token) = create_authenticator_and_token(&credfile, &token_cache).await?;
     info!("Successfully obtained access token");
     progress.update(25, 100, "Authentication completed");
 

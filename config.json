@@ -1,7 +1,5 @@
 {
     "google" : {
-        "creds_file" : "/Users/bjoernd/Downloads/fmdata-client.json",
-        "token_file" : "/Users/bjoernd/src/fm_data/tokencache.json",
         "spreadsheet_name" : "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc",
         "team_sheet" : "Squad",
         "team_perf_sheet" : "Stats_Team",
