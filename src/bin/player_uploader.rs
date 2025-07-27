@@ -9,20 +9,169 @@ use std::path::Path;
 use std::time::Instant;
 
 #[derive(Parser, Debug)]
-#[command(version, about="Upload FM Player data to Google sheets", long_about = None)]
+#[command(
+    version,
+    about = "Upload Football Manager player data to Google Sheets",
+    long_about = "A tool to extract player data from Football Manager HTML exports and upload them to Google Sheets.
+
+Examples:
+    # Basic usage with config file
+    fm_google_up -c my_config.json
+    
+    # Override specific settings
+    fm_google_up -i players.html -s 1BCD...xyz123 --credfile creds.json
+    
+    # Verbose mode for debugging
+    fm_google_up -v -i players.html
+    
+    # Scripting mode (no progress bar)
+    fm_google_up --no-progress -i players.html"
+)]
 struct CLIArguments {
-    #[arg(short, long)]
+    #[arg(
+        short, 
+        long,
+        env = "FM_SPREADSHEET_ID",
+        help = "Google Sheets spreadsheet ID",
+        long_help = "The Google Sheets spreadsheet ID where data will be uploaded.
+Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
+Can also be set via FM_SPREADSHEET_ID environment variable."
+    )]
     spreadsheet: Option<String>,
-    #[arg(long)]
+    
+    #[arg(
+        long,
+        env = "FM_CREDENTIALS_FILE",
+        help = "Path to Google API credentials JSON file",
+        long_help = "Path to the Google API service account credentials file.
+Download this from Google Cloud Console under APIs & Services > Credentials.
+Example: /path/to/service-account-key.json
+Can also be set via FM_CREDENTIALS_FILE environment variable."
+    )]
     credfile: Option<String>,
-    #[arg(short, long)]
+    
+    #[arg(
+        short, 
+        long,
+        env = "FM_INPUT_FILE",
+        help = "Path to Football Manager HTML export file",
+        long_help = "Path to the HTML file exported from Football Manager containing player data.
+The file should contain a table with player statistics.
+Example: /path/to/players_export.html
+Can also be set via FM_INPUT_FILE environment variable."
+    )]
     input: Option<String>,
-    #[arg(short, long, default_value = "config.json")]
+    
+    #[arg(
+        short, 
+        long, 
+        default_value = "config.json",
+        help = "Path to configuration file",
+        long_help = "Path to JSON configuration file containing default settings.
+If the file doesn't exist, default values will be used.
+Example config.json structure:
+{
+  \"google\": {
+    \"spreadsheet_id\": \"1BCD...xyz123\",
+    \"credentials_file\": \"creds.json\",
+    \"team_sheet\": \"Sheet1\",
+    \"token_file\": \"tokencache.json\"
+  },
+  \"input_file\": \"players.html\"
+}"
+    )]
     config: String,
-    #[arg(short, long)]
+    
+    #[arg(
+        short, 
+        long,
+        help = "Enable verbose logging for debugging"
+    )]
     verbose: bool,
-    #[arg(long, help = "Disable progress bar (useful for scripting)")]
+    
+    #[arg(
+        long, 
+        help = "Disable progress bar (useful for scripting)",
+        long_help = "Disable the progress bar display. Useful when running in scripts 
+or CI/CD environments where progress bars may interfere with output parsing."
+    )]
     no_progress: bool,
+}
+
+impl CLIArguments {
+    fn validate(&self) -> Result<()> {
+        // Validate config file path if it's not the default and doesn't exist
+        if self.config != "config.json" {
+            let config_path = Path::new(&self.config);
+            if !config_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Config file '{}' does not exist. Use --config to specify a valid config file or create '{}'",
+                    self.config,
+                    self.config
+                ));
+            }
+        }
+
+        // Validate input file if provided
+        if let Some(ref input) = self.input {
+            let input_path = Path::new(input);
+            if !input_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Input file '{}' does not exist. Please provide a valid Football Manager HTML export file.",
+                    input
+                ));
+            }
+            
+            // Check file extension
+            if let Some(extension) = input_path.extension() {
+                if extension.to_string_lossy().to_lowercase() != "html" {
+                    warn!("Input file '{}' does not have .html extension. This may not be a valid Football Manager export.", input);
+                }
+            }
+        }
+
+        // Validate credentials file if provided
+        if let Some(ref credfile) = self.credfile {
+            let cred_path = Path::new(credfile);
+            if !cred_path.exists() {
+                return Err(anyhow::anyhow!(
+                    "Credentials file '{}' does not exist. Please provide a valid Google API credentials JSON file.",
+                    credfile
+                ));
+            }
+            
+            // Check file extension
+            if let Some(extension) = cred_path.extension() {
+                if extension.to_string_lossy().to_lowercase() != "json" {
+                    warn!("Credentials file '{}' does not have .json extension. This may not be a valid Google API credentials file.", credfile);
+                }
+            }
+        }
+
+        // Validate spreadsheet ID format if provided
+        if let Some(ref spreadsheet) = self.spreadsheet {
+            if spreadsheet.is_empty() {
+                return Err(anyhow::anyhow!(
+                    "Spreadsheet ID cannot be empty. Please provide a valid Google Sheets spreadsheet ID."
+                ));
+            }
+            
+            // Basic validation for Google Sheets ID format (alphanumeric, hyphens, underscores)
+            if !spreadsheet.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_') {
+                return Err(anyhow::anyhow!(
+                    "Invalid spreadsheet ID format: '{}'. Google Sheets IDs should contain only letters, numbers, hyphens, and underscores.",
+                    spreadsheet
+                ));
+            }
+            
+            // Check minimum length (Google Sheets IDs are typically quite long)
+            if spreadsheet.len() < 20 {
+                warn!("Spreadsheet ID '{}' seems unusually short. Please verify this is correct.", spreadsheet);
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[tokio::main]
@@ -30,6 +179,12 @@ async fn main() -> Result<()> {
     let start_time = Instant::now();
 
     let cli = CLIArguments::parse();
+
+    // Validate CLI arguments early
+    if let Err(e) = cli.validate() {
+        error!("Invalid arguments: {}", e);
+        std::process::exit(1);
+    }
 
     // Set up logging level based on verbose flag
     if cli.verbose {
