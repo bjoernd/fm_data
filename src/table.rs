@@ -1,4 +1,5 @@
-use anyhow::{Context, Result};
+use crate::error::{FMDataError, Result};
+use crate::validation::DataValidator;
 use std::path::Path;
 use table_extract::Table;
 use tokio::fs as async_fs;
@@ -6,35 +7,31 @@ use tokio::fs as async_fs;
 pub async fn read_table(html_file: &str) -> Result<Table> {
     let html_content = async_fs::read_to_string(Path::new(html_file))
         .await
-        .with_context(|| format!("Error reading HTML file {html_file}"))?;
+        .map_err(|e| {
+            FMDataError::table(format!("Error reading HTML file '{html_file}': {e}"))
+        })?;
 
     Table::find_first(&html_content)
-        .ok_or_else(|| anyhow::anyhow!("No table found in the provided HTML document"))
+        .ok_or_else(|| FMDataError::table("No table found in the provided HTML document"))
 }
 
 pub fn validate_table_structure(table: &Table) -> Result<()> {
-    if table.iter().count() == 0 {
-        return Err(anyhow::anyhow!("Table is empty"));
+    let row_count = table.iter().count();
+    if row_count == 0 {
+        return Err(FMDataError::table("Table is empty"));
     }
 
-    let first_row = table.iter().next().unwrap();
-    let first_row_len = first_row.len();
+    // Convert table to vector for validation
+    let rows: Vec<Vec<String>> = table
+        .iter()
+        .map(|row| row.iter().map(|cell| cell.to_string()).collect())
+        .collect();
 
-    for (i, row) in table.iter().enumerate() {
-        if row.len() != first_row_len {
-            return Err(anyhow::anyhow!(
-                "Inconsistent row length: row {} has {} columns, expected {}",
-                i,
-                row.len(),
-                first_row_len
-            ));
-        }
-    }
-
+    DataValidator::validate_row_consistency(&rows)?;
     Ok(())
 }
 
-pub fn process_table_data(table: &Table) -> Vec<Vec<String>> {
+pub fn process_table_data(table: &Table) -> Result<Vec<Vec<String>>> {
     let mut matrix = vec![];
     for row in table {
         let mut line = vec![];
@@ -50,18 +47,16 @@ pub fn process_table_data(table: &Table) -> Vec<Vec<String>> {
         }
         matrix.push(line);
     }
-    matrix
+
+    // Validate the processed data
+    DataValidator::validate_non_empty_data(&matrix)?;
+
+    Ok(matrix)
 }
 
 pub fn validate_data_size(row_count: usize) -> Result<()> {
     const MAX_DATA_ROWS: usize = 57;
-    if row_count > MAX_DATA_ROWS {
-        return Err(anyhow::anyhow!(
-            "Data has {} rows but maximum allowed is {} rows (hardcoded range limit)",
-            row_count,
-            MAX_DATA_ROWS
-        ));
-    }
+    DataValidator::validate_table_size(row_count, MAX_DATA_ROWS)?;
     Ok(())
 }
 
@@ -188,7 +183,7 @@ mod tests {
         let temp_file = create_test_html_file(html_content);
         let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
-        let processed = process_table_data(&table);
+        let processed = process_table_data(&table)?;
 
         assert_eq!(processed.len(), 2);
         assert_eq!(processed[0], vec!["l", "r", "rl", "0", "Normal"]);
@@ -209,7 +204,7 @@ mod tests {
         let temp_file = create_test_html_file(html_content);
         let table = read_table(temp_file.path().to_str().unwrap()).await?;
 
-        let processed = process_table_data(&table);
+        let processed = process_table_data(&table)?;
 
         assert_eq!(processed.len(), 2);
         assert_eq!(processed[0], vec!["Name", "Age", "Score"]);

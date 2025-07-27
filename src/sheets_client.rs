@@ -1,5 +1,6 @@
+use crate::error::{FMDataError, Result};
 use crate::progress::ProgressCallback;
-use anyhow::{Context, Result};
+use crate::validation::DataValidator;
 use log::{debug, error, info};
 use sheets::{
     self,
@@ -23,7 +24,7 @@ impl SheetsManager {
     ) -> Result<Self> {
         let token_str = token
             .token()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get token string"))?;
+            .ok_or_else(|| FMDataError::sheets_api("Failed to get token string"))?;
 
         let sheet_client = sheets::Client::new(
             secret.client_id,
@@ -55,7 +56,12 @@ impl SheetsManager {
             .client
             .get(&self.spreadsheet_id, false, &[])
             .await
-            .with_context(|| format!("Failed to access spreadsheet {}", self.spreadsheet_id))?;
+            .map_err(|e| {
+                FMDataError::sheets_api(format!(
+                    "Failed to access spreadsheet '{}': {}",
+                    self.spreadsheet_id, e
+                ))
+            })?;
 
         info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
@@ -79,7 +85,12 @@ impl SheetsManager {
             .client
             .get(&self.spreadsheet_id, false, &[])
             .await
-            .with_context(|| format!("Failed to access spreadsheet {}", self.spreadsheet_id))?;
+            .map_err(|e| {
+                FMDataError::sheets_api(format!(
+                    "Failed to access spreadsheet '{}': {}",
+                    self.spreadsheet_id, e
+                ))
+            })?;
 
         let sheet_exists = sc.body.sheets.iter().any(|sheet| {
             if let Some(props) = &sheet.properties {
@@ -91,10 +102,9 @@ impl SheetsManager {
 
         if !sheet_exists {
             error!("Sheet '{}' not found in spreadsheet", sheet_name);
-            return Err(anyhow::anyhow!(
-                "Sheet '{}' not found in spreadsheet",
-                sheet_name
-            ));
+            return Err(FMDataError::sheets_api(format!(
+                "Sheet '{sheet_name}' not found in spreadsheet"
+            )));
         }
 
         if let Some(p) = progress {
@@ -117,7 +127,11 @@ impl SheetsManager {
         self.client
             .values_clear(&self.spreadsheet_id, &clear_range, &ClearValuesRequest {})
             .await
-            .with_context(|| format!("Error clearing data in range {clear_range}"))?;
+            .map_err(|e| {
+                FMDataError::sheets_api(format!(
+                    "Error clearing data in range '{clear_range}': {e}"
+                ))
+            })?;
 
         info!("Cleared old data from {}", clear_range);
 
@@ -134,6 +148,10 @@ impl SheetsManager {
         matrix: Vec<Vec<String>>,
         progress: Option<&dyn ProgressCallback>,
     ) -> Result<()> {
+        // Validate data before upload
+        DataValidator::validate_non_empty_data(&matrix)?;
+        DataValidator::validate_row_consistency(&matrix)?;
+
         let row_count = matrix.len();
 
         if let Some(p) = progress {
@@ -161,7 +179,9 @@ impl SheetsManager {
                 &update_body,
             )
             .await
-            .with_context(|| "Failed to upload data to spreadsheet")?;
+            .map_err(|e| {
+                FMDataError::sheets_api(format!("Failed to upload data to spreadsheet: {e}"))
+            })?;
 
         info!("Updated data: {}", update.status);
 

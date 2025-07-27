@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::error::{FMDataError, Result};
 use std::path::{Path, PathBuf};
 use tokio::fs as async_fs;
 use yup_oauth2::{
@@ -9,19 +9,18 @@ use zeroize::Zeroizing;
 /// Get the secure default directory for credentials and tokens
 pub async fn get_secure_config_dir() -> Result<PathBuf> {
     let config_dir = dirs::config_dir()
-        .ok_or_else(|| anyhow::anyhow!("Could not determine config directory"))?
+        .ok_or_else(|| FMDataError::auth("Could not determine config directory"))?
         .join("fm_data");
 
     // Create directory if it doesn't exist with secure permissions
     if !config_dir.exists() {
-        async_fs::create_dir_all(&config_dir)
-            .await
-            .with_context(|| {
-                format!(
-                    "Failed to create config directory: {}",
-                    config_dir.display()
-                )
-            })?;
+        async_fs::create_dir_all(&config_dir).await.map_err(|e| {
+            FMDataError::auth(format!(
+                "Failed to create config directory '{}': {}",
+                config_dir.display(),
+                e
+            ))
+        })?;
 
         // Set secure permissions on Unix systems
         #[cfg(unix)]
@@ -31,11 +30,12 @@ pub async fn get_secure_config_dir() -> Result<PathBuf> {
             perms.set_mode(0o700); // rwx------ (owner only)
             async_fs::set_permissions(&config_dir, perms)
                 .await
-                .with_context(|| {
-                    format!(
-                        "Failed to set secure permissions on {}",
-                        config_dir.display()
-                    )
+                .map_err(|e| {
+                    FMDataError::auth(format!(
+                        "Failed to set secure permissions on '{}': {}",
+                        config_dir.display(),
+                        e
+                    ))
                 })?;
         }
     }
@@ -45,9 +45,13 @@ pub async fn get_secure_config_dir() -> Result<PathBuf> {
 
 /// Check if a file has secure permissions (readable only by owner)
 pub async fn check_file_permissions(file_path: &Path) -> Result<()> {
-    let metadata = async_fs::metadata(file_path)
-        .await
-        .with_context(|| format!("Failed to read metadata for {}", file_path.display()))?;
+    let metadata = async_fs::metadata(file_path).await.map_err(|e| {
+        FMDataError::auth(format!(
+            "Failed to read metadata for '{}': {}",
+            file_path.display(),
+            e
+        ))
+    })?;
 
     #[cfg(unix)]
     {
@@ -57,12 +61,12 @@ pub async fn check_file_permissions(file_path: &Path) -> Result<()> {
 
         // File should be readable/writable by owner only (600 or stricter)
         if permissions & 0o077 != 0 {
-            return Err(anyhow::anyhow!(
-                "Credential file {} has insecure permissions ({:o}). Please run: chmod 600 {}",
+            return Err(FMDataError::auth(format!(
+                "Credential file '{}' has insecure permissions ({:o}). Please run: chmod 600 {}",
                 file_path.display(),
                 permissions,
                 file_path.display()
-            ));
+            )));
         }
     }
 
@@ -80,24 +84,23 @@ pub async fn check_file_permissions(file_path: &Path) -> Result<()> {
 /// Validate the structure and content of a Google OAuth credentials file
 pub fn validate_credentials_content(content: &str) -> Result<()> {
     // Parse JSON to validate structure
-    let json: serde_json::Value =
-        serde_json::from_str(content).with_context(|| "Invalid JSON in credentials file")?;
+    let json: serde_json::Value = serde_json::from_str(content)
+        .map_err(|e| FMDataError::auth(format!("Invalid JSON in credentials file: {e}")))?;
 
     // Check for required OAuth2 fields
     let installed = json
         .get("installed")
         .or_else(|| json.get("web"))
         .ok_or_else(|| {
-            anyhow::anyhow!("Credentials file must contain 'installed' or 'web' section")
+            FMDataError::auth("Credentials file must contain 'installed' or 'web' section")
         })?;
 
     let required_fields = ["client_id", "client_secret", "auth_uri", "token_uri"];
     for field in &required_fields {
         if installed.get(field).is_none() {
-            return Err(anyhow::anyhow!(
-                "Missing required field '{}' in credentials",
-                field
-            ));
+            return Err(FMDataError::auth(format!(
+                "Missing required field '{field}' in credentials"
+            )));
         }
     }
 
@@ -105,19 +108,19 @@ pub fn validate_credentials_content(content: &str) -> Result<()> {
     let auth_uri = installed
         .get("auth_uri")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("auth_uri must be a string"))?;
+        .ok_or_else(|| FMDataError::auth("auth_uri must be a string"))?;
 
     let token_uri = installed
         .get("token_uri")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("token_uri must be a string"))?;
+        .ok_or_else(|| FMDataError::auth("token_uri must be a string"))?;
 
     if !auth_uri.starts_with("https://") {
-        return Err(anyhow::anyhow!("auth_uri must use HTTPS"));
+        return Err(FMDataError::auth("auth_uri must use HTTPS"));
     }
 
     if !token_uri.starts_with("https://") {
-        return Err(anyhow::anyhow!("token_uri must use HTTPS"));
+        return Err(FMDataError::auth("token_uri must use HTTPS"));
     }
 
     // Check if this looks like a Google OAuth endpoint
@@ -133,17 +136,17 @@ pub async fn read_application_secret_secure(credfile: &str) -> Result<Applicatio
     let cred_path = Path::new(credfile);
 
     // Check file permissions
-    check_file_permissions(cred_path)
-        .await
-        .with_context(|| "Credentials file has insecure permissions")?;
+    check_file_permissions(cred_path).await.map_err(|e| {
+        FMDataError::auth(format!("Credentials file has insecure permissions: {e}"))
+    })?;
 
     // Read file content into secure memory and validate
     {
-        let content = Zeroizing::new(
-            async_fs::read_to_string(cred_path)
-                .await
-                .with_context(|| format!("Failed to read credentials file: {credfile}"))?,
-        );
+        let content = Zeroizing::new(async_fs::read_to_string(cred_path).await.map_err(|e| {
+            FMDataError::auth(format!(
+                "Failed to read credentials file '{credfile}': {e}"
+            ))
+        })?);
 
         // Validate content structure
         validate_credentials_content(&content)?;
@@ -154,7 +157,11 @@ pub async fn read_application_secret_secure(credfile: &str) -> Result<Applicatio
     // Parse using yup-oauth2
     let secret = yup_oauth2::read_application_secret(credfile)
         .await
-        .with_context(|| format!("Failed to parse credentials from {credfile}"))?;
+        .map_err(|e| {
+            FMDataError::auth(format!(
+                "Failed to parse credentials from '{credfile}': {e}"
+            ))
+        })?;
 
     Ok(secret)
 }
@@ -164,10 +171,9 @@ pub async fn create_authenticator_and_token(
     token_cache: &str,
 ) -> Result<(ApplicationSecret, AccessToken)> {
     if !Path::new(credfile).exists() {
-        return Err(anyhow::anyhow!(
-            "Credentials file does not exist: {}",
-            credfile
-        ));
+        return Err(FMDataError::auth(format!(
+            "Credentials file does not exist: {credfile}"
+        )));
     }
 
     // Use secure credential reading with validation
@@ -177,11 +183,12 @@ pub async fn create_authenticator_and_token(
     let token_cache_path = Path::new(token_cache);
     if let Some(parent) = token_cache_path.parent() {
         if !parent.exists() {
-            async_fs::create_dir_all(parent).await.with_context(|| {
-                format!(
-                    "Failed to create token cache directory: {}",
-                    parent.display()
-                )
+            async_fs::create_dir_all(parent).await.map_err(|e| {
+                FMDataError::auth(format!(
+                    "Failed to create token cache directory '{}': {}",
+                    parent.display(),
+                    e
+                ))
             })?;
 
             // Set secure permissions on Unix systems
@@ -192,8 +199,12 @@ pub async fn create_authenticator_and_token(
                 perms.set_mode(0o700); // rwx------ (owner only)
                 async_fs::set_permissions(parent, perms)
                     .await
-                    .with_context(|| {
-                        format!("Failed to set secure permissions on {}", parent.display())
+                    .map_err(|e| {
+                        FMDataError::auth(format!(
+                            "Failed to set secure permissions on '{}': {}",
+                            parent.display(),
+                            e
+                        ))
                     })?;
             }
         }
@@ -206,14 +217,14 @@ pub async fn create_authenticator_and_token(
     .persist_tokens_to_disk(token_cache)
     .build()
     .await
-    .with_context(|| "Failed to build authenticator")?;
+    .map_err(|e| FMDataError::auth(format!("Failed to build authenticator: {e}")))?;
 
     let scopes = &["https://www.googleapis.com/auth/spreadsheets"];
 
     let token = auth
         .token(scopes)
         .await
-        .with_context(|| "Failed to obtain OAuth token")?;
+        .map_err(|e| FMDataError::auth(format!("Failed to obtain OAuth token: {e}")))?;
 
     // Set secure permissions on token cache file if it was created
     if token_cache_path.exists() {
@@ -224,11 +235,12 @@ pub async fn create_authenticator_and_token(
             perms.set_mode(0o600); // rw------- (owner only)
             async_fs::set_permissions(token_cache_path, perms)
                 .await
-                .with_context(|| {
-                    format!(
-                        "Failed to set secure permissions on {}",
-                        token_cache_path.display()
-                    )
+                .map_err(|e| {
+                    FMDataError::auth(format!(
+                        "Failed to set secure permissions on '{}': {}",
+                        token_cache_path.display(),
+                        e
+                    ))
                 })?;
         }
     }
@@ -239,7 +251,11 @@ pub async fn create_authenticator_and_token(
 pub async fn read_application_secret(credfile: &str) -> Result<ApplicationSecret> {
     yup_oauth2::read_application_secret(credfile)
         .await
-        .with_context(|| format!("Failed to read application secret from {credfile}"))
+        .map_err(|e| {
+            FMDataError::auth(format!(
+                "Failed to read application secret from '{credfile}': {e}"
+            ))
+        })
 }
 
 #[cfg(test)]

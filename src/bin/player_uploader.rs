@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
 use clap::Parser;
+use fm_data::error::{FMDataError, Result};
 use fm_data::{
     create_authenticator_and_token, get_secure_config_dir, process_table_data, read_table,
     validate_data_size, validate_table_structure, Config, ProgressCallback, ProgressTracker,
@@ -101,78 +101,16 @@ impl CLIArguments {
         if self.config != "config.json" {
             let config_path = Path::new(&self.config);
             if !config_path.exists() {
-                return Err(anyhow::anyhow!(
+                return Err(FMDataError::config(format!(
                     "Config file '{}' does not exist. Use --config to specify a valid config file or create '{}'",
                     self.config,
                     self.config
-                ));
+                )));
             }
         }
 
-        // Validate input file if provided
-        if let Some(ref input) = self.input {
-            let input_path = Path::new(input);
-            if !input_path.exists() {
-                return Err(anyhow::anyhow!(
-                    "Input file '{}' does not exist. Please provide a valid Football Manager HTML export file.",
-                    input
-                ));
-            }
-
-            // Check file extension
-            if let Some(extension) = input_path.extension() {
-                if extension.to_string_lossy().to_lowercase() != "html" {
-                    warn!("Input file '{}' does not have .html extension. This may not be a valid Football Manager export.", input);
-                }
-            }
-        }
-
-        // Validate credentials file if provided
-        if let Some(ref credfile) = self.credfile {
-            let cred_path = Path::new(credfile);
-            if !cred_path.exists() {
-                return Err(anyhow::anyhow!(
-                    "Credentials file '{}' does not exist. Please provide a valid Google API credentials JSON file.",
-                    credfile
-                ));
-            }
-
-            // Check file extension
-            if let Some(extension) = cred_path.extension() {
-                if extension.to_string_lossy().to_lowercase() != "json" {
-                    warn!("Credentials file '{}' does not have .json extension. This may not be a valid Google API credentials file.", credfile);
-                }
-            }
-        }
-
-        // Validate spreadsheet ID format if provided
-        if let Some(ref spreadsheet) = self.spreadsheet {
-            if spreadsheet.is_empty() {
-                return Err(anyhow::anyhow!(
-                    "Spreadsheet ID cannot be empty. Please provide a valid Google Sheets spreadsheet ID."
-                ));
-            }
-
-            // Basic validation for Google Sheets ID format (alphanumeric, hyphens, underscores)
-            if !spreadsheet
-                .chars()
-                .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
-            {
-                return Err(anyhow::anyhow!(
-                    "Invalid spreadsheet ID format: '{}'. Google Sheets IDs should contain only letters, numbers, hyphens, and underscores.",
-                    spreadsheet
-                ));
-            }
-
-            // Check minimum length (Google Sheets IDs are typically quite long)
-            if spreadsheet.len() < 20 {
-                warn!(
-                    "Spreadsheet ID '{}' seems unusually short. Please verify this is correct.",
-                    spreadsheet
-                );
-            }
-        }
-
+        // The rest of the validation is now handled by the validation module
+        // when resolve_paths is called, so we just do basic existence checks here
         Ok(())
     }
 }
@@ -225,26 +163,28 @@ async fn main() -> Result<()> {
 
     // Resolve configuration paths
     progress.update(5, 100, "Resolving configuration paths...");
-    let (spreadsheet, credfile, input) =
-        config.resolve_paths(cli.spreadsheet, cli.credfile, cli.input);
+    let (spreadsheet, credfile, input) = config
+        .resolve_paths(cli.spreadsheet, cli.credfile, cli.input)
+        .map_err(|e| {
+            error!("Configuration validation failed: {}", e);
+            e
+        })?;
 
     debug!("Using spreadsheet: {}", spreadsheet);
     debug!("Using credentials file: {}", credfile);
     debug!("Using input HTML file: {}", input);
 
-    // Validate input files exist
-    if !Path::new(&input).exists() {
-        error!("Input file does not exist: {}", input);
-        return Err(anyhow::anyhow!("Input file does not exist: {}", input));
-    }
+    // Input file validation is now handled by resolve_paths
 
     // Authentication setup
     progress.update(10, 100, "Setting up authentication...");
 
     // Ensure secure config directory exists
-    let _secure_dir = get_secure_config_dir()
-        .await
-        .with_context(|| "Failed to setup secure configuration directory")?;
+    let _secure_dir = get_secure_config_dir().await.map_err(|e| {
+        FMDataError::auth(format!(
+            "Failed to setup secure configuration directory: {e}"
+        ))
+    })?;
 
     let token_cache = if config.google.token_file.is_empty() {
         get_secure_config_dir()
@@ -272,13 +212,14 @@ async fn main() -> Result<()> {
 
     // Read table from HTML
     progress.update(40, 100, "Reading HTML table data...");
-    let table = read_table(&input)
-        .await
-        .with_context(|| format!("Failed to extract table from {input}"))?;
+    let table = read_table(&input).await.map_err(|e| {
+        FMDataError::table(format!("Failed to extract table from '{input}': {e}"))
+    })?;
 
     // Validate table structure
     progress.update(50, 100, "Validating table structure...");
-    validate_table_structure(&table).with_context(|| "Invalid table structure")?;
+    validate_table_structure(&table)
+        .map_err(|e| FMDataError::table(format!("Invalid table structure: {e}")))?;
 
     let row_count = table.iter().count();
     info!("Got table with {} rows", row_count);
@@ -293,7 +234,7 @@ async fn main() -> Result<()> {
 
     // Clear and upload data
     progress.update(70, 100, "Preparing data for upload...");
-    let matrix = process_table_data(&table);
+    let matrix = process_table_data(&table)?;
 
     sheets_manager
         .clear_range(&config.google.team_sheet, Some(progress))
