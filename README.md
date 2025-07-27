@@ -43,6 +43,9 @@ The application uses a hierarchical configuration system with the following prio
 
 ### Configuration File Format
 
+The config file supports **partial configurations** - you only need to specify the fields you want to override. Missing fields will automatically use sensible defaults.
+
+**Complete config example:**
 ```json
 {
     "google" : {
@@ -61,6 +64,16 @@ The application uses a hierarchical configuration system with the following prio
 }
 ```
 
+**Minimal config example (only override what you need):**
+```json
+{
+    "google" : {
+        "creds_file" : "/path/to/my-credentials.json",
+        "spreadsheet_name" : "your-spreadsheet-id"
+    }
+}
+```
+
 ## 🏗️ Development
 
 ### Building
@@ -74,7 +87,7 @@ cargo build --release
 
 ### Testing
 ```bash
-# Run comprehensive test suite (29 tests)
+# Run comprehensive test suite (37 tests)
 cargo test
 
 # Run tests with output

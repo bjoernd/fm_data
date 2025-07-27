@@ -69,6 +69,8 @@ The application uses a hierarchical configuration system:
 2. JSON config file (default: `config.json`)
 3. Hardcoded defaults (lowest priority)
 
+**Flexible Configuration**: The config file supports partial configurations using serde defaults. Missing fields are automatically filled with appropriate default values, allowing users to create minimal config files containing only the settings they want to override.
+
 Configuration includes Google API credentials, spreadsheet IDs, sheet names, and input HTML file paths.
 
 ### Data Processing
@@ -82,6 +84,15 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, and
 ### Error Handling
 
 Uses `anyhow` for comprehensive error handling throughout the application, with proper context propagation for debugging.
+
+### Async I/O Architecture
+
+The application uses non-blocking async I/O operations throughout:
+
+- **File operations**: All file reads, directory creation, and permission setting use `tokio::fs` instead of blocking `std::fs`
+- **Network operations**: Google Sheets API calls and OAuth flows are fully async
+- **Performance**: Prevents blocking the async runtime during I/O operations, maintaining responsiveness
+- **Scalability**: Enables efficient concurrent processing of multiple operations
 
 ### Progress Tracking
 
@@ -106,7 +117,7 @@ The application uses smart logging that adapts to the runtime mode:
 
 The codebase includes comprehensive unit tests for all modules:
 
-- **Config tests**: JSON parsing, path resolution hierarchy, error handling
+- **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
 - **Sheets tests**: Data structure validation, range formatting
@@ -121,7 +132,7 @@ Integration tests with Google APIs are not included due to authentication comple
 - OAuth tokens are cached to disk in `tokencache.json`
 - The application validates that both input HTML files and Google credentials exist before processing
 - Range validation ensures data fits within the hardcoded Google Sheets range (A2:AX58)
-- All modules include comprehensive unit tests (29 tests total)
+- All modules include comprehensive unit tests (37 tests total)
 
 ## Code Quality
 
