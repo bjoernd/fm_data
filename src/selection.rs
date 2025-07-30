@@ -306,6 +306,89 @@ pub async fn parse_role_file(file_path: &str) -> Result<Vec<Role>> {
     Ok(roles)
 }
 
+/// Parse player data from Google Sheets raw data into Player structs
+pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
+    let mut players = Vec::new();
+
+    for (row_index, row) in sheet_data.iter().enumerate() {
+        // Skip rows where column A (player name) is empty
+        if row.is_empty() || row[0].trim().is_empty() {
+            continue;
+        }
+
+        let player_name = row[0].trim().to_string();
+
+        // Parse age (column B)
+        let age = if row.len() > 1 {
+            row[1].trim().parse::<u8>().unwrap_or(0)
+        } else {
+            0
+        };
+
+        // Parse footedness (column C)
+        let footedness = if row.len() > 2 {
+            row[2]
+                .trim()
+                .parse::<Footedness>()
+                .unwrap_or(Footedness::Right)
+        } else {
+            Footedness::Right
+        };
+
+        // Parse abilities (columns D-AX, indices 3-49)
+        let mut abilities = Vec::new();
+        for i in 0..ABILITIES.len() {
+            let col_index = i + 3; // Abilities start at column D (index 3)
+            let value = if col_index < row.len() {
+                row[col_index].trim().parse::<f32>().ok()
+            } else {
+                None
+            };
+            abilities.push(value);
+        }
+
+        // Parse DNA score (column AY, index 50)
+        let dna_score = if row.len() > 50 {
+            row[50].trim().parse::<f32>().ok()
+        } else {
+            None
+        };
+
+        // Parse role ratings (columns AZ-EQ, indices 51+)
+        let mut role_ratings = Vec::new();
+        for i in 0..VALID_ROLES.len() {
+            let col_index = i + 51; // Role ratings start at column AZ (index 51)
+            let value = if col_index < row.len() {
+                row[col_index].trim().parse::<f32>().ok()
+            } else {
+                None
+            };
+            role_ratings.push(value);
+        }
+
+        match Player::new(
+            player_name.clone(),
+            age,
+            footedness,
+            abilities,
+            dna_score,
+            role_ratings,
+        ) {
+            Ok(player) => players.push(player),
+            Err(e) => {
+                return Err(FMDataError::selection(format!(
+                    "Failed to create player '{}' on row {}: {}",
+                    player_name,
+                    row_index + 1,
+                    e
+                )));
+            }
+        }
+    }
+
+    Ok(players)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -788,5 +871,317 @@ mod tests {
             .unwrap_err()
             .to_string()
             .contains("Role file must contain exactly 11 roles, found 0"));
+    }
+
+    #[test]
+    fn test_parse_player_data_complete() {
+        // Create test data with all fields populated
+        let mut row = vec!["Test Player".to_string(), "25".to_string(), "R".to_string()];
+
+        // Add abilities (47 values)
+        for i in 0..ABILITIES.len() {
+            row.push((i as f32 + 10.0).to_string());
+        }
+
+        // Add DNA score
+        row.push("85.5".to_string());
+
+        // Add role ratings (96 values)
+        for i in 0..VALID_ROLES.len() {
+            row.push((i as f32 + 5.0).to_string());
+        }
+
+        let sheet_data = vec![row];
+        let result = parse_player_data(sheet_data);
+
+        assert!(result.is_ok());
+        let players = result.unwrap();
+        assert_eq!(players.len(), 1);
+
+        let player = &players[0];
+        assert_eq!(player.name, "Test Player");
+        assert_eq!(player.age, 25);
+        assert_eq!(player.footedness, Footedness::Right);
+        assert_eq!(player.dna_score, Some(85.5));
+        assert_eq!(player.abilities.len(), ABILITIES.len());
+        assert_eq!(player.role_ratings.len(), VALID_ROLES.len());
+
+        // Check first ability and role rating
+        assert_eq!(player.abilities[0], Some(10.0));
+        assert_eq!(player.role_ratings[0], Some(5.0));
+    }
+
+    #[test]
+    fn test_parse_player_data_missing_abilities() {
+        // Create minimal data - only name, age, footedness
+        let row = vec![
+            "Minimal Player".to_string(),
+            "30".to_string(),
+            "L".to_string(),
+        ];
+        let sheet_data = vec![row];
+
+        let result = parse_player_data(sheet_data);
+        assert!(result.is_ok());
+
+        let players = result.unwrap();
+        assert_eq!(players.len(), 1);
+
+        let player = &players[0];
+        assert_eq!(player.name, "Minimal Player");
+        assert_eq!(player.age, 30);
+        assert_eq!(player.footedness, Footedness::Left);
+        assert_eq!(player.dna_score, None);
+
+        // All abilities should be None due to missing data
+        for ability in &player.abilities {
+            assert_eq!(*ability, None);
+        }
+
+        // All role ratings should be None due to missing data
+        for rating in &player.role_ratings {
+            assert_eq!(*rating, None);
+        }
+    }
+
+    #[test]
+    fn test_parse_player_data_empty_cells() {
+        // Create data with empty cells that should become 0.0
+        let mut row = vec![
+            "Empty Cells Player".to_string(),
+            "22".to_string(),
+            "RL".to_string(),
+        ];
+
+        // Add some abilities with empty values mixed in
+        for i in 0..ABILITIES.len() {
+            if i % 3 == 0 {
+                row.push("".to_string()); // Empty cell
+            } else {
+                row.push((i as f32 + 1.0).to_string());
+            }
+        }
+
+        row.push("".to_string()); // Empty DNA score
+
+        // Add role ratings with some empty
+        for i in 0..VALID_ROLES.len() {
+            if i % 4 == 0 {
+                row.push("".to_string()); // Empty cell
+            } else {
+                row.push((i as f32 + 2.0).to_string());
+            }
+        }
+
+        let sheet_data = vec![row];
+        let result = parse_player_data(sheet_data);
+
+        assert!(result.is_ok());
+        let players = result.unwrap();
+        let player = &players[0];
+
+        assert_eq!(player.name, "Empty Cells Player");
+        assert_eq!(player.footedness, Footedness::Both);
+        assert_eq!(player.dna_score, None);
+
+        // Check that empty cells become None
+        for (i, ability) in player.abilities.iter().enumerate() {
+            if i % 3 == 0 {
+                assert_eq!(*ability, None);
+            } else {
+                assert_eq!(*ability, Some(i as f32 + 1.0));
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_player_data_skip_empty_names() {
+        let sheet_data = vec![
+            vec!["".to_string(), "25".to_string(), "R".to_string()], // Empty name
+            vec!["  ".to_string(), "30".to_string(), "L".to_string()], // Whitespace only
+            vec![
+                "Valid Player".to_string(),
+                "28".to_string(),
+                "RL".to_string(),
+            ],
+            vec![], // Empty row
+        ];
+
+        let result = parse_player_data(sheet_data);
+        assert!(result.is_ok());
+
+        let players = result.unwrap();
+        assert_eq!(players.len(), 1); // Only the valid player
+        assert_eq!(players[0].name, "Valid Player");
+    }
+
+    #[test]
+    fn test_parse_player_data_invalid_footedness() {
+        let row = vec![
+            "Invalid Foot Player".to_string(),
+            "25".to_string(),
+            "INVALID".to_string(),
+        ];
+        let sheet_data = vec![row];
+
+        let result = parse_player_data(sheet_data);
+        assert!(result.is_ok());
+
+        let players = result.unwrap();
+        assert_eq!(players.len(), 1);
+
+        // Invalid footedness should default to Right
+        assert_eq!(players[0].footedness, Footedness::Right);
+    }
+
+    #[test]
+    fn test_parse_player_data_malformed_numeric() {
+        let mut row = vec![
+            "Bad Numbers Player".to_string(),
+            "not_a_number".to_string(),
+            "R".to_string(),
+        ];
+
+        // Add some malformed numeric data
+        for i in 0..ABILITIES.len() {
+            if i < 5 {
+                row.push("not_a_number".to_string());
+            } else {
+                row.push("10.5".to_string());
+            }
+        }
+
+        row.push("invalid_dna".to_string());
+
+        for _i in 0..VALID_ROLES.len() {
+            row.push("7.5".to_string());
+        }
+
+        let sheet_data = vec![row];
+        let result = parse_player_data(sheet_data);
+
+        assert!(result.is_ok());
+        let players = result.unwrap();
+        let player = &players[0];
+
+        // Bad age should become 0
+        assert_eq!(player.age, 0);
+
+        // Bad DNA should become None
+        assert_eq!(player.dna_score, None);
+
+        // Bad abilities should become None, good ones should parse
+        for (i, ability) in player.abilities.iter().enumerate() {
+            if i < 5 {
+                assert_eq!(*ability, None);
+            } else {
+                assert_eq!(*ability, Some(10.5));
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_player_data_different_row_sizes() {
+        let sheet_data = vec![
+            // Short row - missing most data
+            vec!["Short Player".to_string()],
+            // Medium row - has some abilities
+            vec![
+                "Medium Player".to_string(),
+                "25".to_string(),
+                "L".to_string(),
+                "10.0".to_string(),
+                "11.0".to_string(),
+            ],
+            // Very long row with extra columns (should be ignored)
+            {
+                let mut row = vec![
+                    "Long Player".to_string(),
+                    "30".to_string(),
+                    "RL".to_string(),
+                ];
+                // Add all expected data plus extra
+                for _i in 0..ABILITIES.len() {
+                    row.push("8.0".to_string());
+                }
+                row.push("90.0".to_string()); // DNA
+                for _i in 0..VALID_ROLES.len() {
+                    row.push("6.0".to_string());
+                }
+                row.push("extra1".to_string()); // Extra columns
+                row.push("extra2".to_string());
+                row
+            },
+        ];
+
+        let result = parse_player_data(sheet_data);
+        assert!(result.is_ok());
+
+        let players = result.unwrap();
+        assert_eq!(players.len(), 3);
+
+        // Short player - most data should be None/default
+        assert_eq!(players[0].name, "Short Player");
+        assert_eq!(players[0].age, 0);
+        assert_eq!(players[0].footedness, Footedness::Right);
+        assert_eq!(players[0].dna_score, None);
+
+        // Medium player - partial data
+        assert_eq!(players[1].name, "Medium Player");
+        assert_eq!(players[1].age, 25);
+        assert_eq!(players[1].footedness, Footedness::Left);
+        assert_eq!(players[1].abilities[0], Some(10.0)); // First ability parsed
+        assert_eq!(players[1].abilities[1], Some(11.0)); // Second ability parsed
+        assert_eq!(players[1].abilities[2], None); // Third ability missing
+
+        // Long player - all data should be parsed correctly
+        assert_eq!(players[2].name, "Long Player");
+        assert_eq!(players[2].age, 30);
+        assert_eq!(players[2].footedness, Footedness::Both);
+        assert_eq!(players[2].dna_score, Some(90.0));
+        assert_eq!(players[2].abilities[0], Some(8.0));
+        assert_eq!(players[2].role_ratings[0], Some(6.0));
+    }
+
+    #[test]
+    fn test_parse_player_data_column_mapping() {
+        // Test that column indices map correctly to abilities and roles
+        let mut row = vec![
+            "Mapping Test".to_string(),
+            "25".to_string(),
+            "R".to_string(),
+        ];
+
+        // Add abilities with specific test values
+        for i in 0..ABILITIES.len() {
+            row.push(format!("ability_{i}"));
+        }
+
+        row.push("99.9".to_string()); // DNA
+
+        // Add role ratings with specific test values
+        for i in 0..VALID_ROLES.len() {
+            row.push(format!("role_{i}"));
+        }
+
+        let sheet_data = vec![row];
+        let result = parse_player_data(sheet_data);
+
+        assert!(result.is_ok());
+        let players = result.unwrap();
+        let player = &players[0];
+
+        // Verify abilities map to correct indices
+        assert_eq!(player.abilities.len(), ABILITIES.len());
+
+        // Verify role ratings map to correct indices
+        assert_eq!(player.role_ratings.len(), VALID_ROLES.len());
+
+        // Test specific ability retrieval
+        assert_eq!(player.get_ability("Cor"), 0.0); // "ability_0" can't parse as f32, becomes 0.0
+
+        // Test specific role rating retrieval
+        let first_role = Role::new(VALID_ROLES[0]).unwrap();
+        assert_eq!(player.get_role_rating(&first_role), 0.0); // "role_0" can't parse as f32, becomes 0.0
     }
 }

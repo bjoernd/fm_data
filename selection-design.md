@@ -54,28 +54,28 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - ✅ `cargo fmt`
    - ✅ `cargo clippy --fix`
 
-### Step 3: Google Sheets Data Parser
+### Step 3: Google Sheets Data Parser ✅ **COMPLETED**
 **Starting assumption**: Role parser from Step 2 exists, existing sheets_client available
 **Completion criteria**: Can download and parse player data from Google Sheets range A2:EQ58 with thorough test coverage
 
-3.1. Extend sheets client to read from 'Squad' sheet range A2:EQ58
-3.2. Implement `parse_player_data()` function to convert raw sheet data into Player structs
-3.3. Skip rows where column A (player name) is empty
-3.4. Parse abilities (columns D-AX) treating empty cells as 0.0
-3.5. Parse role ratings (columns AZ-EQ) treating empty cells as 0.0
-3.6. Map column positions to the correct ability/role indices
-3.7. **Write comprehensive unit tests for player data parser**:
-   - Test parsing complete player data (all fields populated)
-   - Test parsing player data with missing abilities (empty cells → 0.0)
-   - Test parsing player data with missing role ratings (empty cells → 0.0)
-   - Test skipping rows with empty player names
-   - Test handling invalid footedness values
-   - Test handling malformed numeric data in abilities/ratings
-   - Test parsing with different sheet data sizes (fewer/more than expected columns)
-   - Test column-to-index mapping correctness for all 45+ abilities and 89+ roles
-3.8. **Run code quality checks**:
-   - `cargo fmt`
-   - `cargo clippy --fix`
+3.1. ✅ Extend sheets client to read from 'Squad' sheet range A2:EQ58
+3.2. ✅ Implement `parse_player_data()` function to convert raw sheet data into Player structs
+3.3. ✅ Skip rows where column A (player name) is empty
+3.4. ✅ Parse abilities (columns D-AX) treating empty cells as 0.0
+3.5. ✅ Parse role ratings (columns AZ-EQ) treating empty cells as 0.0
+3.6. ✅ Map column positions to the correct ability/role indices
+3.7. ✅ **Write comprehensive unit tests for player data parser** (8 tests):
+   - ✅ Test parsing complete player data (all fields populated)
+   - ✅ Test parsing player data with missing abilities (empty cells → None)
+   - ✅ Test parsing player data with missing role ratings (empty cells → None)
+   - ✅ Test skipping rows with empty player names
+   - ✅ Test handling invalid footedness values
+   - ✅ Test handling malformed numeric data in abilities/ratings
+   - ✅ Test parsing with different sheet data sizes (fewer/more than expected columns)
+   - ✅ Test column-to-index mapping correctness for all 47 abilities and 96 roles
+3.8. ✅ **Run code quality checks**:
+   - ✅ `cargo fmt`
+   - ✅ `cargo clippy --fix`
 
 ### Step 4: Assignment Algorithm
 **Starting assumption**: Player and role data structures exist with parsed data

@@ -191,6 +191,43 @@ impl SheetsManager {
 
         Ok(())
     }
+
+    pub async fn read_data(
+        &self,
+        sheet_name: &str,
+        range: &str,
+        progress: Option<&dyn ProgressCallback>,
+    ) -> Result<Vec<Vec<String>>> {
+        if let Some(p) = progress {
+            p.set_message(&format!("Reading data from {sheet_name}..."));
+        }
+
+        let full_range = format!("{sheet_name}!{range}");
+        debug!("Reading range: {}", full_range);
+
+        let response = self
+            .client
+            .values_get(
+                &self.spreadsheet_id,
+                &full_range,
+                DateTimeRenderOption::FormattedString,
+                Dimension::Rows,
+                ValueRenderOption::FormattedValue,
+            )
+            .await
+            .map_err(|e| {
+                FMDataError::sheets_api(format!("Failed to read data from {full_range}: {e}"))
+            })?;
+
+        let values = response.body.values;
+        info!("Read {} rows from {}", values.len(), full_range);
+
+        if let Some(p) = progress {
+            p.inc(1);
+        }
+
+        Ok(values)
+    }
 }
 
 #[cfg(test)]
