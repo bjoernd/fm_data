@@ -57,6 +57,8 @@ pub struct InputConfig {
     pub league_perf_html: String,
     #[serde(default)]
     pub team_perf_html: String,
+    #[serde(default)]
+    pub role_file: String,
 }
 
 impl Default for GoogleConfig {
@@ -176,6 +178,40 @@ impl Config {
 
         (resolved_spreadsheet, resolved_credfile, resolved_input)
     }
+
+    /// Resolve paths for team selector including role file
+    pub fn resolve_team_selector_paths(
+        &self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        role_file: Option<String>,
+    ) -> Result<(String, String, String)> {
+        let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
+
+        let resolved_spreadsheet = spreadsheet
+            .or_else(|| Some(self.google.spreadsheet_name.clone()))
+            .filter(|s| !s.is_empty())
+            .unwrap_or(default_spreadsheet);
+
+        let resolved_credfile = credfile
+            .or_else(|| Some(self.google.creds_file.clone()))
+            .filter(|s| !s.is_empty())
+            .unwrap_or(default_creds);
+
+        let resolved_role_file = role_file
+            .or_else(|| Some(self.input.role_file.clone()))
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| FMDataError::config("Role file path is required".to_string()))?;
+
+        // Validate the resolved paths
+        IdValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        PathValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        PathValidator::validate_file_extension(&resolved_credfile, "json")?;
+        PathValidator::validate_file_exists(&resolved_role_file, "Role file")?;
+        PathValidator::validate_file_extension(&resolved_role_file, "txt")?;
+
+        Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
+    }
 }
 
 #[cfg(test)]
@@ -267,6 +303,7 @@ mod tests {
                 data_html: "config_data.html".to_string(),
                 league_perf_html: "config_league.html".to_string(),
                 team_perf_html: "config_team.html".to_string(),
+                role_file: String::new(),
             },
         };
 
@@ -305,6 +342,7 @@ mod tests {
                 data_html: input_file.path().to_string_lossy().to_string(),
                 league_perf_html: "config_league.html".to_string(),
                 team_perf_html: "config_team.html".to_string(),
+                role_file: String::new(),
             },
         };
 
@@ -440,6 +478,70 @@ mod tests {
         assert!(config.input.data_html.is_empty());
         assert!(config.input.team_perf_html.is_empty());
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_team_selector_paths() -> Result<()> {
+        // Create temporary files for testing
+        let creds_file = NamedTempFile::new().unwrap();
+        let role_file = NamedTempFile::new().unwrap();
+
+        let config = Config {
+            google: GoogleConfig {
+                creds_file: creds_file.path().to_string_lossy().to_string(),
+                token_file: "tokencache.json".to_string(),
+                spreadsheet_name: "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string(),
+                team_sheet: "Squad".to_string(),
+                team_perf_sheet: "Stats_Team".to_string(),
+                league_perf_sheet: "Stats_Division".to_string(),
+            },
+            input: InputConfig {
+                data_html: "data.html".to_string(),
+                league_perf_html: "league.html".to_string(),
+                team_perf_html: "team.html".to_string(),
+                role_file: role_file.path().to_string_lossy().to_string(),
+            },
+        };
+
+        let (spreadsheet, credfile, rolefile) =
+            config.resolve_team_selector_paths(None, None, None)?;
+
+        assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
+        assert!(credfile.contains("tmp"));
+        assert!(rolefile.contains("tmp"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_team_selector_paths_missing_role_file() {
+        let config = Config::create_default();
+
+        let result = config.resolve_team_selector_paths(None, None, None);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Role file path is required"));
+    }
+
+    #[test]
+    fn test_resolve_team_selector_paths_cli_override() -> Result<()> {
+        // Create temporary files for testing
+        let creds_file = NamedTempFile::new().unwrap();
+        let role_file = NamedTempFile::new().unwrap();
+
+        let config = Config::create_default();
+
+        let (spreadsheet, credfile, rolefile) = config.resolve_team_selector_paths(
+            Some("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string()),
+            Some(creds_file.path().to_string_lossy().to_string()),
+            Some(role_file.path().to_string_lossy().to_string()),
+        )?;
+
+        assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
+        assert!(credfile.contains("tmp"));
+        assert!(rolefile.contains("tmp"));
         Ok(())
     }
 }

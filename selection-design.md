@@ -31,22 +31,28 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - ✅ Test Footedness parsing and display
    - ✅ Test duplicate player/role validation
    - ✅ Test error handling for edge cases
+1.7. ✅ **Run code quality checks**:
+   - ✅ `cargo fmt`
+   - ✅ `cargo clippy --fix`
 
-### Step 2: Role File Parser
+### Step 2: Role File Parser ✅ **COMPLETED**
 **Starting assumption**: Data structures from Step 1 exist
 **Completion criteria**: Can read and validate role files, returning appropriate errors for invalid roles with comprehensive test coverage
 
-2.1. Add role file path to configuration (extend existing config system)
-2.2. Implement `parse_role_file()` function using `tokio::fs::read_to_string`
-2.3. Validate each role against the predefined role list (tab-separated string from spec)
-2.4. Return error if file doesn't contain exactly 11 valid roles
-2.5. **Write comprehensive unit tests for role file parser**:
-   - Test parsing valid 11-role file
-   - Test error handling for non-existent files
-   - Test error handling for files with wrong number of roles (0, 10, 12 roles)
-   - Test error handling for files with invalid role names
-   - Test error handling for files with duplicate roles
-   - Test handling of whitespace and empty lines in role files
+2.1. ✅ Add role file path to configuration (extend existing config system)
+2.2. ✅ Implement `parse_role_file()` function using `tokio::fs::read_to_string`
+2.3. ✅ Validate each role against the predefined role list (tab-separated string from spec)
+2.4. ✅ Return error if file doesn't contain exactly 11 valid roles
+2.5. ✅ **Write comprehensive unit tests for role file parser** (7 tests):
+   - ✅ Test parsing valid 11-role file
+   - ✅ Test error handling for non-existent files
+   - ✅ Test error handling for files with wrong number of roles (0, 10, 12 roles)
+   - ✅ Test error handling for files with invalid role names
+   - ✅ Test error handling for files with duplicate roles
+   - ✅ Test handling of whitespace and empty lines in role files
+2.6. ✅ **Run code quality checks**:
+   - ✅ `cargo fmt`
+   - ✅ `cargo clippy --fix`
 
 ### Step 3: Google Sheets Data Parser
 **Starting assumption**: Role parser from Step 2 exists, existing sheets_client available
@@ -67,6 +73,9 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - Test handling malformed numeric data in abilities/ratings
    - Test parsing with different sheet data sizes (fewer/more than expected columns)
    - Test column-to-index mapping correctness for all 45+ abilities and 89+ roles
+3.8. **Run code quality checks**:
+   - `cargo fmt`
+   - `cargo clippy --fix`
 
 ### Step 4: Assignment Algorithm
 **Starting assumption**: Player and role data structures exist with parsed data
@@ -87,6 +96,9 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - Test algorithm correctness with known optimal solutions (small datasets)
    - Test edge case where player has 0.0 rating for assigned role
    - Test algorithm performance with realistic dataset sizes (50+ players)
+4.5. **Run code quality checks**:
+   - `cargo fmt`
+   - `cargo clippy --fix`
 
 ### Step 5: Output Formatting
 **Starting assumption**: Assignment algorithm produces valid Team struct
@@ -101,6 +113,9 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - Test output ordering (consistent and predictable)
    - Test handling of long player names and role names
    - Test output with edge cases (minimum/maximum scores)
+5.5. **Run code quality checks**:
+   - `cargo fmt`
+   - `cargo clippy --fix`
 
 ### Step 6: Main Binary Implementation
 **Starting assumption**: All previous steps complete
@@ -119,6 +134,9 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - Output results
 6.6. Add comprehensive error handling with anyhow
 6.7. Add progress tracking for long operations
+6.8. **Run code quality checks**:
+   - `cargo fmt`
+   - `cargo clippy --fix`
 
 ### Step 7: Integration Testing
 **Starting assumption**: Complete binary implementation
@@ -135,6 +153,9 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - Document steps to test with actual Google Sheets data
    - Verify assignments make logical sense with known player data
    - Test performance with realistic dataset sizes
+7.4. **Run code quality checks**:
+   - `cargo fmt`
+   - `cargo clippy --fix`
 
 ### Step 8: Documentation and Build Integration
 **Starting assumption**: Working tool with tests

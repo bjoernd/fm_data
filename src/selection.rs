@@ -1,6 +1,7 @@
 use crate::error::{FMDataError, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use tokio::fs;
 
 /// Valid roles that can be assigned to players
 const VALID_ROLES: &[&str] = &[
@@ -271,6 +272,47 @@ impl fmt::Display for Team {
         writeln!(f, "Total Score: {:.1}", self.total_score())?;
         Ok(())
     }
+}
+
+/// Parse a role file containing 11 roles (one per line)
+pub async fn parse_role_file(file_path: &str) -> Result<Vec<Role>> {
+    let content = fs::read_to_string(file_path).await.map_err(|e| {
+        FMDataError::selection(format!("Failed to read role file '{file_path}': {e}"))
+    })?;
+
+    let lines: Vec<String> = content
+        .lines()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect();
+
+    if lines.len() != 11 {
+        return Err(FMDataError::selection(format!(
+            "Role file must contain exactly 11 roles, found {}",
+            lines.len()
+        )));
+    }
+
+    let mut roles = Vec::new();
+    let mut seen_roles = std::collections::HashSet::new();
+
+    for (line_num, line) in lines.iter().enumerate() {
+        let role = Role::new(line).map_err(|e| {
+            FMDataError::selection(format!("Invalid role on line {}: {}", line_num + 1, e))
+        })?;
+
+        if !seen_roles.insert(role.name.clone()) {
+            return Err(FMDataError::selection(format!(
+                "Duplicate role '{}' found on line {}",
+                role.name,
+                line_num + 1
+            )));
+        }
+
+        roles.push(role);
+    }
+
+    Ok(roles)
 }
 
 #[cfg(test)]
@@ -593,5 +635,167 @@ mod tests {
         let sorted_by_score = team.sorted_by_score();
         assert_eq!(sorted_by_score.len(), 11);
         assert!(sorted_by_score[0].score >= sorted_by_score[1].score);
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_valid() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let valid_roles =
+            "GK\nW(s) R\nW(s) L\nIF(s)\nCM(d)\nCM(s)\nCM(a)\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file.write_all(valid_roles.as_bytes()).await.unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_ok());
+        let roles = result.unwrap();
+        assert_eq!(roles.len(), 11);
+        assert_eq!(roles[0].name, "GK");
+        assert_eq!(roles[1].name, "W(s) R");
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_nonexistent() {
+        let result = parse_role_file("/nonexistent/file.txt").await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to read role file"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_wrong_number_roles() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        // Test with too few roles (only 5)
+        let few_roles = "GK\nW(s) R\nIF(s)\nCM(d)\nCD(d)";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file.write_all(few_roles.as_bytes()).await.unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Role file must contain exactly 11 roles, found 5"));
+
+        // Test with too many roles (15)
+        let many_roles = "GK\nW(s) R\nW(s) L\nIF(s)\nCM(d)\nCM(s)\nCM(a)\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nExtra1\nExtra2\nExtra3\nExtra4";
+
+        let temp_file2 = NamedTempFile::new().unwrap();
+        let mut async_file2 = tokio::fs::File::create(temp_file2.path()).await.unwrap();
+        async_file2.write_all(many_roles.as_bytes()).await.unwrap();
+        async_file2.flush().await.unwrap();
+
+        let result2 = parse_role_file(temp_file2.path().to_str().unwrap()).await;
+        assert!(result2.is_err());
+        assert!(result2
+            .unwrap_err()
+            .to_string()
+            .contains("Role file must contain exactly 11 roles, found 15"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_invalid_role() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let invalid_roles =
+            "GK\nW(s) R\nW(s) L\nIF(s)\nCM(d)\nCM(s)\nCM(a)\nCD(d)\nCD(s)\nFB(d) R\nInvalidRole";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(invalid_roles.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid role on line 11"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_duplicate_roles() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let duplicate_roles =
+            "GK\nW(s) R\nW(s) L\nIF(s)\nCM(d)\nCM(s)\nCM(a)\nCD(d)\nCD(s)\nFB(d) R\nGK";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(duplicate_roles.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate role 'GK' found on line 11"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_whitespace_handling() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let roles_with_whitespace = "  GK  \n\n  W(s) R\t\nW(s) L\n   IF(s)   \nCM(d)\nCM(s)\nCM(a)\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\n\n";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(roles_with_whitespace.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_ok());
+        let roles = result.unwrap();
+        assert_eq!(roles.len(), 11);
+        assert_eq!(roles[0].name, "GK");
+        assert_eq!(roles[1].name, "W(s) R");
+        assert_eq!(roles[3].name, "IF(s)");
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_empty_file() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let empty_content = "";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(empty_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Role file must contain exactly 11 roles, found 0"));
     }
 }
