@@ -17,6 +17,9 @@ pub enum FMDataError {
     #[error("Progress tracking error: {message}")]
     Progress { message: String },
 
+    #[error("Selection error: {message}")]
+    Selection { message: String },
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -54,6 +57,12 @@ impl FMDataError {
 
     pub fn progress<T: Into<String>>(message: T) -> Self {
         Self::Progress {
+            message: message.into(),
+        }
+    }
+
+    pub fn selection<T: Into<String>>(message: T) -> Self {
+        Self::Selection {
             message: message.into(),
         }
     }
