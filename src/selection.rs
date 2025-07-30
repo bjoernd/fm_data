@@ -428,6 +428,27 @@ pub fn find_optimal_assignments(players: Vec<Player>, roles: Vec<Role>) -> Resul
     Team::new(assignments)
 }
 
+/// Format team output for clean stdout display
+pub fn format_team_output(team: &Team) -> String {
+    let mut output = String::new();
+
+    // Sort assignments by role name for consistent output
+    let sorted_assignments = team.sorted_by_role();
+
+    // Format each assignment as "$ROLE -> $PLAYER_NAME"
+    for assignment in sorted_assignments {
+        output.push_str(&format!(
+            "{} -> {}\n",
+            assignment.role.name, assignment.player.name
+        ));
+    }
+
+    // Include total team score
+    output.push_str(&format!("Total Score: {:.1}\n", team.total_score()));
+
+    output
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -715,10 +736,10 @@ mod tests {
         let team = Team::new(assignments);
         assert!(team.is_ok()); // Duplicate roles are now allowed
         let team = team.unwrap();
-        
+
         // Should have 11 assignments with 2 players in the same role
         assert_eq!(team.assignments.len(), 11);
-        
+
         // First two assignments should have the same role
         assert_eq!(team.assignments[0].role.name, VALID_ROLES[0]);
         assert_eq!(team.assignments[1].role.name, VALID_ROLES[0]);
@@ -1607,5 +1628,336 @@ mod tests {
         for assignment in &team.assignments {
             assert!(assignment.score > 0.0);
         }
+    }
+
+    #[test]
+    fn test_format_team_output_basic() {
+        let mut assignments = Vec::new();
+
+        // Create a simple team with 11 players
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(8.0 + i as f32); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            let role = Role::new(VALID_ROLES[i]).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+        let output = format_team_output(&team);
+
+        // Check that output contains the correct format "$ROLE -> $PLAYER_NAME"
+        assert!(output.contains(" -> "));
+        assert!(output.contains("Player 0"));
+        assert!(output.contains("Total Score:"));
+
+        // Check that each line follows the expected format
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        assert_eq!(lines.len(), 12); // 11 assignments + 1 total score line
+
+        // Verify total score line
+        let total_line = lines[11];
+        assert!(total_line.starts_with("Total Score:"));
+        
+        // Calculate expected score: each player has role rating of (8.0 + i)
+        // Player 0 gets role 0 with rating 8.0, Player 1 gets role 1 with rating 9.0, etc.
+        let expected_total: f32 = (0..11).map(|i| 8.0 + i as f32).sum();
+        assert!(total_line.contains(&format!("{:.1}", expected_total)));
+    }
+
+    #[test]
+    fn test_format_team_output_sorted_by_role() {
+        let mut assignments = Vec::new();
+
+        // Create assignments with roles in reverse order to test sorting
+        let role_indices = vec![10, 5, 0, 8, 3, 7, 2, 9, 4, 6, 1];
+
+        for (i, &role_idx) in role_indices.iter().enumerate() {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(15.0); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            let role = Role::new(VALID_ROLES[role_idx]).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+        let output = format_team_output(&team);
+
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+
+        // Extract role names from output lines (exclude total score line)
+        let mut output_roles = Vec::new();
+        for line in &lines[0..11] {
+            let parts: Vec<&str> = line.split(" -> ").collect();
+            assert_eq!(parts.len(), 2);
+            output_roles.push(parts[0]);
+        }
+
+        // Check that roles are sorted alphabetically
+        let mut expected_roles = role_indices
+            .iter()
+            .map(|&idx| VALID_ROLES[idx])
+            .collect::<Vec<_>>();
+        expected_roles.sort();
+
+        assert_eq!(output_roles, expected_roles);
+    }
+
+    #[test]
+    fn test_format_team_output_long_names() {
+        let mut assignments = Vec::new();
+
+        // Create players with long names
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(12.0); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Very Long Player Name With Many Words {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            let role = Role::new(VALID_ROLES[i]).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+        let output = format_team_output(&team);
+
+        // Check that long names are handled correctly
+        assert!(output.contains("Very Long Player Name With Many Words"));
+        assert!(output.contains(" -> "));
+        assert!(output.contains("Total Score: 132.0")); // 11 * 12.0
+
+        // Each line should still follow the format
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        assert_eq!(lines.len(), 12);
+
+        for line in &lines[0..11] {
+            assert!(line.contains(" -> "));
+            let parts: Vec<&str> = line.split(" -> ").collect();
+            assert_eq!(parts.len(), 2);
+            assert!(!parts[0].is_empty());
+            assert!(!parts[1].is_empty());
+        }
+    }
+
+    #[test]
+    fn test_format_team_output_edge_case_scores() {
+        let mut assignments = Vec::new();
+
+        // Create team with minimum and maximum scores
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(0.0); VALID_ROLES.len()];
+
+            // Alternate between very low and very high scores
+            if i % 2 == 0 {
+                role_ratings[i] = Some(0.0); // Minimum score
+            } else {
+                role_ratings[i] = Some(100.0); // High score
+            }
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            let role = Role::new(VALID_ROLES[i]).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+        let output = format_team_output(&team);
+
+        // Check that scores are formatted correctly
+        assert!(output.contains("Total Score:"));
+
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let total_line = lines[11];
+
+        // Should show total score with 1 decimal place
+        assert!(total_line.contains("Total Score: 500.0")); // 5 * 100.0 = 500.0
+
+        // Check that all assignments are present
+        assert_eq!(lines.len(), 12);
+        for line in &lines[0..11] {
+            assert!(line.contains(" -> Player "));
+        }
+    }
+
+    #[test]
+    fn test_format_team_output_duplicate_roles() {
+        let mut assignments = Vec::new();
+
+        let abilities = vec![Some(10.0); ABILITIES.len()];
+        let role_ratings = vec![Some(20.0); VALID_ROLES.len()];
+
+        // Create a team with duplicate roles (e.g., multiple goalkeepers)
+        for i in 0..11 {
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities.clone(),
+                Some(85.0),
+                role_ratings.clone(),
+            )
+            .unwrap();
+
+            // Use same role for first 3 players, different roles for others
+            let role_name = if i < 3 { "GK" } else { VALID_ROLES[i] };
+            let role = Role::new(role_name).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+        let output = format_team_output(&team);
+
+        // Check that duplicate roles are handled correctly
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        assert_eq!(lines.len(), 12);
+
+        // Should have multiple lines with "GK -> "
+        let gk_lines: Vec<&str> = lines
+            .iter()
+            .filter(|line| line.starts_with("GK -> "))
+            .copied()
+            .collect();
+        assert_eq!(gk_lines.len(), 3);
+
+        // Check total score
+        assert!(output.contains("Total Score: 220.0")); // 11 * 20.0
+    }
+
+    #[test]
+    fn test_format_team_output_consistent_ordering() {
+        // Test that output ordering is consistent across multiple runs
+        let mut assignments = Vec::new();
+
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(10.0 + i as f32); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            // Use roles in random order to test sorting consistency
+            let role_idx = (i * 7) % 11; // Semi-random but deterministic ordering
+            let role = Role::new(VALID_ROLES[role_idx]).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+
+        // Generate output multiple times
+        let output1 = format_team_output(&team);
+        let output2 = format_team_output(&team);
+        let output3 = format_team_output(&team);
+
+        // All outputs should be identical
+        assert_eq!(output1, output2);
+        assert_eq!(output2, output3);
+
+        // Output should be sorted by role name
+        let lines: Vec<&str> = output1.trim().split('\n').collect();
+        let roles: Vec<&str> = lines[0..11]
+            .iter()
+            .map(|line| line.split(" -> ").next().unwrap())
+            .collect();
+
+        // Check that roles are in sorted order
+        for i in 1..roles.len() {
+            assert!(
+                roles[i - 1] <= roles[i],
+                "Roles not in sorted order: {} should come before {}",
+                roles[i - 1],
+                roles[i]
+            );
+        }
+    }
+
+    #[test]
+    fn test_format_team_output_decimal_precision() {
+        let mut assignments = Vec::new();
+
+        // Create scores with various decimal values
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(0.0); VALID_ROLES.len()];
+
+            // Create scores with specific decimal values
+            role_ratings[i] = Some(10.123456 + i as f32 * 0.789);
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            let role = Role::new(VALID_ROLES[i]).unwrap();
+            assignments.push(Assignment::new(player, role));
+        }
+
+        let team = Team::new(assignments).unwrap();
+        let output = format_team_output(&team);
+
+        // Check that total score is formatted to 1 decimal place
+        let lines: Vec<&str> = output.trim().split('\n').collect();
+        let total_line = lines[11];
+
+        assert!(total_line.starts_with("Total Score:"));
+
+        // Extract the numeric part and verify it has exactly 1 decimal place
+        let score_part = total_line.split(": ").nth(1).unwrap();
+        assert!(score_part.contains('.'));
+
+        let decimal_places = score_part.split('.').nth(1).unwrap().len();
+        assert_eq!(
+            decimal_places, 1,
+            "Total score should have exactly 1 decimal place, got: {}",
+            score_part
+        );
     }
 }

@@ -102,22 +102,24 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - ✅ `cargo fmt`
    - ✅ `cargo clippy --fix`
 
-### Step 5: Output Formatting
+### Step 5: Output Formatting ✅ **COMPLETED**
 **Starting assumption**: Assignment algorithm produces valid Team struct
 **Completion criteria**: Clean stdout output in format "$ROLE -> $PLAYER_NAME" with tested formatting
 
-5.1. Implement `format_team_output()` function
-5.2. Sort assignments by role or by score (clarify preference)
-5.3. Include total team score in output
-5.4. **Write unit tests for output formatting**:
-   - Test correct format "$ROLE -> $PLAYER_NAME" for all assignments
-   - Test output includes total team score
-   - Test output ordering (consistent and predictable)
-   - Test handling of long player names and role names
-   - Test output with edge cases (minimum/maximum scores)
-5.5. **Run code quality checks**:
-   - `cargo fmt`
-   - `cargo clippy --fix`
+5.1. ✅ Implement `format_team_output()` function
+5.2. ✅ Sort assignments by role or by score (chose role sorting for consistent output)
+5.3. ✅ Include total team score in output
+5.4. ✅ **Write unit tests for output formatting** (7 tests):
+   - ✅ Test correct format "$ROLE -> $PLAYER_NAME" for all assignments
+   - ✅ Test output includes total team score
+   - ✅ Test output ordering (consistent and predictable)
+   - ✅ Test handling of long player names and role names  
+   - ✅ Test output with edge cases (minimum/maximum scores)
+   - ✅ Test duplicate roles handling
+   - ✅ Test decimal precision formatting
+5.5. ✅ **Run code quality checks**:
+   - ✅ `cargo fmt`
+   - ✅ `cargo clippy --fix`
 
 ### Step 6: Main Binary Implementation
 **Starting assumption**: All previous steps complete
