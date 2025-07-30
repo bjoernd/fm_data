@@ -1,0 +1,11 @@
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
