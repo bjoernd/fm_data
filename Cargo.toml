@@ -12,6 +12,10 @@ name = "fm_data"
 name = "fm_google_up"
 path = "src/bin/player_uploader.rs"
 
+[[bin]]
+name = "fm_team_selector"
+path = "src/bin/fm_team_selector.rs"
+
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"

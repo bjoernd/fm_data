@@ -11,7 +11,10 @@ pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use config::Config;
 pub use error::{FMDataError, Result};
 pub use progress::{NoOpProgress, ProgressCallback, ProgressTracker};
-pub use selection::{Assignment, Footedness, Player, Role, Team};
+pub use selection::{
+    find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, Assignment,
+    Footedness, Player, Role, Team,
+};
 pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
 pub use validation::{DataValidator, IdValidator, PathValidator};

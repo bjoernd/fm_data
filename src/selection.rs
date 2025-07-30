@@ -1668,7 +1668,7 @@ mod tests {
         // Verify total score line
         let total_line = lines[11];
         assert!(total_line.starts_with("Total Score:"));
-        
+
         // Calculate expected score: each player has role rating of (8.0 + i)
         // Player 0 gets role 0 with rating 8.0, Player 1 gets role 1 with rating 9.0, etc.
         let expected_total: f32 = (0..11).map(|i| 8.0 + i as f32).sum();
