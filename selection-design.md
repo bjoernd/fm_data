@@ -42,13 +42,13 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
 2.1. ✅ Add role file path to configuration (extend existing config system)
 2.2. ✅ Implement `parse_role_file()` function using `tokio::fs::read_to_string`
 2.3. ✅ Validate each role against the predefined role list (tab-separated string from spec)
-2.4. ✅ Return error if file doesn't contain exactly 11 valid roles
+2.4. ✅ Return error if file doesn't contain exactly 11 valid roles (duplicate roles allowed)
 2.5. ✅ **Write comprehensive unit tests for role file parser** (7 tests):
    - ✅ Test parsing valid 11-role file
    - ✅ Test error handling for non-existent files
    - ✅ Test error handling for files with wrong number of roles (0, 10, 12 roles)
    - ✅ Test error handling for files with invalid role names
-   - ✅ Test error handling for files with duplicate roles
+   - ✅ Test handling of duplicate roles (duplicate roles are allowed)
    - ✅ Test handling of whitespace and empty lines in role files
 2.6. ✅ **Run code quality checks**:
    - ✅ `cargo fmt`
@@ -180,10 +180,11 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
 
 1. **Greedy Algorithm**: Use greedy approach for assignment optimization - simple and sufficient for the problem size
 2. **Role Validation**: Hardcode the role list from specification for strict validation
-3. **Error Handling**: Use existing anyhow patterns for consistency
-4. **Configuration**: Extend existing config system rather than creating new one
-5. **Data Types**: Use f32 for ability scores, Option<f32> for potentially missing data
-6. **Async**: Use tokio for file I/O to match existing codebase patterns
+3. **Duplicate Roles**: Allow duplicate roles in role files (e.g., multiple goalkeepers) - requirement updated
+4. **Error Handling**: Use existing anyhow patterns for consistency
+5. **Configuration**: Extend existing config system rather than creating new one
+6. **Data Types**: Use f32 for ability scores, Option<f32> for potentially missing data
+7. **Async**: Use tokio for file I/O to match existing codebase patterns
 
 ## Dependencies
 

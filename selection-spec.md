@@ -32,7 +32,7 @@ Player strengths are read from the remote Google spreadsheet. We will be reading
 
 ## Program Flow
 
-The program will first validate that the role list exists and contains 11 valid role requirements.
+The program will first validate that the role list exists and contains 11 valid role requirements. Note that duplicate roles are allowed in the role list (e.g., you can have two "GK" roles if you want two goalkeepers).
 
 The program will then download data from the Google spreadsheet.
 
@@ -40,3 +40,4 @@ The program will then assign players from the spreadsheet to roles from the role
 
 The following constraints exist:
 - An individual player can only be assigned to a single role.
+- Multiple roles of the same type are allowed (e.g., two "GK" positions).

@@ -294,20 +294,11 @@ pub async fn parse_role_file(file_path: &str) -> Result<Vec<Role>> {
     }
 
     let mut roles = Vec::new();
-    let mut seen_roles = std::collections::HashSet::new();
 
     for (line_num, line) in lines.iter().enumerate() {
         let role = Role::new(line).map_err(|e| {
             FMDataError::selection(format!("Invalid role on line {}: {}", line_num + 1, e))
         })?;
-
-        if !seen_roles.insert(role.name.clone()) {
-            return Err(FMDataError::selection(format!(
-                "Duplicate role '{}' found on line {}",
-                role.name,
-                line_num + 1
-            )));
-        }
 
         roles.push(role);
     }
@@ -729,7 +720,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_parse_role_file_duplicate_roles() {
+    async fn test_parse_role_file_duplicate_roles_allowed() {
         use tempfile::NamedTempFile;
         use tokio::io::AsyncWriteExt;
 
@@ -745,11 +736,11 @@ mod tests {
         async_file.flush().await.unwrap();
 
         let result = parse_role_file(temp_file.path().to_str().unwrap()).await;
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Duplicate role 'GK' found on line 11"));
+        assert!(result.is_ok());
+        let roles = result.unwrap();
+        assert_eq!(roles.len(), 11);
+        assert_eq!(roles[0].name, "GK");
+        assert_eq!(roles[10].name, "GK"); // Last role is also GK
     }
 
     #[tokio::test]
