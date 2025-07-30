@@ -7,9 +7,7 @@ use tokio::fs as async_fs;
 pub async fn read_table(html_file: &str) -> Result<Table> {
     let html_content = async_fs::read_to_string(Path::new(html_file))
         .await
-        .map_err(|e| {
-            FMDataError::table(format!("Error reading HTML file '{html_file}': {e}"))
-        })?;
+        .map_err(|e| FMDataError::table(format!("Error reading HTML file '{html_file}': {e}")))?;
 
     Table::find_first(&html_content)
         .ok_or_else(|| FMDataError::table("No table found in the provided HTML document"))

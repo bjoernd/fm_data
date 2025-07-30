@@ -143,9 +143,7 @@ pub async fn read_application_secret_secure(credfile: &str) -> Result<Applicatio
     // Read file content into secure memory and validate
     {
         let content = Zeroizing::new(async_fs::read_to_string(cred_path).await.map_err(|e| {
-            FMDataError::auth(format!(
-                "Failed to read credentials file '{credfile}': {e}"
-            ))
+            FMDataError::auth(format!("Failed to read credentials file '{credfile}': {e}"))
         })?);
 
         // Validate content structure

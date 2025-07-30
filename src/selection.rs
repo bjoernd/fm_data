@@ -8,21 +8,20 @@ const VALID_ROLES: &[&str] = &[
     "TQ(a)", "RD(A)", "IW(s)", "IW(a)", "DW(d)", "DW(s)", "WM(d)", "WM(s)", "WM(a)", "WP(s)",
     "WP(a)", "MEZ(s)", "MEZ(a)", "BWM(d)", "BWM(s)", "BBM", "CAR", "CM(d)", "CM(s)", "CM(a)",
     "DLP(d)", "DLP(s)", "RPM", "HB", "DM(d)", "DM(s)", "A", "SV(s)", "SV(a)", "RGA", "CD(d)",
-    "CD(s)", "CD(c)", "NCB(d)", "WCB(d)", "WCB(s)", "WCB(a)", "BPD(d)", "BPD(s)", "BPD(c)",
-    "L(s)", "L(a)", "FB(d) R", "FB(s) R", "FB(a) R", "FB(d) L", "FB(s) L", "FB(a) L",
-    "IFB(d) R", "IFB(d) L", "WB(d) R", "WB(s) R", "WB(a) R", "WB(d) L", "WB(s) L", "WB(a) L",
-    "IWB(d) R", "IWB(s) R", "IWB(a) R", "IWB(d) L", "IWB(s) L", "IWB(a) L", "CWB(s) R",
-    "CWB(a) R", "CWB(s) L", "CWB(a) L", "PF(d)", "PF(s)", "PF(a)", "TM(s)", "TM(a)", "AF", "P",
-    "DLF(s)", "DLF(a)", "CF(s)", "CF(a)", "F9", "SS", "EG", "AM(s)", "AM(a)", "SK(d)", "SK(s)",
-    "SK(a)", "GK"
+    "CD(s)", "CD(c)", "NCB(d)", "WCB(d)", "WCB(s)", "WCB(a)", "BPD(d)", "BPD(s)", "BPD(c)", "L(s)",
+    "L(a)", "FB(d) R", "FB(s) R", "FB(a) R", "FB(d) L", "FB(s) L", "FB(a) L", "IFB(d) R",
+    "IFB(d) L", "WB(d) R", "WB(s) R", "WB(a) R", "WB(d) L", "WB(s) L", "WB(a) L", "IWB(d) R",
+    "IWB(s) R", "IWB(a) R", "IWB(d) L", "IWB(s) L", "IWB(a) L", "CWB(s) R", "CWB(a) R", "CWB(s) L",
+    "CWB(a) L", "PF(d)", "PF(s)", "PF(a)", "TM(s)", "TM(a)", "AF", "P", "DLF(s)", "DLF(a)",
+    "CF(s)", "CF(a)", "F9", "SS", "EG", "AM(s)", "AM(a)", "SK(d)", "SK(s)", "SK(a)", "GK",
 ];
 
 /// Player abilities in the order they appear in the spreadsheet (columns D-AX)
 const ABILITIES: &[&str] = &[
-    "Cor", "Cro", "Dri", "Fin", "Fir", "Fre", "Hea", "Lon", "L Th", "Mar", "Pas", "Pen", "Tck", "Tec",
-    "Agg", "Ant", "Bra", "Cmp", "Cnt", "Dec", "Det", "Fla", "Ldr", "OtB", "Pos", "Tea", "Vis", "Wor",
-    "Acc", "Agi", "Bal", "Jum", "Nat", "Pac", "Sta", "Str", "Aer", "Cmd", "Com", "Ecc", "Han", "Kic",
-    "1v1", "Pun", "Ref", "Rus", "Thr"
+    "Cor", "Cro", "Dri", "Fin", "Fir", "Fre", "Hea", "Lon", "L Th", "Mar", "Pas", "Pen", "Tck",
+    "Tec", "Agg", "Ant", "Bra", "Cmp", "Cnt", "Dec", "Det", "Fla", "Ldr", "OtB", "Pos", "Tea",
+    "Vis", "Wor", "Acc", "Agi", "Bal", "Jum", "Nat", "Pac", "Sta", "Str", "Aer", "Cmd", "Com",
+    "Ecc", "Han", "Kic", "1v1", "Pun", "Ref", "Rus", "Thr",
 ];
 
 /// Footedness options for players
@@ -37,7 +36,7 @@ impl fmt::Display for Footedness {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Footedness::Right => write!(f, "R"),
-            Footedness::Left => write!(f, "L"), 
+            Footedness::Left => write!(f, "L"),
             Footedness::Both => write!(f, "RL"),
         }
     }
@@ -148,7 +147,7 @@ impl Player {
             .iter()
             .position(|&r| r == role.name)
             .unwrap_or(0);
-        
+
         self.role_ratings
             .get(role_index)
             .copied()
@@ -158,16 +157,10 @@ impl Player {
 
     /// Get the player's ability score for a specific ability
     pub fn get_ability(&self, ability_name: &str) -> f32 {
-        let ability_index = ABILITIES
-            .iter()
-            .position(|&a| a == ability_name);
-        
+        let ability_index = ABILITIES.iter().position(|&a| a == ability_name);
+
         match ability_index {
-            Some(idx) => self.abilities
-                .get(idx)
-                .copied()
-                .flatten()
-                .unwrap_or(0.0),
+            Some(idx) => self.abilities.get(idx).copied().flatten().unwrap_or(0.0),
             None => 0.0,
         }
     }
@@ -185,7 +178,11 @@ impl Assignment {
     /// Create a new assignment and calculate the score
     pub fn new(player: Player, role: Role) -> Self {
         let score = player.get_role_rating(&role);
-        Assignment { player, role, score }
+        Assignment {
+            player,
+            role,
+            score,
+        }
     }
 
     /// Calculate the score for this assignment
@@ -256,7 +253,11 @@ impl Team {
     /// Get assignments sorted by score (descending)
     pub fn sorted_by_score(&self) -> Vec<&Assignment> {
         let mut assignments: Vec<&Assignment> = self.assignments.iter().collect();
-        assignments.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+        assignments.sort_by(|a, b| {
+            b.score
+                .partial_cmp(&a.score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
         assignments
     }
 }
@@ -311,7 +312,7 @@ mod tests {
     fn test_player_creation() {
         let abilities = vec![Some(10.0); ABILITIES.len()];
         let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-        
+
         let player = Player::new(
             "Test Player".to_string(),
             25,
@@ -320,7 +321,7 @@ mod tests {
             Some(85.0),
             role_ratings,
         );
-        
+
         assert!(player.is_ok());
         let player = player.unwrap();
         assert_eq!(player.name, "Test Player");
@@ -332,7 +333,7 @@ mod tests {
     fn test_player_wrong_abilities_length() {
         let abilities = vec![Some(10.0); 5]; // Wrong length
         let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-        
+
         let player = Player::new(
             "Test Player".to_string(),
             25,
@@ -341,7 +342,7 @@ mod tests {
             Some(85.0),
             role_ratings,
         );
-        
+
         assert!(player.is_err());
     }
 
@@ -350,7 +351,7 @@ mod tests {
         let abilities = vec![Some(10.0); ABILITIES.len()];
         let mut role_ratings = vec![Some(0.0); VALID_ROLES.len()];
         role_ratings[0] = Some(15.0); // Set first role rating
-        
+
         let player = Player::new(
             "Test Player".to_string(),
             25,
@@ -358,11 +359,12 @@ mod tests {
             abilities,
             Some(85.0),
             role_ratings,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let role = Role::new(VALID_ROLES[0]).unwrap();
         assert_eq!(player.get_role_rating(&role), 15.0);
-        
+
         let other_role = Role::new(VALID_ROLES[1]).unwrap();
         assert_eq!(player.get_role_rating(&other_role), 0.0);
     }
@@ -372,7 +374,7 @@ mod tests {
         let mut abilities = vec![Some(0.0); ABILITIES.len()];
         abilities[0] = Some(12.0); // Set first ability
         let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-        
+
         let player = Player::new(
             "Test Player".to_string(),
             25,
@@ -380,8 +382,9 @@ mod tests {
             abilities,
             Some(85.0),
             role_ratings,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         assert_eq!(player.get_ability(ABILITIES[0]), 12.0);
         assert_eq!(player.get_ability(ABILITIES[1]), 0.0);
         assert_eq!(player.get_ability("NonExistent"), 0.0);
@@ -392,7 +395,7 @@ mod tests {
         let abilities = vec![Some(10.0); ABILITIES.len()];
         let mut role_ratings = vec![Some(0.0); VALID_ROLES.len()];
         role_ratings[0] = Some(15.0);
-        
+
         let player = Player::new(
             "Test Player".to_string(),
             25,
@@ -400,11 +403,12 @@ mod tests {
             abilities,
             Some(85.0),
             role_ratings,
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         let role = Role::new(VALID_ROLES[0]).unwrap();
         let assignment = Assignment::new(player, role);
-        
+
         assert_eq!(assignment.score, 15.0);
         assert_eq!(assignment.calculate_score(), 15.0);
     }
@@ -412,11 +416,11 @@ mod tests {
     #[test]
     fn test_team_creation() {
         let mut assignments = Vec::new();
-        
+
         for i in 0..11 {
             let abilities = vec![Some(10.0); ABILITIES.len()];
             let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-            
+
             let player = Player::new(
                 format!("Player {}", i),
                 25,
@@ -424,12 +428,13 @@ mod tests {
                 abilities,
                 Some(85.0),
                 role_ratings,
-            ).unwrap();
-            
+            )
+            .unwrap();
+
             let role = Role::new(VALID_ROLES[i]).unwrap();
             assignments.push(Assignment::new(player, role));
         }
-        
+
         let team = Team::new(assignments);
         assert!(team.is_ok());
         let team = team.unwrap();
@@ -440,14 +445,14 @@ mod tests {
     fn test_team_wrong_size() {
         let team = Team::new(vec![]);
         assert!(team.is_err());
-        
+
         // Test with 10 assignments (should fail)
         let mut assignments = Vec::new();
-        
+
         for i in 0..10 {
             let abilities = vec![Some(10.0); ABILITIES.len()];
             let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-            
+
             let player = Player::new(
                 format!("Player {}", i),
                 25,
@@ -455,12 +460,13 @@ mod tests {
                 abilities,
                 Some(85.0),
                 role_ratings,
-            ).unwrap();
-            
+            )
+            .unwrap();
+
             let role = Role::new(VALID_ROLES[i]).unwrap();
             assignments.push(Assignment::new(player, role));
         }
-        
+
         let team = Team::new(assignments);
         assert!(team.is_err());
     }
@@ -468,10 +474,10 @@ mod tests {
     #[test]
     fn test_team_duplicate_players() {
         let mut assignments = Vec::new();
-        
+
         let abilities = vec![Some(10.0); ABILITIES.len()];
         let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-        
+
         let player = Player::new(
             "Duplicate Player".to_string(),
             25,
@@ -479,12 +485,16 @@ mod tests {
             abilities.clone(),
             Some(85.0),
             role_ratings.clone(),
-        ).unwrap();
-        
+        )
+        .unwrap();
+
         // Add same player to two different roles
-        assignments.push(Assignment::new(player.clone(), Role::new(VALID_ROLES[0]).unwrap()));
+        assignments.push(Assignment::new(
+            player.clone(),
+            Role::new(VALID_ROLES[0]).unwrap(),
+        ));
         assignments.push(Assignment::new(player, Role::new(VALID_ROLES[1]).unwrap()));
-        
+
         // Fill rest with unique players
         for i in 2..11 {
             let unique_player = Player::new(
@@ -494,11 +504,15 @@ mod tests {
                 abilities.clone(),
                 Some(85.0),
                 role_ratings.clone(),
-            ).unwrap();
-            
-            assignments.push(Assignment::new(unique_player, Role::new(VALID_ROLES[i]).unwrap()));
+            )
+            .unwrap();
+
+            assignments.push(Assignment::new(
+                unique_player,
+                Role::new(VALID_ROLES[i]).unwrap(),
+            ));
         }
-        
+
         let team = Team::new(assignments);
         assert!(team.is_err());
     }
@@ -506,10 +520,10 @@ mod tests {
     #[test]
     fn test_team_duplicate_roles() {
         let mut assignments = Vec::new();
-        
+
         let abilities = vec![Some(10.0); ABILITIES.len()];
         let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
-        
+
         // Add two different players to same role
         for i in 0..2 {
             let player = Player::new(
@@ -519,11 +533,12 @@ mod tests {
                 abilities.clone(),
                 Some(85.0),
                 role_ratings.clone(),
-            ).unwrap();
-            
+            )
+            .unwrap();
+
             assignments.push(Assignment::new(player, Role::new(VALID_ROLES[0]).unwrap()));
         }
-        
+
         // Fill rest with unique players and roles
         for i in 2..11 {
             let player = Player::new(
@@ -533,11 +548,15 @@ mod tests {
                 abilities.clone(),
                 Some(85.0),
                 role_ratings.clone(),
-            ).unwrap();
-            
-            assignments.push(Assignment::new(player, Role::new(VALID_ROLES[i-1]).unwrap()));
+            )
+            .unwrap();
+
+            assignments.push(Assignment::new(
+                player,
+                Role::new(VALID_ROLES[i - 1]).unwrap(),
+            ));
         }
-        
+
         let team = Team::new(assignments);
         assert!(team.is_err());
     }
@@ -545,11 +564,11 @@ mod tests {
     #[test]
     fn test_team_sorting() {
         let mut assignments = Vec::new();
-        
+
         for i in 0..11 {
             let abilities = vec![Some(10.0); ABILITIES.len()];
             let role_ratings = vec![Some((i as f32) * 2.0); VALID_ROLES.len()];
-            
+
             let player = Player::new(
                 format!("Player {}", i),
                 25,
@@ -557,18 +576,19 @@ mod tests {
                 abilities,
                 Some(85.0),
                 role_ratings,
-            ).unwrap();
-            
+            )
+            .unwrap();
+
             let role = Role::new(VALID_ROLES[i]).unwrap();
             assignments.push(Assignment::new(player, role));
         }
-        
+
         let team = Team::new(assignments).unwrap();
-        
+
         // Test sorting by role
         let sorted_by_role = team.sorted_by_role();
         assert_eq!(sorted_by_role.len(), 11);
-        
+
         // Test sorting by score
         let sorted_by_score = team.sorted_by_score();
         assert_eq!(sorted_by_score.len(), 11);
