@@ -2,12 +2,11 @@ use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
     create_authenticator_and_token, find_optimal_assignments, format_team_output,
-    get_secure_config_dir, parse_player_data, parse_role_file, Config, ProgressCallback,
-    ProgressTracker, SheetsManager,
+    get_secure_config_dir, parse_player_data, parse_role_file, AppRunner, CLIArgumentValidator,
+    ProgressCallback, SheetsManager,
 };
-use log::{debug, error, info, warn};
+use log::{debug, error, info};
 use std::path::Path;
-use std::time::Instant;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -102,7 +101,7 @@ or CI/CD environments where progress bars may interfere with output parsing."
     no_progress: bool,
 }
 
-impl CLIArguments {
+impl CLIArgumentValidator for CLIArguments {
     fn validate(&self) -> Result<()> {
         // Validate config file path if it's not the default and doesn't exist
         if self.config != "config.json" {
@@ -125,53 +124,27 @@ impl CLIArguments {
 
         Ok(())
     }
+
+    fn is_verbose(&self) -> bool {
+        self.verbose
+    }
+
+    fn is_no_progress(&self) -> bool {
+        self.no_progress
+    }
+
+    fn config_path(&self) -> &str {
+        &self.config
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let start_time = Instant::now();
-
     let cli = CLIArguments::parse();
 
-    // Validate CLI arguments early
-    if let Err(e) = cli.validate() {
-        error!("Invalid arguments: {}", e);
-        std::process::exit(1);
-    }
-
-    // Set up logging level based on verbose flag
-    if cli.verbose {
-        // Set debug level only for our crate, info for others
-        std::env::set_var("RUST_LOG", "fm_team_selector=debug,info");
-    } else {
-        // Only show warnings and errors when not in verbose mode to avoid interfering with progress bar
-        std::env::set_var("RUST_LOG", "warn");
-    }
-
-    // Initialize logging after setting the environment variable
-    env_logger::init();
-
-    info!("Starting FM team selector");
-
-    // Create progress tracker
-    let show_progress = !cli.no_progress && !cli.verbose; // Don't show progress if verbose logging is on
-    let progress_tracker = ProgressTracker::new(100, show_progress);
+    // Use AppRunner for common setup
+    let (config, progress_tracker, start_time) = AppRunner::new_minimal(&cli, "fm_team_selector").await?;
     let progress: &dyn ProgressCallback = &progress_tracker;
-
-    progress.update(0, 100, "Starting team selection process...");
-
-    // Read config file
-    let config_path = Path::new(&cli.config);
-    let config = match Config::from_file(config_path) {
-        Ok(cfg) => {
-            info!("Successfully loaded config from {}", config_path.display());
-            cfg
-        }
-        Err(e) => {
-            warn!("Failed to load config: {}. Using default values.", e);
-            Config::create_default()
-        }
-    };
 
     // Resolve configuration paths using team selector specific method
     progress.update(5, 100, "Resolving configuration paths...");
@@ -267,7 +240,7 @@ async fn main() -> Result<()> {
     progress.update(95, 100, "Generating output...");
     let output = format_team_output(&team);
 
-    progress.finish(&format!(
+    progress_tracker.finish(&format!(
         "Team selection completed in {} ms",
         start_time.elapsed().as_millis()
     ));

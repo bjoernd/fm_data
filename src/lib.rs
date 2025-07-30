@@ -1,3 +1,4 @@
+pub mod app_runner;
 pub mod auth;
 pub mod config;
 pub mod error;
@@ -7,6 +8,7 @@ pub mod sheets_client;
 pub mod table;
 pub mod validation;
 
+pub use app_runner::{AppRunner, CLIArgumentValidator};
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use config::Config;
 pub use error::{FMDataError, Result};
