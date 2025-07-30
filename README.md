@@ -1,13 +1,16 @@
-# FM Data Uploader
+# FM Data Toolkit
 
-A  CLI tool for uploading Football Manager player data to Google Sheets.
+A comprehensive CLI toolkit for Football Manager data analysis with two main tools:
+
+1. **`fm_google_up`** - Uploads player data from HTML exports to Google Sheets
+2. **`fm_team_selector`** - Analyzes player data to find optimal team assignments
 
 ## Overview
-This tool extracts player data from Football Manager HTML exports and uploads it to Google Sheets for advanced analysis and visualization.
+This toolkit provides end-to-end Football Manager data analysis capabilities, from data extraction and storage to intelligent team selection using optimization algorithms.
 
 ## 🚀 Quick Start
 
-### Basic Usage
+### Player Data Upload (`fm_google_up`)
 ```bash
 # Upload with progress bar (default)
 fm_google_up -i player_data.html
@@ -19,7 +22,21 @@ fm_google_up -v -i player_data.html
 fm_google_up --no-progress -i player_data.html
 ```
 
+### Team Selection (`fm_team_selector`)
+```bash
+# Select optimal team using default config
+fm_team_selector -r formation.txt
+
+# Use custom configuration file
+fm_team_selector -c config.json -r my_formation.txt
+
+# Verbose output for debugging
+fm_team_selector -v -r formation.txt
+```
+
 ### Command-Line Options
+
+#### `fm_google_up` Options
 ```
 fm_google_up [OPTIONS]
 
@@ -30,6 +47,20 @@ Options:
   -c, --config <CONFIG>            Path to config file [default: config.json]
   -v, --verbose                    Enable verbose logging
       --no-progress                Disable progress bar (useful for scripting)
+  -h, --help                       Print help
+  -V, --version                    Print version
+```
+
+#### `fm_team_selector` Options
+```
+fm_team_selector [OPTIONS]
+
+Options:
+  -r, --roles <ROLES>              Path to role file (11 Football Manager roles)
+  -s, --spreadsheet <SPREADSHEET>  Google Spreadsheet ID
+      --credfile <CREDFILE>        Path to Google OAuth credentials file
+  -c, --config <CONFIG>            Path to config file [default: config.json]
+  -v, --verbose                    Enable verbose logging
   -h, --help                       Print help
   -V, --version                    Print version
 ```
@@ -59,7 +90,22 @@ The config file supports **partial configurations** - you only need to specify t
     "input" : {
         "data_html" : "/path/to/attributes.html",
         "league_perf_html" : "/path/to/league-perf.html",
-        "team_perf_html" : "/path/to/team-perf.html"
+        "team_perf_html" : "/path/to/team-perf.html",
+        "role_file" : "/path/to/formation.txt"
+    }
+}
+```
+
+**Team selector config example:**
+```json
+{
+    "google" : {
+        "creds_file" : "/path/to/my-credentials.json",
+        "spreadsheet_name" : "your-spreadsheet-id",
+        "team_sheet" : "Squad"
+    },
+    "input" : {
+        "role_file" : "my_formation.txt"
     }
 }
 ```
@@ -87,7 +133,7 @@ cargo build --release
 
 ### Testing
 ```bash
-# Run comprehensive test suite (37 tests)
+# Run comprehensive test suite (54 total tests: 45 unit + 9 integration)
 cargo test
 
 # Run tests with output
@@ -108,17 +154,14 @@ cargo fmt
 
 ## 🔧 Advanced Usage
 
-### Custom Configuration
+### Data Upload Automation
 ```bash
 # Use custom config file
 fm_google_up -c production_config.json
 
 # Override specific settings
 fm_google_up -s "different_spreadsheet_id" -i custom_data.html
-```
 
-### Automation Integration
-```bash
 # For CI/CD pipelines
 fm_google_up --no-progress --credfile "$GOOGLE_CREDS" -i "$DATA_FILE"
 
@@ -127,6 +170,22 @@ if ! fm_google_up --no-progress -i data.html; then
     echo "Upload failed"
     exit 1
 fi
+```
+
+### Team Selection Workflows
+```bash
+# Create a formation file
+echo -e "GK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R\nW(s) L\nCF(s)" > 4-3-3.txt
+
+# Find optimal team for the formation
+fm_team_selector -r 4-3-3.txt
+
+# Pipeline: upload data then select team
+fm_google_up -i player_data.html && fm_team_selector -r formation.txt
+
+# Use different formations
+fm_team_selector -r formations/defensive.txt  # 5-4-1
+fm_team_selector -r formations/attacking.txt  # 3-5-2
 ```
 
 ## 🛠️ Troubleshooting
@@ -154,31 +213,67 @@ Error: Data has 65 rows but maximum allowed is 57 rows
 - The tool enforces a hardcoded range limit (A2:AX58)
 - Reduce your data size or modify the range limits in the code
 
+**Role File Errors**
+```bash
+Error: Invalid role on line 3: "invalidrole"
+```
+- Check that all roles are valid Football Manager roles (see [ROLE_FILE_FORMAT.md](ROLE_FILE_FORMAT.md))
+- Verify exact spelling and capitalization (e.g., "GK" not "gk")
+
+**Insufficient Players**
+```bash
+Error: Need at least 11 players but found only 8
+```
+- Ensure your spreadsheet has enough player data
+- Check that player names (column A) are not empty
+
 ### Getting Help
 
-- Use `fm_google_up --help` for command-line options
+- Use `fm_google_up --help` or `fm_team_selector --help` for command-line options
 - Enable verbose logging with `-v` for detailed error information
 - Check the [CLAUDE.md](CLAUDE.md) file for development guidance
+- See [ROLE_FILE_FORMAT.md](ROLE_FILE_FORMAT.md) for role file documentation
 
-## 📈 Progress Bar Examples
+## 📈 Usage Examples
 
-### Normal Operation
+### Data Upload Progress
 ```
  [████████████████████>      ] 80% Uploading 45 rows of data...
 ```
 
-### Verbose Mode (Progress Disabled)
+### Team Selection Output
 ```bash
+fm_team_selector -r formation.txt
+CD(d) -> Van Dijk
+CD(s) -> Dias  
+CF(s) -> Haaland
+CM(a) -> De Bruyne
+CM(d) -> Rodri
+CM(s) -> Modric
+FB(d) L -> Robertson
+FB(d) R -> Alexander-Arnold
+GK -> Alisson
+W(s) L -> Mane
+W(s) R -> Salah
+Total Score: 187.3
+```
+
+### Verbose Mode Examples
+```bash
+# Upload with detailed logging
 fm_google_up -v -i data.html
 [INFO] Starting FM player data uploader
 [DEBUG] Using spreadsheet: 1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc
-[DEBUG] Using credentials file: /path/to/creds.json
 [INFO] Successfully obtained access token
-[INFO] Connected to spreadsheet 1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc
 [INFO] Got table with 45 rows
-[INFO] Cleared old data from Squad!A2:AX58
 [INFO] Updated data: success
-[INFO] Program finished in 3247 ms
+
+# Team selection with detailed logging  
+fm_team_selector -v -r formation.txt
+[INFO] Starting team selection assistant
+[INFO] Parsed 11 roles from formation.txt
+[INFO] Downloaded 23 players from spreadsheet
+[INFO] Found optimal assignments with total score: 187.3
 ```
 
 ## 📄 License
