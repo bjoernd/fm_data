@@ -225,16 +225,8 @@ impl Team {
             }
         }
 
-        // Validate no duplicate roles
-        let mut role_names = std::collections::HashSet::new();
-        for assignment in &assignments {
-            if !role_names.insert(&assignment.role.name) {
-                return Err(FMDataError::selection(format!(
-                    "Role {} is assigned to multiple players",
-                    assignment.role.name
-                )));
-            }
-        }
+        // Note: Duplicate roles are allowed (e.g., multiple goalkeepers)
+        // No validation needed for duplicate roles
 
         Ok(Team { assignments })
     }
@@ -387,6 +379,53 @@ pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
     }
 
     Ok(players)
+}
+
+/// Calculate the assignment score for a player-role pair
+pub fn calculate_assignment_score(player: &Player, role: &Role) -> f32 {
+    player.get_role_rating(role)
+}
+
+/// Find optimal player-to-role assignments using a greedy algorithm
+pub fn find_optimal_assignments(players: Vec<Player>, roles: Vec<Role>) -> Result<Team> {
+    if roles.len() != 11 {
+        return Err(FMDataError::selection(format!(
+            "Must have exactly 11 roles for team selection, got {}",
+            roles.len()
+        )));
+    }
+
+    if players.len() < 11 {
+        return Err(FMDataError::selection(format!(
+            "Need at least 11 players for team selection, got {}",
+            players.len()
+        )));
+    }
+
+    let mut assignments = Vec::new();
+    let mut available_players = players;
+
+    // For each role, find the best available player
+    for role in roles {
+        let mut best_player_index = 0;
+        let mut best_score = calculate_assignment_score(&available_players[0], &role);
+
+        // Find the player with the highest rating for this role
+        for (i, player) in available_players.iter().enumerate() {
+            let score = calculate_assignment_score(player, &role);
+            if score > best_score {
+                best_score = score;
+                best_player_index = i;
+            }
+        }
+
+        // Remove the selected player from available players and create assignment
+        let selected_player = available_players.remove(best_player_index);
+        let assignment = Assignment::new(selected_player, role);
+        assignments.push(assignment);
+    }
+
+    Team::new(assignments)
 }
 
 #[cfg(test)]
@@ -674,7 +713,15 @@ mod tests {
         }
 
         let team = Team::new(assignments);
-        assert!(team.is_err());
+        assert!(team.is_ok()); // Duplicate roles are now allowed
+        let team = team.unwrap();
+        
+        // Should have 11 assignments with 2 players in the same role
+        assert_eq!(team.assignments.len(), 11);
+        
+        // First two assignments should have the same role
+        assert_eq!(team.assignments[0].role.name, VALID_ROLES[0]);
+        assert_eq!(team.assignments[1].role.name, VALID_ROLES[0]);
     }
 
     #[test]
@@ -1183,5 +1230,382 @@ mod tests {
         // Test specific role rating retrieval
         let first_role = Role::new(VALID_ROLES[0]).unwrap();
         assert_eq!(player.get_role_rating(&first_role), 0.0); // "role_0" can't parse as f32, becomes 0.0
+    }
+
+    #[test]
+    fn test_calculate_assignment_score() {
+        let abilities = vec![Some(10.0); ABILITIES.len()];
+        let mut role_ratings = vec![Some(0.0); VALID_ROLES.len()];
+        role_ratings[0] = Some(15.5); // Set first role rating
+
+        let player = Player::new(
+            "Test Player".to_string(),
+            25,
+            Footedness::Right,
+            abilities,
+            Some(85.0),
+            role_ratings,
+        )
+        .unwrap();
+
+        let role = Role::new(VALID_ROLES[0]).unwrap();
+        let score = calculate_assignment_score(&player, &role);
+        assert_eq!(score, 15.5);
+
+        // Test with a role that has no rating (should be 0.0)
+        let role2 = Role::new(VALID_ROLES[1]).unwrap();
+        let score2 = calculate_assignment_score(&player, &role2);
+        assert_eq!(score2, 0.0);
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_exactly_11_players() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 11 players with different ratings
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(0.0); VALID_ROLES.len()];
+
+            // Give each player a high rating for the role they should be assigned to
+            role_ratings[i] = Some((i as f32 + 1.0) * 10.0);
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+
+        // Each player should be assigned to their optimal role
+        for (i, assignment) in team.assignments.iter().enumerate() {
+            assert!(assignment.player.name.contains(&i.to_string()));
+            assert_eq!(assignment.score, (i as f32 + 1.0) * 10.0);
+        }
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_more_than_11_players() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 15 players, but only 11 roles
+        for i in 0..15 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(5.0); VALID_ROLES.len()]; // Base rating
+
+            // Give better players higher ratings for first role
+            if i < 11 {
+                role_ratings[0] = Some((i as f32 + 10.0) * 2.0); // Better ratings
+            } else {
+                role_ratings[0] = Some(i as f32); // Lower ratings
+            }
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create 11 roles, all the same (first role)
+        for _ in 0..11 {
+            roles.push(Role::new(VALID_ROLES[0]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+
+        // The 11 best players should be selected (Player 0-10, not 11-14)
+        for assignment in &team.assignments {
+            let player_num: usize = assignment
+                .player
+                .name
+                .split_whitespace()
+                .nth(1)
+                .unwrap()
+                .parse()
+                .unwrap();
+            assert!(
+                player_num < 11,
+                "Player {player_num} was selected but should not have been"
+            );
+        }
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_fewer_than_11_players() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create only 5 players
+        for i in 0..5 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create 11 roles
+        for i in 0..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Need at least 11 players"));
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_wrong_number_roles() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 11 players
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create only 10 roles
+        for i in 0..10 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Must have exactly 11 roles"));
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_tied_scores() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 11 players with identical ratings (tied scores)
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(8.0); VALID_ROLES.len()]; // All same rating
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create 11 different roles
+        for i in 0..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+
+        // All assignments should have the same score
+        for assignment in &team.assignments {
+            assert_eq!(assignment.score, 8.0);
+        }
+
+        // Should have deterministic behavior (first player wins ties)
+        // The exact order depends on the order players are processed
+        assert_eq!(team.assignments[0].player.name, "Player 0");
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_zero_ratings() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 11 players with zero ratings for all roles
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(0.0); VALID_ROLES.len()]; // All zero ratings
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create 11 roles
+        for i in 0..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+        assert_eq!(team.total_score(), 0.0);
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_known_optimal_solution() {
+        // Create a scenario with a known optimal solution
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Player 0: Best at role 0 (score 20)
+        // Player 1: Best at role 1 (score 19)
+        // Player 2: Best at role 2 (score 18)
+        // etc.
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(5.0); VALID_ROLES.len()]; // Base rating
+
+            // Each player is best at their corresponding role
+            role_ratings[i] = Some(20.0 - i as f32);
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create roles in order
+        for i in 0..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+
+        // Expected total score: 20 + 19 + 18 + ... + 10 = 165
+        let expected_score: f32 = (10..=20).sum::<i32>() as f32;
+        assert_eq!(team.total_score(), expected_score);
+
+        // Each player should be optimally assigned
+        for (i, assignment) in team.assignments.iter().enumerate() {
+            assert_eq!(assignment.score, 20.0 - i as f32);
+        }
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_large_dataset() {
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 50 players with varying ratings
+        for i in 0..50 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(1.0); VALID_ROLES.len()]; // Low base rating
+
+            // Give some players higher ratings for first few roles
+            if i < 11 {
+                role_ratings[i % 11] = Some(15.0 + i as f32); // High ratings for best players
+            } else {
+                role_ratings[i % 11] = Some(5.0 + (i % 10) as f32); // Medium ratings for others
+            }
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+
+            players.push(player);
+        }
+
+        // Create 11 different roles
+        for i in 0..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let result = find_optimal_assignments(players, roles);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+
+        // The total score should be reasonably high (selecting best players)
+        assert!(team.total_score() > 100.0);
+
+        // All assignments should have positive scores
+        for assignment in &team.assignments {
+            assert!(assignment.score > 0.0);
+        }
     }
 }

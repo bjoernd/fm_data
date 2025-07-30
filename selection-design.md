@@ -77,28 +77,30 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
    - ✅ `cargo fmt`
    - ✅ `cargo clippy --fix`
 
-### Step 4: Assignment Algorithm
+### Step 4: Assignment Algorithm ✅ **COMPLETED**
 **Starting assumption**: Player and role data structures exist with parsed data
 **Completion criteria**: Greedy algorithm finds valid assignments maximizing total score with comprehensive test suite
 
-4.1. Implement `calculate_assignment_score()` function for player-role pairs
-4.2. Implement greedy assignment algorithm:
-   - For each role, find the unassigned player with highest score for that role
-   - Assign that player to the role
-   - Remove player from available pool
-   - Continue until all 11 roles are assigned
-4.3. Handle edge cases (fewer than 11 players, ties in scores)
-4.4. **Write comprehensive unit tests for assignment algorithm**:
-   - Test assignment with exactly 11 players (optimal case)
-   - Test assignment with more than 11 players (selection required)
-   - Test assignment with fewer than 11 players (error case)
-   - Test handling of tied scores (deterministic behavior)
-   - Test algorithm correctness with known optimal solutions (small datasets)
-   - Test edge case where player has 0.0 rating for assigned role
-   - Test algorithm performance with realistic dataset sizes (50+ players)
-4.5. **Run code quality checks**:
-   - `cargo fmt`
-   - `cargo clippy --fix`
+4.1. ✅ Implement `calculate_assignment_score()` function for player-role pairs
+4.2. ✅ Implement greedy assignment algorithm:
+   - ✅ For each role, find the unassigned player with highest score for that role
+   - ✅ Assign that player to the role
+   - ✅ Remove player from available pool
+   - ✅ Continue until all 11 roles are assigned
+4.3. ✅ Handle edge cases (fewer than 11 players, ties in scores)
+4.4. ✅ **Write comprehensive unit tests for assignment algorithm** (9 tests):
+   - ✅ Test assignment with exactly 11 players (optimal case)
+   - ✅ Test assignment with more than 11 players (selection required)
+   - ✅ Test assignment with fewer than 11 players (error case)
+   - ✅ Test handling of tied scores (deterministic behavior)
+   - ✅ Test algorithm correctness with known optimal solutions (small datasets)
+   - ✅ Test edge case where player has 0.0 rating for assigned role
+   - ✅ Test algorithm performance with realistic dataset sizes (50+ players)
+   - ✅ Test wrong number of roles error handling
+   - ✅ Test calculate_assignment_score function
+4.5. ✅ **Run code quality checks**:
+   - ✅ `cargo fmt`
+   - ✅ `cargo clippy --fix`
 
 ### Step 5: Output Formatting
 **Starting assumption**: Assignment algorithm produces valid Team struct
