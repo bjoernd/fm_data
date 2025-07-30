@@ -50,7 +50,7 @@ impl std::str::FromStr for Footedness {
             "R" => Ok(Footedness::Right),
             "L" => Ok(Footedness::Left),
             "RL" => Ok(Footedness::Both),
-            _ => Err(FMDataError::selection(format!("Invalid footedness: {}", s))),
+            _ => Err(FMDataError::selection(format!("Invalid footedness: {s}"))),
         }
     }
 }
@@ -70,7 +70,7 @@ impl Role {
                 name: name.to_string(),
             })
         } else {
-            Err(FMDataError::selection(format!("Invalid role: {}", name)))
+            Err(FMDataError::selection(format!("Invalid role: {name}")))
         }
     }
 
@@ -266,7 +266,7 @@ impl fmt::Display for Team {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Team Assignments:")?;
         for assignment in self.sorted_by_role() {
-            writeln!(f, "{}", assignment)?;
+            writeln!(f, "{assignment}")?;
         }
         writeln!(f, "Total Score: {:.1}", self.total_score())?;
         Ok(())
@@ -422,7 +422,7 @@ mod tests {
             let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
 
             let player = Player::new(
-                format!("Player {}", i),
+                format!("Player {i}"),
                 25,
                 Footedness::Right,
                 abilities,
@@ -454,7 +454,7 @@ mod tests {
             let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
 
             let player = Player::new(
-                format!("Player {}", i),
+                format!("Player {i}"),
                 25,
                 Footedness::Right,
                 abilities,
@@ -498,7 +498,7 @@ mod tests {
         // Fill rest with unique players
         for i in 2..11 {
             let unique_player = Player::new(
-                format!("Player {}", i),
+                format!("Player {i}"),
                 25,
                 Footedness::Right,
                 abilities.clone(),
@@ -527,7 +527,7 @@ mod tests {
         // Add two different players to same role
         for i in 0..2 {
             let player = Player::new(
-                format!("Player {}", i),
+                format!("Player {i}"),
                 25,
                 Footedness::Right,
                 abilities.clone(),
@@ -542,7 +542,7 @@ mod tests {
         // Fill rest with unique players and roles
         for i in 2..11 {
             let player = Player::new(
-                format!("Player {}", i),
+                format!("Player {i}"),
                 25,
                 Footedness::Right,
                 abilities.clone(),
@@ -570,7 +570,7 @@ mod tests {
             let role_ratings = vec![Some((i as f32) * 2.0); VALID_ROLES.len()];
 
             let player = Player::new(
-                format!("Player {}", i),
+                format!("Player {i}"),
                 25,
                 Footedness::Right,
                 abilities,
