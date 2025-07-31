@@ -1,11 +1,10 @@
 use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    create_authenticator_and_token, get_secure_config_dir, process_table_data, read_table,
-    validate_data_size, validate_table_structure, AppRunner, CLIArgumentValidator, 
-    ProgressCallback, SheetsManager,
+    process_table_data, read_table, validate_data_size, validate_table_structure, 
+    AppRunner, CLIArgumentValidator,
 };
-use log::{debug, error, info};
+use log::{debug, info};
 use std::path::Path;
 
 #[derive(Parser, Debug)]
@@ -130,67 +129,21 @@ impl CLIArgumentValidator for CLIArguments {
 async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
-    // Use AppRunner for common setup
-    let (config, progress_tracker, start_time) = AppRunner::new_minimal(&cli, "fm_google_up").await?;
-    let progress: &dyn ProgressCallback = &progress_tracker;
-
-    // Resolve configuration paths
-    progress.update(5, 100, "Resolving configuration paths...");
-    let (spreadsheet, credfile, input) = config
-        .resolve_paths(cli.spreadsheet, cli.credfile, cli.input)
-        .map_err(|e| {
-            error!("Configuration validation failed: {}", e);
-            e
-        })?;
-
-    debug!("Using spreadsheet: {}", spreadsheet);
-    debug!("Using credentials file: {}", credfile);
-    debug!("Using input HTML file: {}", input);
-
-    // Input file validation is now handled by resolve_paths
-
-    // Authentication setup
-    progress.update(10, 100, "Setting up authentication...");
-
-    // Ensure secure config directory exists
-    let _secure_dir = get_secure_config_dir().await.map_err(|e| {
-        FMDataError::auth(format!(
-            "Failed to setup secure configuration directory: {e}"
-        ))
-    })?;
-
-    let token_cache = if config.google.token_file.is_empty() {
-        get_secure_config_dir()
-            .await?
-            .join("tokencache.json")
-            .to_string_lossy()
-            .to_string()
-    } else {
-        config.google.token_file.clone()
-    };
-
-    let (secret, token) = create_authenticator_and_token(&credfile, &token_cache).await?;
-    info!("Successfully obtained access token");
-    progress.update(25, 100, "Authentication completed");
-
-    // Create sheets manager
-    progress.update(30, 100, "Creating sheets manager...");
-    let sheets_manager = SheetsManager::new(secret, token, spreadsheet)?;
-    sheets_manager
-        .verify_spreadsheet_access(Some(progress))
+    // Use AppRunner for consolidated setup and authentication
+    let mut app_runner = AppRunner::new_complete(&cli, "fm_google_up").await?;
+    let (_spreadsheet, _credfile, input) = app_runner
+        .setup_for_player_uploader(cli.spreadsheet, cli.credfile, cli.input)
         .await?;
-    sheets_manager
-        .verify_sheet_exists(&config.google.team_sheet, Some(progress))
-        .await?;
+
 
     // Read table from HTML
-    progress.update(40, 100, "Reading HTML table data...");
+    app_runner.progress().update(40, 100, "Reading HTML table data...");
     let table = read_table(&input)
         .await
         .map_err(|e| FMDataError::table(format!("Failed to extract table from '{input}': {e}")))?;
 
     // Validate table structure
-    progress.update(50, 100, "Validating table structure...");
+    app_runner.progress().update(50, 100, "Validating table structure...");
     validate_table_structure(&table)
         .map_err(|e| FMDataError::table(format!("Invalid table structure: {e}")))?;
 
@@ -199,31 +152,25 @@ async fn main() -> Result<()> {
 
     // Validate data size
     validate_data_size(row_count)?;
-    progress.update(60, 100, &format!("Processing {row_count} rows of data..."));
+    app_runner.progress().update(60, 100, &format!("Processing {row_count} rows of data..."));
 
     if let Some(first_row) = table.iter().next() {
         debug!("Table first row has {} columns", first_row.len());
     }
 
     // Clear and upload data
-    progress.update(70, 100, "Preparing data for upload...");
+    app_runner.progress().update(70, 100, "Preparing data for upload...");
     let matrix = process_table_data(&table)?;
 
+    let sheets_manager = app_runner.sheets_manager();
     sheets_manager
-        .clear_range(&config.google.team_sheet, Some(progress))
+        .clear_range(&app_runner.config.google.team_sheet, Some(app_runner.progress()))
         .await?;
     sheets_manager
-        .upload_data(&config.google.team_sheet, matrix, Some(progress))
+        .upload_data(&app_runner.config.google.team_sheet, matrix, Some(app_runner.progress()))
         .await?;
 
-    progress_tracker.finish(&format!(
-        "Upload completed in {} ms",
-        start_time.elapsed().as_millis()
-    ));
-    info!(
-        "Program finished in {} ms",
-        start_time.elapsed().as_millis()
-    );
+    app_runner.finish("Upload");
 
     Ok(())
 }

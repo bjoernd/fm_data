@@ -4,28 +4,9 @@ This document contains suggestions for further code size reduction and quality i
 
 ## High Impact Improvements
 
-### 1. Further Authentication Consolidation (Medium Priority)
-**Impact:** Additional 40-60 lines reduction  
-**Effort:** Medium
-
-The `AppRunner` currently has a placeholder authentication method. Complete the consolidation by:
-
-1. Move the authentication logic from both binaries into `AppRunner::complete_authentication()`
-2. Create a unified path resolution method that both binaries can use
-3. Consolidate the SheetsManager creation and verification
-
-**Current duplication in both binaries:**
-```rust
-// ~25 lines of authentication setup in each binary
-let (secret, token) = create_authenticator_and_token(&credfile, &token_cache).await?;
-let sheets_manager = SheetsManager::new(secret, token, spreadsheet)?;
-sheets_manager.verify_spreadsheet_access(Some(progress)).await?;
-sheets_manager.verify_sheet_exists(&config.google.team_sheet, Some(progress)).await?;
-```
-
 ## Medium Impact Improvements
 
-### 2. Test Helper Consolidation (Medium Priority)
+### 1. Test Helper Consolidation (Medium Priority)
 **Impact:** 30-40 lines reduction  
 **Effort:** Medium
 
@@ -44,7 +25,7 @@ pub fn create_test_player(name: &str, role_index: usize) -> Player { /* ... */ }
 pub fn create_test_html_file(content: &str) -> NamedTempFile { /* ... */ }
 ```
 
-### 3. Validation Module Consolidation (Medium Priority)
+### 2. Validation Module Consolidation (Medium Priority)
 **Impact:** 15-20 lines reduction  
 **Effort:** Low
 
@@ -76,7 +57,7 @@ impl Validator {
 }
 ```
 
-### 4. Path Resolution Deduplication (Medium Priority)  
+### 3. Path Resolution Deduplication (Medium Priority)  
 **Impact:** 20 lines reduction  
 **Effort:** Low
 
@@ -110,7 +91,7 @@ impl Config {
 
 ## Low Impact Improvements
 
-### 5. Constants Consolidation (Low Priority)
+### 4. Constants Consolidation (Low Priority)
 **Impact:** 10-15 lines reduction, better maintainability  
 **Effort:** Low
 
@@ -143,7 +124,7 @@ pub mod data_layout {
 }
 ```
 
-### 6. Error Constructor Macro (Low Priority)
+### 5. Error Constructor Macro (Low Priority)
 **Impact:** 20 lines reduction  
 **Effort:** Low
 
@@ -175,7 +156,7 @@ impl FMDataError {
 
 ## Dependencies and Architecture
 
-### 7. No Major Dependency Optimizations Needed
+### 6. No Major Dependency Optimizations Needed
 The crate uses focused, well-chosen dependencies without significant overlap:
 - `clap` for CLI parsing
 - `tokio` for async runtime
@@ -204,20 +185,21 @@ All dependencies serve distinct purposes and consolidation is not recommended.
 **Total Phase 2 Impact:** ~65-80 lines reduction
 
 ### Phase 3 (Larger Refactoring)
-1. Complete authentication consolidation (-40-60 lines)
+1. ✅ **COMPLETED:** Authentication consolidation (-50+ lines)
 
-**Total Phase 3 Impact:** ~40-60 lines reduction
+**Total Phase 3 Impact:** ~50+ lines reduction (completed)
 
 ## Total Potential Impact
 
-**Conservative estimate:** 135-175 lines reduction (remaining items)  
-**Optimistic estimate:** 175-225 lines reduction (remaining items)
+**Conservative estimate:** 85-125 lines reduction (remaining items)  
+**Optimistic estimate:** 115-165 lines reduction (remaining items)
 
 **Already completed:**
 - Binary consolidation: Eliminated ~56 lines of duplication
 - Experimental code removal: -97 lines
+- Authentication consolidation: -50+ lines
 
-Combined with future improvements, the total impact could reduce the overall codebase by **10-15%** while significantly improving maintainability and code organization.
+Combined with future improvements, the total impact could reduce the overall codebase by **12-18%** while significantly improving maintainability and code organization.
 
 ## Notes
 

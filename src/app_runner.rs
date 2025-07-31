@@ -3,7 +3,7 @@ use crate::{
     create_authenticator_and_token, get_secure_config_dir, Config, ProgressCallback,
     ProgressTracker, SheetsManager,
 };
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use std::path::Path;
 use std::time::Instant;
 
@@ -19,7 +19,7 @@ pub trait CLIArgumentValidator {
 pub struct AppRunner {
     pub config: Config,
     pub progress: ProgressTracker,
-    pub sheets_manager: SheetsManager,
+    pub sheets_manager: Option<SheetsManager>,
     pub start_time: Instant,
 }
 
@@ -53,13 +53,10 @@ impl AppRunner {
         let config_path = Path::new(cli.config_path());
         let config = Self::load_config(config_path, progress_ref).await?;
 
-        // Setup authentication and sheets manager
-        let sheets_manager = Self::setup_authentication_and_sheets(&config, progress_ref).await?;
-
         Ok(AppRunner {
             config,
             progress,
-            sheets_manager,
+            sheets_manager: None,
             start_time,
         })
     }
@@ -99,12 +96,15 @@ impl AppRunner {
         Ok(config)
     }
 
-    /// Setup authentication and create sheets manager
-    async fn setup_authentication_and_sheets(
-        config: &Config,
-        progress: &dyn ProgressCallback,
-    ) -> Result<SheetsManager> {
-        progress.update(10, 100, "Setting up authentication...");
+    /// Complete authentication setup with resolved paths and create sheets manager
+    pub async fn complete_authentication(
+        &mut self,
+        spreadsheet_id: String,
+        credfile: String,
+        auth_progress_start: u64,
+    ) -> Result<()> {
+        let progress: &dyn ProgressCallback = &self.progress;
+        progress.update(auth_progress_start, 100, "Setting up authentication...");
 
         // Ensure secure config directory exists
         let _secure_dir = get_secure_config_dir().await.map_err(|e| {
@@ -112,34 +112,6 @@ impl AppRunner {
                 "Failed to setup secure configuration directory: {e}"
             ))
         })?;
-
-        let _token_cache = if config.google.token_file.is_empty() {
-            get_secure_config_dir()
-                .await?
-                .join("tokencache.json")
-                .to_string_lossy()
-                .to_string()
-        } else {
-            config.google.token_file.clone()
-        };
-
-        // This method will be called by the specific binary implementations
-        // with their resolved paths
-        progress.update(20, 100, "Authentication setup ready");
-        
-        // Return a placeholder - actual authentication will be done by specific implementations
-        // This is a temporary approach until we can fully consolidate authentication
-        Err(FMDataError::config("Authentication setup needs to be completed by specific binary".to_string()))
-    }
-
-    /// Complete authentication setup with resolved paths
-    pub async fn complete_authentication(
-        &mut self,
-        spreadsheet_id: String,
-        credfile: String,
-    ) -> Result<()> {
-        let progress: &dyn ProgressCallback = &self.progress;
-        progress.update(20, 100, "Completing authentication...");
 
         let token_cache = if self.config.google.token_file.is_empty() {
             get_secure_config_dir()
@@ -153,10 +125,10 @@ impl AppRunner {
 
         let (secret, token) = create_authenticator_and_token(&credfile, &token_cache).await?;
         info!("Successfully obtained access token");
-        progress.update(25, 100, "Authentication completed");
+        progress.update(auth_progress_start + 15, 100, "Authentication completed");
 
         // Create sheets manager
-        progress.update(30, 100, "Creating sheets manager...");
+        progress.update(auth_progress_start + 20, 100, "Creating sheets manager...");
         let sheets_manager = SheetsManager::new(secret, token, spreadsheet_id)?;
         
         sheets_manager
@@ -166,13 +138,79 @@ impl AppRunner {
             .verify_sheet_exists(&self.config.google.team_sheet, Some(progress))
             .await?;
 
-        self.sheets_manager = sheets_manager;
+        self.sheets_manager = Some(sheets_manager);
         Ok(())
     }
 
     /// Get progress callback reference
     pub fn progress(&self) -> &dyn ProgressCallback {
         &self.progress
+    }
+
+    /// Get sheets manager reference (panics if authentication not completed)
+    pub fn sheets_manager(&self) -> &SheetsManager {
+        self.sheets_manager.as_ref().expect("Authentication not completed - call complete_authentication first")
+    }
+
+    /// Resolve paths for player uploader and setup authentication
+    pub async fn setup_for_player_uploader(
+        &mut self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        input: Option<String>,
+    ) -> Result<(String, String, String)> {
+        let progress = self.progress();
+        progress.update(5, 100, "Resolving configuration paths...");
+        
+        let (spreadsheet_id, credfile_path, input_path) = self.config
+            .resolve_paths(spreadsheet, credfile, input)
+            .map_err(|e| {
+                error!("Configuration validation failed: {}", e);
+                e
+            })?;
+
+        debug!("Using spreadsheet: {}", spreadsheet_id);
+        debug!("Using credentials file: {}", credfile_path);
+        debug!("Using input HTML file: {}", input_path);
+
+        // Complete authentication setup
+        self.complete_authentication(spreadsheet_id.clone(), credfile_path.clone(), 10).await?;
+
+        Ok((spreadsheet_id, credfile_path, input_path))
+    }
+
+    /// Resolve paths for team selector and setup authentication
+    pub async fn setup_for_team_selector(
+        &mut self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        role_file: Option<String>,
+    ) -> Result<(String, String, String)> {
+        let progress = self.progress();
+        progress.update(5, 100, "Resolving configuration paths...");
+        
+        let (spreadsheet_id, credfile_path, role_file_path) = self.config
+            .resolve_team_selector_paths(spreadsheet, credfile, role_file)
+            .map_err(|e| {
+                error!("Configuration validation failed: {}", e);
+                e
+            })?;
+
+        debug!("Using spreadsheet: {}", spreadsheet_id);
+        debug!("Using credentials file: {}", credfile_path);
+        debug!("Using role file: {}", role_file_path);
+
+        // Complete authentication setup (delayed to allow for role file processing)
+        Ok((spreadsheet_id, credfile_path, role_file_path))
+    }
+
+    /// Complete authentication for team selector (called after role file processing)
+    pub async fn complete_team_selector_auth(
+        &mut self,
+        spreadsheet_id: String,
+        credfile_path: String,
+    ) -> Result<()> {
+        self.complete_authentication(spreadsheet_id, credfile_path, 20).await
     }
 
     /// Finish the application with timing information
@@ -187,12 +225,45 @@ impl AppRunner {
             self.start_time.elapsed().as_millis()
         );
     }
-}
 
-/// Partial implementation to create AppRunner without full authentication
-/// This allows us to incrementally refactor the binaries
-impl AppRunner {
-    /// Create AppRunner with minimal setup for incremental refactoring
+    /// Create AppRunner with minimal setup for consolidated authentication
+    pub async fn new_complete<T: CLIArgumentValidator>(
+        cli: &T,
+        binary_name: &str,
+    ) -> Result<AppRunner> {
+        let start_time = Instant::now();
+
+        // Validate CLI arguments early
+        if let Err(e) = cli.validate() {
+            error!("Invalid arguments: {}", e);
+            std::process::exit(1);
+        }
+
+        // Set up logging level based on verbose flag
+        Self::setup_logging(cli.is_verbose(), binary_name);
+
+        info!("Starting {}", binary_name);
+
+        // Create progress tracker
+        let show_progress = !cli.is_no_progress() && !cli.is_verbose();
+        let progress = ProgressTracker::new(100, show_progress);
+        let progress_ref: &dyn ProgressCallback = &progress;
+
+        progress_ref.update(0, 100, "Starting process...");
+
+        // Read config file
+        let config_path = Path::new(cli.config_path());
+        let config = Self::load_config(config_path, progress_ref).await?;
+
+        Ok(AppRunner {
+            config,
+            progress,
+            sheets_manager: None,
+            start_time,
+        })
+    }
+
+    /// Create AppRunner with minimal setup for incremental refactoring (backward compatibility)
     pub async fn new_minimal<T: CLIArgumentValidator>(
         cli: &T,
         binary_name: &str,
