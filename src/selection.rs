@@ -342,6 +342,12 @@ impl Team {
             )));
         }
 
+        Self::new_unchecked(assignments)
+    }
+
+    /// Create a new team from assignments without size validation (allows partial teams)
+    pub fn new_unchecked(assignments: Vec<Assignment>) -> Result<Self> {
+
         // Validate no duplicate players
         let mut player_names = HashSet::new();
         for assignment in &assignments {
@@ -680,8 +686,33 @@ pub fn calculate_assignment_score(player: &Player, role: &Role) -> f32 {
     player.get_role_rating(role)
 }
 
-/// Find optimal player-to-role assignments using a greedy algorithm
-pub fn find_optimal_assignments(players: Vec<Player>, roles: Vec<Role>) -> Result<Team> {
+/// Check if a player is eligible for a role based on player filters
+/// Returns true if:
+/// - The player has no filter (no restrictions)
+/// - The player has a filter and the role belongs to one of their allowed categories
+pub fn is_player_eligible_for_role(
+    player_name: &str,
+    role: &Role,
+    filters: &[PlayerFilter],
+) -> bool {
+    // Find filter for this player
+    if let Some(filter) = filters.iter().find(|f| f.player_name == player_name) {
+        // Player has a filter - check if role belongs to any allowed category
+        filter.allowed_categories.iter().any(|category| {
+            role_belongs_to_category(&role.name, category)
+        })
+    } else {
+        // No filter for this player - eligible for all roles
+        true
+    }
+}
+
+/// Find optimal player-to-role assignments using a greedy algorithm with optional player filters
+pub fn find_optimal_assignments_with_filters(
+    players: Vec<Player>,
+    roles: Vec<Role>,
+    filters: &[PlayerFilter],
+) -> Result<Team> {
     if roles.len() != 11 {
         return Err(FMDataError::selection(format!(
             "Must have exactly 11 roles for team selection, got {}",
@@ -699,27 +730,40 @@ pub fn find_optimal_assignments(players: Vec<Player>, roles: Vec<Role>) -> Resul
     let mut assignments = Vec::new();
     let mut available_players = players;
 
-    // For each role, find the best available player
+    // For each role, find the best available eligible player
     for role in roles {
-        let mut best_player_index = 0;
-        let mut best_score = calculate_assignment_score(&available_players[0], &role);
+        let mut best_player_index = None;
+        let mut best_score = f32::NEG_INFINITY;
 
-        // Find the player with the highest rating for this role
+        // Find the eligible player with the highest rating for this role
         for (i, player) in available_players.iter().enumerate() {
-            let score = calculate_assignment_score(player, &role);
-            if score > best_score {
-                best_score = score;
-                best_player_index = i;
+            if is_player_eligible_for_role(&player.name, &role, filters) {
+                let score = calculate_assignment_score(player, &role);
+                if score > best_score {
+                    best_score = score;
+                    best_player_index = Some(i);
+                }
             }
         }
 
-        // Remove the selected player from available players and create assignment
-        let selected_player = available_players.remove(best_player_index);
-        let assignment = Assignment::new(selected_player, role);
-        assignments.push(assignment);
+        // Check if we found an eligible player
+        if let Some(index) = best_player_index {
+            // Remove the selected player from available players and create assignment
+            let selected_player = available_players.remove(index);
+            let assignment = Assignment::new(selected_player, role);
+            assignments.push(assignment);
+        } else {
+            // No eligible player found for this role - log warning and continue
+            log::warn!("No eligible players found for role '{}'", role.name);
+        }
     }
 
-    Team::new(assignments)
+    Team::new_unchecked(assignments)
+}
+
+/// Find optimal player-to-role assignments using a greedy algorithm (backward compatibility)
+pub fn find_optimal_assignments(players: Vec<Player>, roles: Vec<Role>) -> Result<Team> {
+    find_optimal_assignments_with_filters(players, roles, &[])
 }
 
 /// Format team output for clean stdout display
@@ -3106,5 +3150,216 @@ Van Dijk: Cd"#;
             "Total score should have exactly 1 decimal place, got: {}",
             score_part
         );
+    }
+
+    #[test]
+    fn test_is_player_eligible_for_role_no_filter() {
+        // Player with no filter should be eligible for all roles
+        let role = Role::new("GK").unwrap();
+        let filters = vec![];
+        
+        assert!(is_player_eligible_for_role("TestPlayer", &role, &filters));
+    }
+
+    #[test]
+    fn test_is_player_eligible_for_role_with_matching_filter() {
+        // Player with Goal category filter should be eligible for GK role
+        let role = Role::new("GK").unwrap();
+        let filters = vec![PlayerFilter::new(
+            "TestPlayer".to_string(),
+            vec![PlayerCategory::Goal],
+        )];
+        
+        assert!(is_player_eligible_for_role("TestPlayer", &role, &filters));
+    }
+
+    #[test]
+    fn test_is_player_eligible_for_role_with_non_matching_filter() {
+        // Player with Goal category filter should NOT be eligible for CD role
+        let role = Role::new("CD(d)").unwrap();
+        let filters = vec![PlayerFilter::new(
+            "TestPlayer".to_string(),
+            vec![PlayerCategory::Goal],
+        )];
+        
+        assert!(!is_player_eligible_for_role("TestPlayer", &role, &filters));
+    }
+
+    #[test]
+    fn test_is_player_eligible_for_role_with_multiple_categories() {
+        // Player with multiple categories should be eligible for roles in any of them
+        let gk_role = Role::new("GK").unwrap();
+        let cd_role = Role::new("CD(d)").unwrap();
+        let cm_role = Role::new("CM(s)").unwrap();
+        let filters = vec![PlayerFilter::new(
+            "TestPlayer".to_string(),
+            vec![PlayerCategory::Goal, PlayerCategory::CentralDefender],
+        )];
+        
+        assert!(is_player_eligible_for_role("TestPlayer", &gk_role, &filters));
+        assert!(is_player_eligible_for_role("TestPlayer", &cd_role, &filters));
+        assert!(!is_player_eligible_for_role("TestPlayer", &cm_role, &filters));
+    }
+
+    #[test]
+    fn test_is_player_eligible_for_role_different_player() {
+        // Filter for different player should not affect eligibility
+        let role = Role::new("GK").unwrap();
+        let filters = vec![PlayerFilter::new(
+            "OtherPlayer".to_string(),
+            vec![PlayerCategory::Goal],
+        )];
+        
+        // TestPlayer has no filter, so should be eligible for all roles
+        assert!(is_player_eligible_for_role("TestPlayer", &role, &filters));
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_with_filters_no_restrictions() {
+        // Test with filters but no restrictions (empty filters)
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create 11 players
+        for i in 0..11 {
+            let abilities = vec![Some(10.0 + i as f32); ABILITIES.len()];
+            let role_ratings = vec![Some(8.0 + i as f32); VALID_ROLES.len()];
+
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            )
+            .unwrap();
+            players.push(player);
+        }
+
+        // Create 11 roles  
+        for i in 0..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        let filters = vec![];
+        let result = find_optimal_assignments_with_filters(players, roles, &filters);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        assert_eq!(team.assignments.len(), 11);
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_with_filters_matching_categories() {
+        // Create a simple scenario with matching filters
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create goalkeeper
+        let gk_abilities = vec![Some(15.0); ABILITIES.len()];
+        let mut gk_role_ratings = vec![Some(5.0); VALID_ROLES.len()];
+        gk_role_ratings[95] = Some(18.0); // High GK rating (GK is at index 95)
+        let goalkeeper = Player::new(
+            "Goalkeeper".to_string(),
+            25,
+            Footedness::Right,
+            gk_abilities,
+            Some(85.0),
+            gk_role_ratings,
+        ).unwrap();
+        players.push(goalkeeper);
+
+        // Create outfield players
+        for i in 1..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let mut role_ratings = vec![Some(8.0); VALID_ROLES.len()];
+            role_ratings[i] = Some(12.0); // Decent rating for their position
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            ).unwrap();
+            players.push(player);
+        }
+
+        // Create roles
+        roles.push(Role::new("GK").unwrap());
+        for i in 1..11 {
+            roles.push(Role::new(VALID_ROLES[i]).unwrap());
+        }
+
+        // Create filter restricting Goalkeeper to Goal category only
+        let filters = vec![PlayerFilter::new(
+            "Goalkeeper".to_string(),
+            vec![PlayerCategory::Goal],
+        )];
+
+        let result = find_optimal_assignments_with_filters(players, roles, &filters);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        
+        // Should have all 11 assignments now that goalkeeper can actually play GK
+        assert_eq!(team.assignments.len(), 11);
+        
+        // Verify goalkeeper was assigned to GK role
+        let gk_assignment = team.assignments.iter().find(|a| a.role.name == "GK").unwrap();
+        assert_eq!(gk_assignment.player.name, "Goalkeeper");
+    }
+
+    #[test]
+    fn test_find_optimal_assignments_with_filters_no_eligible_players() {
+        // Test scenario where no players are eligible for certain roles
+        let mut players = Vec::new();
+        let mut roles = Vec::new();
+
+        // Create only outfield players (no goalkeepers)
+        for i in 0..11 {
+            let abilities = vec![Some(10.0); ABILITIES.len()];
+            let role_ratings = vec![Some(8.0); VALID_ROLES.len()];
+            let player = Player::new(
+                format!("Player {i}"),
+                25,
+                Footedness::Right,
+                abilities,
+                Some(85.0),
+                role_ratings,
+            ).unwrap();
+            players.push(player);
+        }
+
+        // Create roles including GK and some CentralDefender roles
+        roles.push(Role::new("GK").unwrap()); // No one can play this (Goal category)
+        // Add some central defender roles that the filtered players CAN play
+        roles.push(Role::new("CD(d)").unwrap());
+        roles.push(Role::new("CD(s)").unwrap());
+        roles.push(Role::new("CD(c)").unwrap());
+        roles.push(Role::new("BPD(d)").unwrap());
+        roles.push(Role::new("BPD(s)").unwrap());
+        roles.push(Role::new("BPD(c)").unwrap());
+        roles.push(Role::new("NCB(d)").unwrap());
+        roles.push(Role::new("WCB(d)").unwrap());
+        roles.push(Role::new("WCB(s)").unwrap());
+        roles.push(Role::new("WCB(a)").unwrap());
+
+        // Create filters restricting all players to non-Goal categories
+        let mut filters = Vec::new();
+        for i in 0..11 {
+            filters.push(PlayerFilter::new(
+                format!("Player {i}"),
+                vec![PlayerCategory::CentralDefender],
+            ));
+        }
+
+        let result = find_optimal_assignments_with_filters(players, roles, &filters);
+        assert!(result.is_ok());
+
+        let team = result.unwrap();
+        // Should have 10 assignments (all except GK which has no eligible players)
+        assert_eq!(team.assignments.len(), 10);
     }
 }

@@ -72,38 +72,40 @@ The feature extends the existing role file format to include optional player fil
 - ✅ Backward compatibility verified with existing files
 - ✅ Comment handling and whitespace normalization implemented
 
-**Commit**: [To be added] - "Implement Step 2: Extend Role File Parser with sectioned format support"
+**Commit**: ef78744 - "Implement Step 2: Extend Role File Parser with sectioned format support"
 
-### Step 3: Modify Player Assignment Algorithm
+### Step 3: Modify Player Assignment Algorithm ✅ COMPLETED
 
 **Starting Assumption**: Current assignment algorithm in `assign_players_to_roles()` considers all players for all roles
 
 **Implementation Details**:
-1. Modify `assign_players_to_roles()` to accept `PlayerFilter` data
-2. Add `is_player_eligible_for_role()` function checking:
+1. ✅ Modify `assign_players_to_roles()` to accept `PlayerFilter` data
+2. ✅ Add `is_player_eligible_for_role()` function checking:
    - If player has no filter → eligible for all roles
    - If player has filter → role must be in allowed categories
-3. Update greedy assignment loop to skip ineligible players
-4. Track players that couldn't be assigned due to filters
-5. Add warning message listing unassignable players at end
+3. ✅ Update greedy assignment loop to skip ineligible players
+4. ✅ Track players that couldn't be assigned due to filters
+5. ✅ Add warning message listing unassignable players at end
 
 **Testing Requirements**:
-- Unit tests for eligibility checking function
-- Unit tests for assignment with various filter combinations
-- Integration tests with complete scenarios (filtered + unfiltered players)
-- Test edge case: all players filtered out
-- Test edge case: player filtered to incompatible roles
+- ✅ Unit tests for eligibility checking function (5 new tests)
+- ✅ Unit tests for assignment with various filter combinations (3 new tests)
+- ✅ Integration tests with complete scenarios (filtered + unfiltered players) (2 new tests)
+- ✅ Test edge case: all players filtered out
+- ✅ Test edge case: player filtered to incompatible roles
 
 **Validation**:
-- Run `cargo test` - all tests pass
-- Run integration tests with mock data
-- Verify assignment logic correctness
+- ✅ Run `cargo test` - all tests pass (130 unit + 11 integration tests)
+- ✅ Run integration tests with mock data
+- ✅ Verify assignment logic correctness
 
 **Definition of Done**:
-- Assignment algorithm correctly respects player filters
-- Clear warning messages for unassignable players
-- Algorithm maintains optimal assignment within constraints
-- Performance not significantly degraded
+- ✅ Assignment algorithm correctly respects player filters
+- ✅ Clear warning messages for unassignable players
+- ✅ Algorithm maintains optimal assignment within constraints
+- ✅ Performance not significantly degraded
+
+**Commit**: [Next commit] - "Implement Step 3: Modify Player Assignment Algorithm with filter support"
 
 ### Step 4: Update Configuration and CLI
 

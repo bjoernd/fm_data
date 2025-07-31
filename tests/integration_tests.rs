@@ -1,6 +1,7 @@
 use fm_data::error::Result;
 use fm_data::{
-    find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, Config,
+    find_optimal_assignments, find_optimal_assignments_with_filters, format_team_output, 
+    parse_player_data, parse_role_file, parse_role_file_content, Config, PlayerCategory, PlayerFilter,
 };
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
@@ -734,4 +735,127 @@ fn create_optimal_test_squad() -> Vec<Vec<String>> {
     }
 
     data
+}
+
+
+/// Test the complete workflow with player filters that allow assignments
+#[tokio::test]
+async fn test_complete_workflow_with_filters_allowing_assignments() -> fm_data::error::Result<()> {
+    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, format_team_output, parse_player_data};
+    use tempfile::NamedTempFile;
+    use tokio::io::AsyncWriteExt;
+
+    // Create a temporary role file with filters
+    let role_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson: goal
+Van Dijk: cd
+Matip: cd
+Alexander-Arnold: wb
+Robertson: wb
+Henderson: dm
+Fabinho: cm
+Wijnaldum: cm
+Salah: wing
+Mané: wing
+Firmino: str"#;
+
+    let role_file = NamedTempFile::new().unwrap();
+    let mut async_role_file = tokio::fs::File::create(role_file.path()).await.unwrap();
+    async_role_file
+        .write_all(role_content.as_bytes())
+        .await
+        .unwrap();
+    async_role_file.flush().await.unwrap();
+
+    // Parse role file with filters
+    let role_file_content = parse_role_file_content(role_file.path().to_str().unwrap()).await?;
+    assert_eq!(role_file_content.roles.len(), 11);
+    assert_eq!(role_file_content.filters.len(), 11);
+
+    // Create mock player data
+    let mock_sheet_data = create_mock_sheet_data();
+    let players = parse_player_data(mock_sheet_data)?;
+
+    // Run assignment algorithm with filters
+    let team = find_optimal_assignments_with_filters(
+        players, 
+        role_file_content.roles, 
+        &role_file_content.filters
+    )?;
+    
+    // Should successfully assign all players
+    assert_eq!(team.assignments.len(), 11);
+
+    // Generate output
+    let output = format_team_output(&team);
+    assert!(output.contains(" -> "));
+    assert!(output.contains("Total Score:"));
+
+    Ok(())
+}
+
+/// Test backward compatibility - old role file format should still work
+#[tokio::test]
+async fn test_backward_compatibility_old_format() -> fm_data::error::Result<()> {
+    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, find_optimal_assignments, parse_player_data};
+    use tempfile::NamedTempFile;
+    use tokio::io::AsyncWriteExt;
+
+    // Create a traditional role file (no sections)
+    let role_content = "GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)";
+    
+    let role_file = NamedTempFile::new().unwrap();
+    let mut async_role_file = tokio::fs::File::create(role_file.path()).await.unwrap();
+    async_role_file
+        .write_all(role_content.as_bytes())
+        .await
+        .unwrap();
+    async_role_file.flush().await.unwrap();
+
+    // Parse role file using new parser
+    let role_file_content = parse_role_file_content(role_file.path().to_str().unwrap()).await?;
+    assert_eq!(role_file_content.roles.len(), 11);
+    assert_eq!(role_file_content.filters.len(), 0); // No filters in old format
+
+    // Create mock player data
+    let mock_sheet_data = create_mock_sheet_data();
+    let players = parse_player_data(mock_sheet_data)?;
+
+    // Run assignment algorithm - should work exactly like before
+    let team_new = find_optimal_assignments_with_filters(
+        players.clone(), 
+        role_file_content.roles.clone(), 
+        &role_file_content.filters
+    )?;
+    
+    let team_old = find_optimal_assignments(players, role_file_content.roles)?;
+    
+    // Results should be identical
+    assert_eq!(team_new.assignments.len(), team_old.assignments.len());
+    assert_eq!(team_new.total_score(), team_old.total_score());
+
+    Ok(())
 }
