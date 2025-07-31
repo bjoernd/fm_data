@@ -7,6 +7,7 @@ pub mod progress;
 pub mod selection;
 pub mod sheets_client;
 pub mod table;
+pub mod test_helpers;
 pub mod validation;
 
 pub use app_runner::{AppRunner, CLIArgumentValidator};
@@ -20,4 +21,4 @@ pub use selection::{
 };
 pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
-pub use validation::{DataValidator, IdValidator, PathValidator};
+pub use validation::Validator;

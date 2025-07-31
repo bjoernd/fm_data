@@ -1,6 +1,6 @@
 use crate::constants::defaults;
 use crate::error::{FMDataError, Result};
-use crate::validation::{IdValidator, PathValidator};
+use crate::validation::Validator;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -76,6 +76,18 @@ impl Default for GoogleConfig {
 }
 
 impl Config {
+    /// Helper method to resolve path with fallback priority: CLI > config > default
+    fn resolve_with_fallback<T: Clone + AsRef<str>>(
+        cli_value: Option<T>,
+        config_value: T,
+        default_value: T,
+    ) -> T {
+        cli_value
+            .or_else(|| Some(config_value))
+            .filter(|s| !s.as_ref().is_empty())
+            .unwrap_or(default_value)
+    }
+
     pub fn from_file(config_path: &Path) -> Result<Config> {
         let config_str = fs::read_to_string(config_path).map_err(|e| {
             FMDataError::config(format!(
@@ -128,27 +140,24 @@ impl Config {
     ) -> Result<(String, String, String)> {
         let (default_spreadsheet, default_creds, default_html) = Self::get_default_paths();
 
-        let resolved_spreadsheet = spreadsheet
-            .or_else(|| Some(self.google.spreadsheet_name.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_spreadsheet);
+        let resolved_spreadsheet = Self::resolve_with_fallback(
+            spreadsheet,
+            self.google.spreadsheet_name.clone(),
+            default_spreadsheet,
+        );
 
-        let resolved_credfile = credfile
-            .or_else(|| Some(self.google.creds_file.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_creds);
+        let resolved_credfile =
+            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
 
-        let resolved_input = input
-            .or_else(|| Some(self.input.data_html.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_html);
+        let resolved_input =
+            Self::resolve_with_fallback(input, self.input.data_html.clone(), default_html);
 
         // Validate the resolved paths
-        IdValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        PathValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        PathValidator::validate_file_extension(&resolved_credfile, "json")?;
-        PathValidator::validate_file_exists(&resolved_input, "Input HTML")?;
-        PathValidator::validate_file_extension(&resolved_input, "html")?;
+        Validator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        Validator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        Validator::validate_file_extension(&resolved_credfile, "json")?;
+        Validator::validate_file_exists(&resolved_input, "Input HTML")?;
+        Validator::validate_file_extension(&resolved_input, "html")?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_input))
     }
@@ -162,20 +171,17 @@ impl Config {
     ) -> (String, String, String) {
         let (default_spreadsheet, default_creds, default_html) = Self::get_default_paths();
 
-        let resolved_spreadsheet = spreadsheet
-            .or_else(|| Some(self.google.spreadsheet_name.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_spreadsheet);
+        let resolved_spreadsheet = Self::resolve_with_fallback(
+            spreadsheet,
+            self.google.spreadsheet_name.clone(),
+            default_spreadsheet,
+        );
 
-        let resolved_credfile = credfile
-            .or_else(|| Some(self.google.creds_file.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_creds);
+        let resolved_credfile =
+            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
 
-        let resolved_input = input
-            .or_else(|| Some(self.input.data_html.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_html);
+        let resolved_input =
+            Self::resolve_with_fallback(input, self.input.data_html.clone(), default_html);
 
         (resolved_spreadsheet, resolved_credfile, resolved_input)
     }
@@ -189,15 +195,14 @@ impl Config {
     ) -> Result<(String, String, String)> {
         let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
 
-        let resolved_spreadsheet = spreadsheet
-            .or_else(|| Some(self.google.spreadsheet_name.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_spreadsheet);
+        let resolved_spreadsheet = Self::resolve_with_fallback(
+            spreadsheet,
+            self.google.spreadsheet_name.clone(),
+            default_spreadsheet,
+        );
 
-        let resolved_credfile = credfile
-            .or_else(|| Some(self.google.creds_file.clone()))
-            .filter(|s| !s.is_empty())
-            .unwrap_or(default_creds);
+        let resolved_credfile =
+            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
 
         let resolved_role_file = role_file
             .or_else(|| Some(self.input.role_file.clone()))
@@ -205,11 +210,11 @@ impl Config {
             .ok_or_else(|| FMDataError::config("Role file path is required".to_string()))?;
 
         // Validate the resolved paths
-        IdValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        PathValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        PathValidator::validate_file_extension(&resolved_credfile, "json")?;
-        PathValidator::validate_file_exists(&resolved_role_file, "Role file")?;
-        PathValidator::validate_file_extension(&resolved_role_file, "txt")?;
+        Validator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        Validator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        Validator::validate_file_extension(&resolved_credfile, "json")?;
+        Validator::validate_file_exists(&resolved_role_file, "Role file")?;
+        Validator::validate_file_extension(&resolved_role_file, "txt")?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
     }

@@ -1,7 +1,7 @@
 use crate::constants::ranges;
 use crate::error::{FMDataError, Result};
 use crate::progress::ProgressCallback;
-use crate::validation::DataValidator;
+use crate::validation::Validator;
 use log::{debug, error, info};
 use sheets::{
     self,
@@ -150,8 +150,8 @@ impl SheetsManager {
         progress: Option<&dyn ProgressCallback>,
     ) -> Result<()> {
         // Validate data before upload
-        DataValidator::validate_non_empty_data(&matrix)?;
-        DataValidator::validate_row_consistency(&matrix)?;
+        Validator::validate_non_empty_data(&matrix)?;
+        Validator::validate_row_consistency(&matrix)?;
 
         let row_count = matrix.len();
 

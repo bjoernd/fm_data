@@ -62,7 +62,7 @@ impl AppRunner {
     fn setup_logging(verbose: bool, binary_name: &str) {
         if verbose {
             // Set debug level only for our crate, info for others
-            std::env::set_var("RUST_LOG", &format!("{}=debug,info", binary_name));
+            std::env::set_var("RUST_LOG", format!("{binary_name}=debug,info"));
         } else {
             // Only show warnings and errors when not in verbose mode to avoid interfering with progress bar
             std::env::set_var("RUST_LOG", "warn");

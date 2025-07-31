@@ -1,9 +1,10 @@
 use crate::error::{FMDataError, Result};
 use std::path::Path;
 
-pub struct PathValidator;
+pub struct Validator;
 
-impl PathValidator {
+impl Validator {
+    // Path validation methods
     pub fn validate_file_exists(path: &str, file_type: &str) -> Result<()> {
         let path_obj = Path::new(path);
         if !path_obj.exists() {
@@ -49,11 +50,8 @@ impl PathValidator {
         }
         Ok(())
     }
-}
 
-pub struct IdValidator;
-
-impl IdValidator {
+    // ID validation methods
     pub fn validate_spreadsheet_id(id: &str) -> Result<()> {
         if id.is_empty() {
             return Err(FMDataError::config("Spreadsheet ID cannot be empty"));
@@ -96,11 +94,8 @@ impl IdValidator {
 
         Ok(())
     }
-}
 
-pub struct DataValidator;
-
-impl DataValidator {
+    // Data validation methods
     pub fn validate_table_size(rows: usize, max_rows: usize) -> Result<()> {
         if rows > max_rows {
             return Err(FMDataError::table(format!(
@@ -156,37 +151,37 @@ mod tests {
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path().to_string_lossy();
 
-        assert!(PathValidator::validate_file_exists(&path, "test").is_ok());
-        assert!(PathValidator::validate_file_exists("nonexistent.txt", "test").is_err());
+        assert!(Validator::validate_file_exists(&path, "test").is_ok());
+        assert!(Validator::validate_file_exists("nonexistent.txt", "test").is_err());
     }
 
     #[test]
     fn test_validate_file_extension() {
-        assert!(PathValidator::validate_file_extension("test.json", "json").is_ok());
+        assert!(Validator::validate_file_extension("test.json", "json").is_ok());
         // Should not error for mismatched extensions, just warn
-        assert!(PathValidator::validate_file_extension("test.txt", "json").is_ok());
+        assert!(Validator::validate_file_extension("test.txt", "json").is_ok());
     }
 
     #[test]
     fn test_validate_spreadsheet_id() {
-        assert!(IdValidator::validate_spreadsheet_id("valid-spreadsheet_id123").is_ok());
-        assert!(IdValidator::validate_spreadsheet_id("").is_err());
-        assert!(IdValidator::validate_spreadsheet_id("invalid@id").is_err());
+        assert!(Validator::validate_spreadsheet_id("valid-spreadsheet_id123").is_ok());
+        assert!(Validator::validate_spreadsheet_id("").is_err());
+        assert!(Validator::validate_spreadsheet_id("invalid@id").is_err());
     }
 
     #[test]
     fn test_validate_sheet_name() {
-        assert!(IdValidator::validate_sheet_name("ValidSheet").is_ok());
-        assert!(IdValidator::validate_sheet_name("").is_err());
-        assert!(IdValidator::validate_sheet_name("Invalid[Sheet]").is_err());
-        assert!(IdValidator::validate_sheet_name(&"x".repeat(101)).is_err());
+        assert!(Validator::validate_sheet_name("ValidSheet").is_ok());
+        assert!(Validator::validate_sheet_name("").is_err());
+        assert!(Validator::validate_sheet_name("Invalid[Sheet]").is_err());
+        assert!(Validator::validate_sheet_name(&"x".repeat(101)).is_err());
     }
 
     #[test]
     fn test_validate_table_size() {
-        assert!(DataValidator::validate_table_size(10, 50).is_ok());
-        assert!(DataValidator::validate_table_size(0, 50).is_ok()); // Allow 0 rows
-        assert!(DataValidator::validate_table_size(60, 50).is_err());
+        assert!(Validator::validate_table_size(10, 50).is_ok());
+        assert!(Validator::validate_table_size(0, 50).is_ok()); // Allow 0 rows
+        assert!(Validator::validate_table_size(60, 50).is_err());
     }
 
     #[test]
@@ -195,24 +190,24 @@ mod tests {
             vec!["a".to_string(), "b".to_string()],
             vec!["c".to_string(), "d".to_string()],
         ];
-        assert!(DataValidator::validate_row_consistency(&consistent_rows).is_ok());
+        assert!(Validator::validate_row_consistency(&consistent_rows).is_ok());
 
         let inconsistent_rows = vec![
             vec!["a".to_string(), "b".to_string()],
             vec!["c".to_string()],
         ];
-        assert!(DataValidator::validate_row_consistency(&inconsistent_rows).is_err());
+        assert!(Validator::validate_row_consistency(&inconsistent_rows).is_err());
     }
 
     #[test]
     fn test_validate_non_empty_data() {
         let valid_data = vec![vec!["data".to_string(), "more".to_string()]];
-        assert!(DataValidator::validate_non_empty_data(&valid_data).is_ok());
+        assert!(Validator::validate_non_empty_data(&valid_data).is_ok());
 
         let empty_data: Vec<Vec<String>> = vec![];
-        assert!(DataValidator::validate_non_empty_data(&empty_data).is_err());
+        assert!(Validator::validate_non_empty_data(&empty_data).is_err());
 
         let all_empty_data = vec![vec!["".to_string(), "  ".to_string()]];
-        assert!(DataValidator::validate_non_empty_data(&all_empty_data).is_err());
+        assert!(Validator::validate_non_empty_data(&all_empty_data).is_err());
     }
 }

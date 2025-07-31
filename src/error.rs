@@ -30,42 +30,25 @@ pub enum FMDataError {
     OAuth2(#[from] yup_oauth2::Error),
 }
 
+macro_rules! error_constructors {
+    ($($name:ident => $variant:ident),*) => {
+        $(
+            pub fn $name<T: Into<String>>(message: T) -> Self {
+                Self::$variant { message: message.into() }
+            }
+        )*
+    };
+}
+
 impl FMDataError {
-    pub fn config<T: Into<String>>(message: T) -> Self {
-        Self::Config {
-            message: message.into(),
-        }
-    }
-
-    pub fn auth<T: Into<String>>(message: T) -> Self {
-        Self::Auth {
-            message: message.into(),
-        }
-    }
-
-    pub fn table<T: Into<String>>(message: T) -> Self {
-        Self::Table {
-            message: message.into(),
-        }
-    }
-
-    pub fn sheets_api<T: Into<String>>(message: T) -> Self {
-        Self::SheetsApi {
-            message: message.into(),
-        }
-    }
-
-    pub fn progress<T: Into<String>>(message: T) -> Self {
-        Self::Progress {
-            message: message.into(),
-        }
-    }
-
-    pub fn selection<T: Into<String>>(message: T) -> Self {
-        Self::Selection {
-            message: message.into(),
-        }
-    }
+    error_constructors!(
+        config => Config,
+        auth => Auth,
+        table => Table,
+        sheets_api => SheetsApi,
+        progress => Progress,
+        selection => Selection
+    );
 }
 
 pub type Result<T> = std::result::Result<T, FMDataError>;
