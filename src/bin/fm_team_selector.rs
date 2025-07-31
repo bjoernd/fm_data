@@ -1,8 +1,9 @@
 use clap::Parser;
+use fm_data::constants::ranges;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, 
-    AppRunner, CLIArgumentValidator,
+    find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, AppRunner,
+    CLIArgumentValidator,
 };
 use log::{debug, error, info};
 use std::path::Path;
@@ -148,7 +149,9 @@ async fn main() -> Result<()> {
         .await?;
 
     // Parse role file
-    app_runner.progress().update(10, 100, "Loading and validating roles...");
+    app_runner
+        .progress()
+        .update(10, 100, "Loading and validating roles...");
     let roles = parse_role_file(&role_file_path).await.map_err(|e| {
         error!("Failed to parse role file: {}", e);
         e
@@ -162,19 +165,29 @@ async fn main() -> Result<()> {
     debug!("Roles: {:?}", roles);
 
     // Complete authentication after role file processing
-    app_runner.complete_team_selector_auth(spreadsheet, credfile).await?;
+    app_runner
+        .complete_team_selector_auth(spreadsheet, credfile)
+        .await?;
 
     // Download player data from Google Sheets
-    app_runner.progress().update(50, 100, "Downloading player data from Google Sheets...");
+    app_runner
+        .progress()
+        .update(50, 100, "Downloading player data from Google Sheets...");
     let sheets_manager = app_runner.sheets_manager();
     let sheet_data = sheets_manager
-        .read_data(&app_runner.config.google.team_sheet, "A2:EQ58", Some(app_runner.progress()))
+        .read_data(
+            &app_runner.config.google.team_sheet,
+            ranges::DOWNLOAD_RANGE,
+            Some(app_runner.progress()),
+        )
         .await?;
 
     info!("Downloaded {} rows of player data", sheet_data.len());
 
     // Parse player data
-    app_runner.progress().update(65, 100, "Parsing player data...");
+    app_runner
+        .progress()
+        .update(65, 100, "Parsing player data...");
     let players = parse_player_data(sheet_data).map_err(|e| {
         error!("Failed to parse player data: {}", e);
         e
@@ -183,7 +196,9 @@ async fn main() -> Result<()> {
     info!("Successfully parsed {} players", players.len());
 
     // Find optimal assignments
-    app_runner.progress().update(80, 100, "Finding optimal player assignments...");
+    app_runner
+        .progress()
+        .update(80, 100, "Finding optimal player assignments...");
     let team = find_optimal_assignments(players, roles).map_err(|e| {
         error!("Failed to find optimal assignments: {}", e);
         e
@@ -195,7 +210,9 @@ async fn main() -> Result<()> {
     );
 
     // Generate and output results
-    app_runner.progress().update(95, 100, "Generating output...");
+    app_runner
+        .progress()
+        .update(95, 100, "Generating output...");
     let output = format_team_output(&team);
 
     app_runner.finish("Team selection");

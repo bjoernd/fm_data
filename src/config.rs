@@ -1,3 +1,4 @@
+use crate::constants::defaults;
 use crate::error::{FMDataError, Result};
 use crate::validation::{IdValidator, PathValidator};
 use serde::{Deserialize, Serialize};
@@ -5,15 +6,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn default_team_sheet() -> String {
-    String::from("Squad")
+    String::from(defaults::TEAM_SHEET)
 }
 
 fn default_team_perf_sheet() -> String {
-    String::from("Stats_Team")
+    String::from(defaults::TEAM_PERF_SHEET)
 }
 
 fn default_league_perf_sheet() -> String {
-    String::from("Stats_Division")
+    String::from(defaults::LEAGUE_PERF_SHEET)
 }
 
 fn default_token_file() -> String {

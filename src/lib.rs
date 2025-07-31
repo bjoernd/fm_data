@@ -1,6 +1,7 @@
 pub mod app_runner;
 pub mod auth;
 pub mod config;
+pub mod constants;
 pub mod error;
 pub mod progress;
 pub mod selection;

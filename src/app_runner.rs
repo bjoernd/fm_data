@@ -25,10 +25,7 @@ pub struct AppRunner {
 
 impl AppRunner {
     /// Initialize the application with common setup steps
-    pub async fn new<T: CLIArgumentValidator>(
-        cli: &T,
-        binary_name: &str,
-    ) -> Result<Self> {
+    pub async fn new<T: CLIArgumentValidator>(cli: &T, binary_name: &str) -> Result<Self> {
         let start_time = Instant::now();
 
         // Validate CLI arguments early
@@ -76,10 +73,7 @@ impl AppRunner {
     }
 
     /// Load configuration with fallback to defaults
-    async fn load_config(
-        config_path: &Path,
-        progress: &dyn ProgressCallback,
-    ) -> Result<Config> {
+    async fn load_config(config_path: &Path, progress: &dyn ProgressCallback) -> Result<Config> {
         progress.update(5, 100, "Loading configuration...");
 
         let config = match Config::from_file(config_path) {
@@ -130,7 +124,7 @@ impl AppRunner {
         // Create sheets manager
         progress.update(auth_progress_start + 20, 100, "Creating sheets manager...");
         let sheets_manager = SheetsManager::new(secret, token, spreadsheet_id)?;
-        
+
         sheets_manager
             .verify_spreadsheet_access(Some(progress))
             .await?;
@@ -149,7 +143,9 @@ impl AppRunner {
 
     /// Get sheets manager reference (panics if authentication not completed)
     pub fn sheets_manager(&self) -> &SheetsManager {
-        self.sheets_manager.as_ref().expect("Authentication not completed - call complete_authentication first")
+        self.sheets_manager
+            .as_ref()
+            .expect("Authentication not completed - call complete_authentication first")
     }
 
     /// Resolve paths for player uploader and setup authentication
@@ -161,8 +157,9 @@ impl AppRunner {
     ) -> Result<(String, String, String)> {
         let progress = self.progress();
         progress.update(5, 100, "Resolving configuration paths...");
-        
-        let (spreadsheet_id, credfile_path, input_path) = self.config
+
+        let (spreadsheet_id, credfile_path, input_path) = self
+            .config
             .resolve_paths(spreadsheet, credfile, input)
             .map_err(|e| {
                 error!("Configuration validation failed: {}", e);
@@ -174,7 +171,8 @@ impl AppRunner {
         debug!("Using input HTML file: {}", input_path);
 
         // Complete authentication setup
-        self.complete_authentication(spreadsheet_id.clone(), credfile_path.clone(), 10).await?;
+        self.complete_authentication(spreadsheet_id.clone(), credfile_path.clone(), 10)
+            .await?;
 
         Ok((spreadsheet_id, credfile_path, input_path))
     }
@@ -188,8 +186,9 @@ impl AppRunner {
     ) -> Result<(String, String, String)> {
         let progress = self.progress();
         progress.update(5, 100, "Resolving configuration paths...");
-        
-        let (spreadsheet_id, credfile_path, role_file_path) = self.config
+
+        let (spreadsheet_id, credfile_path, role_file_path) = self
+            .config
             .resolve_team_selector_paths(spreadsheet, credfile, role_file)
             .map_err(|e| {
                 error!("Configuration validation failed: {}", e);
@@ -210,7 +209,8 @@ impl AppRunner {
         spreadsheet_id: String,
         credfile_path: String,
     ) -> Result<()> {
-        self.complete_authentication(spreadsheet_id, credfile_path, 20).await
+        self.complete_authentication(spreadsheet_id, credfile_path, 20)
+            .await
     }
 
     /// Finish the application with timing information

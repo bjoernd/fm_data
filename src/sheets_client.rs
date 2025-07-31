@@ -1,3 +1,4 @@
+use crate::constants::ranges;
 use crate::error::{FMDataError, Result};
 use crate::progress::ProgressCallback;
 use crate::validation::DataValidator;
@@ -123,7 +124,7 @@ impl SheetsManager {
             p.set_message("Clearing existing data...");
         }
 
-        let clear_range = format!("{sheet_name}!A2:AX58");
+        let clear_range = format!("{sheet_name}!{}", ranges::UPLOAD_RANGE);
         self.client
             .values_clear(&self.spreadsheet_id, &clear_range, &ClearValuesRequest {})
             .await
@@ -232,6 +233,7 @@ impl SheetsManager {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
     fn test_upload_data_matrix_structure() {
@@ -267,10 +269,10 @@ mod tests {
         let sheet_name = "TestSheet";
         let row_count = 10;
 
-        let clear_range = format!("{sheet_name}!A2:AX58");
+        let clear_range = format!("{sheet_name}!{}", ranges::UPLOAD_RANGE);
         let update_range = format!("{}!A2:AX{}", sheet_name, row_count + 1);
 
-        assert_eq!(clear_range, "TestSheet!A2:AX58");
+        assert_eq!(clear_range, format!("TestSheet!{}", ranges::UPLOAD_RANGE));
         assert_eq!(update_range, "TestSheet!A2:AX11");
     }
 

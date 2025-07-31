@@ -1,3 +1,4 @@
+use crate::constants::ranges;
 use crate::error::{FMDataError, Result};
 use crate::validation::DataValidator;
 use std::path::Path;
@@ -53,7 +54,7 @@ pub fn process_table_data(table: &Table) -> Result<Vec<Vec<String>>> {
 }
 
 pub fn validate_data_size(row_count: usize) -> Result<()> {
-    const MAX_DATA_ROWS: usize = 57;
+    const MAX_DATA_ROWS: usize = ranges::MAX_DATA_ROWS;
     DataValidator::validate_table_size(row_count, MAX_DATA_ROWS)?;
     Ok(())
 }

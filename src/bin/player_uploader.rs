@@ -1,8 +1,8 @@
 use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    process_table_data, read_table, validate_data_size, validate_table_structure, 
-    AppRunner, CLIArgumentValidator,
+    process_table_data, read_table, validate_data_size, validate_table_structure, AppRunner,
+    CLIArgumentValidator,
 };
 use log::{debug, info};
 use std::path::Path;
@@ -135,15 +135,18 @@ async fn main() -> Result<()> {
         .setup_for_player_uploader(cli.spreadsheet, cli.credfile, cli.input)
         .await?;
 
-
     // Read table from HTML
-    app_runner.progress().update(40, 100, "Reading HTML table data...");
+    app_runner
+        .progress()
+        .update(40, 100, "Reading HTML table data...");
     let table = read_table(&input)
         .await
         .map_err(|e| FMDataError::table(format!("Failed to extract table from '{input}': {e}")))?;
 
     // Validate table structure
-    app_runner.progress().update(50, 100, "Validating table structure...");
+    app_runner
+        .progress()
+        .update(50, 100, "Validating table structure...");
     validate_table_structure(&table)
         .map_err(|e| FMDataError::table(format!("Invalid table structure: {e}")))?;
 
@@ -152,22 +155,33 @@ async fn main() -> Result<()> {
 
     // Validate data size
     validate_data_size(row_count)?;
-    app_runner.progress().update(60, 100, &format!("Processing {row_count} rows of data..."));
+    app_runner
+        .progress()
+        .update(60, 100, &format!("Processing {row_count} rows of data..."));
 
     if let Some(first_row) = table.iter().next() {
         debug!("Table first row has {} columns", first_row.len());
     }
 
     // Clear and upload data
-    app_runner.progress().update(70, 100, "Preparing data for upload...");
+    app_runner
+        .progress()
+        .update(70, 100, "Preparing data for upload...");
     let matrix = process_table_data(&table)?;
 
     let sheets_manager = app_runner.sheets_manager();
     sheets_manager
-        .clear_range(&app_runner.config.google.team_sheet, Some(app_runner.progress()))
+        .clear_range(
+            &app_runner.config.google.team_sheet,
+            Some(app_runner.progress()),
+        )
         .await?;
     sheets_manager
-        .upload_data(&app_runner.config.google.team_sheet, matrix, Some(app_runner.progress()))
+        .upload_data(
+            &app_runner.config.google.team_sheet,
+            matrix,
+            Some(app_runner.progress()),
+        )
         .await?;
 
     app_runner.finish("Upload");

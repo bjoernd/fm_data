@@ -1,3 +1,4 @@
+use crate::constants::data_layout;
 use crate::error::{FMDataError, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -330,7 +331,7 @@ pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
         // Parse abilities (columns D-AX, indices 3-49)
         let mut abilities = Vec::new();
         for i in 0..ABILITIES.len() {
-            let col_index = i + 3; // Abilities start at column D (index 3)
+            let col_index = i + data_layout::ABILITIES_START_COL; // Abilities start at column D
             let value = if col_index < row.len() {
                 row[col_index].trim().parse::<f32>().ok()
             } else {
@@ -349,7 +350,7 @@ pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
         // Parse role ratings (columns AZ-EQ, indices 51+)
         let mut role_ratings = Vec::new();
         for i in 0..VALID_ROLES.len() {
-            let col_index = i + 51; // Role ratings start at column AZ (index 51)
+            let col_index = i + data_layout::ROLE_RATINGS_START_COL; // Role ratings start at column AZ
             let value = if col_index < row.len() {
                 row[col_index].trim().parse::<f32>().ok()
             } else {
