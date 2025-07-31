@@ -347,7 +347,6 @@ impl Team {
 
     /// Create a new team from assignments without size validation (allows partial teams)
     pub fn new_unchecked(assignments: Vec<Assignment>) -> Result<Self> {
-
         // Validate no duplicate players
         let mut player_names = HashSet::new();
         for assignment in &assignments {
@@ -698,9 +697,10 @@ pub fn is_player_eligible_for_role(
     // Find filter for this player
     if let Some(filter) = filters.iter().find(|f| f.player_name == player_name) {
         // Player has a filter - check if role belongs to any allowed category
-        filter.allowed_categories.iter().any(|category| {
-            role_belongs_to_category(&role.name, category)
-        })
+        filter
+            .allowed_categories
+            .iter()
+            .any(|category| role_belongs_to_category(&role.name, category))
     } else {
         // No filter for this player - eligible for all roles
         true
@@ -3157,7 +3157,7 @@ Van Dijk: Cd"#;
         // Player with no filter should be eligible for all roles
         let role = Role::new("GK").unwrap();
         let filters = vec![];
-        
+
         assert!(is_player_eligible_for_role("TestPlayer", &role, &filters));
     }
 
@@ -3169,7 +3169,7 @@ Van Dijk: Cd"#;
             "TestPlayer".to_string(),
             vec![PlayerCategory::Goal],
         )];
-        
+
         assert!(is_player_eligible_for_role("TestPlayer", &role, &filters));
     }
 
@@ -3181,7 +3181,7 @@ Van Dijk: Cd"#;
             "TestPlayer".to_string(),
             vec![PlayerCategory::Goal],
         )];
-        
+
         assert!(!is_player_eligible_for_role("TestPlayer", &role, &filters));
     }
 
@@ -3195,10 +3195,22 @@ Van Dijk: Cd"#;
             "TestPlayer".to_string(),
             vec![PlayerCategory::Goal, PlayerCategory::CentralDefender],
         )];
-        
-        assert!(is_player_eligible_for_role("TestPlayer", &gk_role, &filters));
-        assert!(is_player_eligible_for_role("TestPlayer", &cd_role, &filters));
-        assert!(!is_player_eligible_for_role("TestPlayer", &cm_role, &filters));
+
+        assert!(is_player_eligible_for_role(
+            "TestPlayer",
+            &gk_role,
+            &filters
+        ));
+        assert!(is_player_eligible_for_role(
+            "TestPlayer",
+            &cd_role,
+            &filters
+        ));
+        assert!(!is_player_eligible_for_role(
+            "TestPlayer",
+            &cm_role,
+            &filters
+        ));
     }
 
     #[test]
@@ -3209,7 +3221,7 @@ Van Dijk: Cd"#;
             "OtherPlayer".to_string(),
             vec![PlayerCategory::Goal],
         )];
-        
+
         // TestPlayer has no filter, so should be eligible for all roles
         assert!(is_player_eligible_for_role("TestPlayer", &role, &filters));
     }
@@ -3237,7 +3249,7 @@ Van Dijk: Cd"#;
             players.push(player);
         }
 
-        // Create 11 roles  
+        // Create 11 roles
         for i in 0..11 {
             roles.push(Role::new(VALID_ROLES[i]).unwrap());
         }
@@ -3267,7 +3279,8 @@ Van Dijk: Cd"#;
             gk_abilities,
             Some(85.0),
             gk_role_ratings,
-        ).unwrap();
+        )
+        .unwrap();
         players.push(goalkeeper);
 
         // Create outfield players
@@ -3282,7 +3295,8 @@ Van Dijk: Cd"#;
                 abilities,
                 Some(85.0),
                 role_ratings,
-            ).unwrap();
+            )
+            .unwrap();
             players.push(player);
         }
 
@@ -3302,12 +3316,16 @@ Van Dijk: Cd"#;
         assert!(result.is_ok());
 
         let team = result.unwrap();
-        
+
         // Should have all 11 assignments now that goalkeeper can actually play GK
         assert_eq!(team.assignments.len(), 11);
-        
+
         // Verify goalkeeper was assigned to GK role
-        let gk_assignment = team.assignments.iter().find(|a| a.role.name == "GK").unwrap();
+        let gk_assignment = team
+            .assignments
+            .iter()
+            .find(|a| a.role.name == "GK")
+            .unwrap();
         assert_eq!(gk_assignment.player.name, "Goalkeeper");
     }
 
@@ -3328,13 +3346,14 @@ Van Dijk: Cd"#;
                 abilities,
                 Some(85.0),
                 role_ratings,
-            ).unwrap();
+            )
+            .unwrap();
             players.push(player);
         }
 
         // Create roles including GK and some CentralDefender roles
         roles.push(Role::new("GK").unwrap()); // No one can play this (Goal category)
-        // Add some central defender roles that the filtered players CAN play
+                                              // Add some central defender roles that the filtered players CAN play
         roles.push(Role::new("CD(d)").unwrap());
         roles.push(Role::new("CD(s)").unwrap());
         roles.push(Role::new("CD(c)").unwrap());

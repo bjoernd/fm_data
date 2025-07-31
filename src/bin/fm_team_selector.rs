@@ -2,7 +2,7 @@ use clap::Parser;
 use fm_data::constants::ranges;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    find_optimal_assignments_with_filters, format_team_output, parse_player_data, 
+    find_optimal_assignments_with_filters, format_team_output, parse_player_data,
     parse_role_file_content, AppRunner, CLIArgumentValidator,
 };
 use log::{debug, error, info};
@@ -169,10 +169,12 @@ async fn main() -> Result<()> {
     app_runner
         .progress()
         .update(10, 100, "Loading and validating roles...");
-    let role_file_content = parse_role_file_content(&role_file_path).await.map_err(|e| {
-        error!("Failed to parse role file: {}", e);
-        e
-    })?;
+    let role_file_content = parse_role_file_content(&role_file_path)
+        .await
+        .map_err(|e| {
+            error!("Failed to parse role file: {}", e);
+            e
+        })?;
 
     info!(
         "Successfully loaded {} roles and {} player filters from {}",
@@ -219,10 +221,11 @@ async fn main() -> Result<()> {
         .progress()
         .update(80, 100, "Finding optimal player assignments...");
     let team = find_optimal_assignments_with_filters(
-        players, 
-        role_file_content.roles, 
-        &role_file_content.filters
-    ).map_err(|e| {
+        players,
+        role_file_content.roles,
+        &role_file_content.filters,
+    )
+    .map_err(|e| {
         error!("Failed to find optimal assignments: {}", e);
         e
     })?;

@@ -16,8 +16,8 @@ pub use config::Config;
 pub use error::{FMDataError, Result};
 pub use progress::{NoOpProgress, ProgressCallback, ProgressTracker};
 pub use selection::{
-    find_optimal_assignments, find_optimal_assignments_with_filters, format_team_output, 
-    parse_player_data, parse_role_file, parse_role_file_content, Assignment, Footedness, Player, 
+    find_optimal_assignments, find_optimal_assignments_with_filters, format_team_output,
+    parse_player_data, parse_role_file, parse_role_file_content, Assignment, Footedness, Player,
     PlayerCategory, PlayerFilter, Role, RoleFileContent, Team,
 };
 pub use sheets_client::SheetsManager;

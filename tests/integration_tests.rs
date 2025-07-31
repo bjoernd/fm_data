@@ -1,7 +1,6 @@
 use fm_data::error::Result;
 use fm_data::{
-    find_optimal_assignments, format_team_output, 
-    parse_player_data, parse_role_file, Config,
+    find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, Config,
 };
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
@@ -737,11 +736,13 @@ fn create_optimal_test_squad() -> Vec<Vec<String>> {
     data
 }
 
-
 /// Test the complete workflow with player filters that allow assignments
 #[tokio::test]
 async fn test_complete_workflow_with_filters_allowing_assignments() -> fm_data::error::Result<()> {
-    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, format_team_output, parse_player_data};
+    use fm_data::{
+        find_optimal_assignments_with_filters, format_team_output, parse_player_data,
+        parse_role_file_content,
+    };
     use tempfile::NamedTempFile;
     use tokio::io::AsyncWriteExt;
 
@@ -791,11 +792,11 @@ Firmino: str"#;
 
     // Run assignment algorithm with filters
     let team = find_optimal_assignments_with_filters(
-        players, 
-        role_file_content.roles, 
-        &role_file_content.filters
+        players,
+        role_file_content.roles,
+        &role_file_content.filters,
     )?;
-    
+
     // Should successfully assign all players
     assert_eq!(team.assignments.len(), 11);
 
@@ -810,7 +811,10 @@ Firmino: str"#;
 /// Test backward compatibility - old role file format should still work
 #[tokio::test]
 async fn test_backward_compatibility_old_format() -> fm_data::error::Result<()> {
-    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, find_optimal_assignments, parse_player_data};
+    use fm_data::{
+        find_optimal_assignments, find_optimal_assignments_with_filters, parse_player_data,
+        parse_role_file_content,
+    };
     use tempfile::NamedTempFile;
     use tokio::io::AsyncWriteExt;
 
@@ -826,7 +830,7 @@ CM(a)
 W(s) R
 W(s) L
 CF(s)";
-    
+
     let role_file = NamedTempFile::new().unwrap();
     let mut async_role_file = tokio::fs::File::create(role_file.path()).await.unwrap();
     async_role_file
@@ -846,13 +850,13 @@ CF(s)";
 
     // Run assignment algorithm - should work exactly like before
     let team_new = find_optimal_assignments_with_filters(
-        players.clone(), 
-        role_file_content.roles.clone(), 
-        &role_file_content.filters
+        players.clone(),
+        role_file_content.roles.clone(),
+        &role_file_content.filters,
     )?;
-    
+
     let team_old = find_optimal_assignments(players, role_file_content.roles)?;
-    
+
     // Results should be identical
     assert_eq!(team_new.assignments.len(), team_old.assignments.len());
     assert_eq!(team_new.total_score(), team_old.total_score());
@@ -863,7 +867,10 @@ CF(s)";
 /// Test role file with filters that block some players from their natural roles
 #[tokio::test]
 async fn test_filters_blocking_player_assignments() -> Result<()> {
-    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, format_team_output, parse_player_data};
+    use fm_data::{
+        find_optimal_assignments_with_filters, format_team_output, parse_player_data,
+        parse_role_file_content,
+    };
     use tempfile::NamedTempFile;
     use tokio::io::AsyncWriteExt;
 
@@ -905,11 +912,11 @@ Salah: goal"#;
 
     // Run assignment algorithm with blocking filters
     let team = find_optimal_assignments_with_filters(
-        players, 
-        role_file_content.roles, 
-        &role_file_content.filters
+        players,
+        role_file_content.roles,
+        &role_file_content.filters,
     )?;
-    
+
     // Should still create a team, but assignments will be suboptimal due to restrictions
     assert!(team.assignments.len() <= 11);
 
@@ -920,11 +927,14 @@ Salah: goal"#;
     // Verify that blocked players are NOT in their natural positions
     let lines: Vec<&str> = output.trim().split('\n').collect();
     let assignment_lines = &lines[0..team.assignments.len()];
-    
+
     // Alisson should NOT be assigned to GK (blocked to cd category)
     let gk_assignment = assignment_lines.iter().find(|line| line.starts_with("GK"));
     if let Some(gk_line) = gk_assignment {
-        assert!(!gk_line.contains("Alisson"), "Alisson should be blocked from GK role");
+        assert!(
+            !gk_line.contains("Alisson"),
+            "Alisson should be blocked from GK role"
+        );
     }
 
     Ok(())
@@ -933,7 +943,10 @@ Salah: goal"#;
 /// Test mixed scenario with both filtered and unfiltered players
 #[tokio::test]
 async fn test_mixed_filtered_and_unfiltered_players() -> Result<()> {
-    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, format_team_output, parse_player_data};
+    use fm_data::{
+        find_optimal_assignments_with_filters, format_team_output, parse_player_data,
+        parse_role_file_content,
+    };
     use tempfile::NamedTempFile;
     use tokio::io::AsyncWriteExt;
 
@@ -976,11 +989,11 @@ Salah: wing"#;
 
     // Run assignment algorithm
     let team = find_optimal_assignments_with_filters(
-        players, 
-        role_file_content.roles, 
-        &role_file_content.filters
+        players,
+        role_file_content.roles,
+        &role_file_content.filters,
     )?;
-    
+
     // Should successfully assign all 11 roles
     assert_eq!(team.assignments.len(), 11);
 
@@ -992,11 +1005,11 @@ Salah: wing"#;
     // Verify that filtered players are in appropriate positions
     let lines: Vec<&str> = output.trim().split('\n').collect();
     let assignment_lines = &lines[0..11];
-    
+
     // There should be a GK assignment (since we have players and a GK role)
     let gk_assignment = assignment_lines.iter().find(|line| line.starts_with("GK"));
     assert!(gk_assignment.is_some(), "Should have a GK assignment");
-    
+
     // Verify that we have both filtered and unfiltered assignments
     let has_assignments = assignment_lines.len() > 0;
     assert!(has_assignments, "Should have at least some assignments");
@@ -1011,10 +1024,12 @@ Salah: wing"#;
 /// Test performance with filtered assignments on large dataset
 #[tokio::test]
 async fn test_filtered_assignment_performance() -> Result<()> {
-    use fm_data::{parse_role_file_content, find_optimal_assignments_with_filters, parse_player_data};
+    use fm_data::{
+        find_optimal_assignments_with_filters, parse_player_data, parse_role_file_content,
+    };
+    use std::time::Instant;
     use tempfile::NamedTempFile;
     use tokio::io::AsyncWriteExt;
-    use std::time::Instant;
 
     // Create a role file with several filters
     let role_content = r#"[roles]
@@ -1062,15 +1077,19 @@ Player 10: str"#;
     // Measure performance with filters
     let start = Instant::now();
     let team = find_optimal_assignments_with_filters(
-        players, 
-        role_file_content.roles, 
-        &role_file_content.filters
+        players,
+        role_file_content.roles,
+        &role_file_content.filters,
     )?;
     let duration = start.elapsed();
 
     // Should complete quickly (under 1 second even with filters)
-    assert!(duration.as_millis() < 1000, "Filtered assignment took too long: {}ms", duration.as_millis());
-    
+    assert!(
+        duration.as_millis() < 1000,
+        "Filtered assignment took too long: {}ms",
+        duration.as_millis()
+    );
+
     // Should successfully create assignments
     assert!(team.assignments.len() <= 11);
     assert!(team.total_score() >= 0.0);
@@ -1115,14 +1134,17 @@ Player3: unknown_category"#;
     // Try to parse - should fail with clear error message
     let result = parse_role_file_content(role_file.path().to_str().unwrap()).await;
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
     let error_message = error.to_string();
-    
+
     // Should contain information about invalid filter format
-    assert!(error_message.contains("Invalid filter format") || 
-            error_message.contains("Expected 'PLAYER_NAME: CATEGORY_LIST'"),
-            "Error message should indicate invalid filter format: {}", error_message);
+    assert!(
+        error_message.contains("Invalid filter format")
+            || error_message.contains("Expected 'PLAYER_NAME: CATEGORY_LIST'"),
+        "Error message should indicate invalid filter format: {}",
+        error_message
+    );
 
     Ok(())
 }
@@ -1163,13 +1185,18 @@ TestPlayer: cd"#;
     // Try to parse - should fail with clear error message
     let result = parse_role_file_content(role_file.path().to_str().unwrap()).await;
     assert!(result.is_err());
-    
+
     let error = result.unwrap_err();
     let error_message = error.to_string();
-    
+
     // Should contain information about duplicate player
-    assert!(error_message.contains("Duplicate") || error_message.contains("duplicate") || error_message.contains("already defined"),
-            "Error message should indicate duplicate player: {}", error_message);
+    assert!(
+        error_message.contains("Duplicate")
+            || error_message.contains("duplicate")
+            || error_message.contains("already defined"),
+        "Error message should indicate duplicate player: {}",
+        error_message
+    );
 
     Ok(())
 }
