@@ -4,6 +4,88 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use tokio::fs;
 
+/// Player position categories for filtering
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlayerCategory {
+    Goal,
+    CentralDefender,
+    WingBack,
+    DefensiveMidfielder,
+    CentralMidfielder,
+    Winger,
+    AttackingMidfielder,
+    Playmaker,
+    Striker,
+}
+
+impl PlayerCategory {
+    /// Parse category from short name
+    pub fn from_short_name(short: &str) -> Result<Self> {
+        match short.trim().to_lowercase().as_str() {
+            "goal" => Ok(PlayerCategory::Goal),
+            "cd" => Ok(PlayerCategory::CentralDefender),
+            "wb" => Ok(PlayerCategory::WingBack),
+            "dm" => Ok(PlayerCategory::DefensiveMidfielder),
+            "cm" => Ok(PlayerCategory::CentralMidfielder),
+            "wing" => Ok(PlayerCategory::Winger),
+            "am" => Ok(PlayerCategory::AttackingMidfielder),
+            "pm" => Ok(PlayerCategory::Playmaker),
+            "str" => Ok(PlayerCategory::Striker),
+            _ => Err(FMDataError::selection(format!("Invalid category: {short}"))),
+        }
+    }
+
+    /// Get short name for category
+    pub fn to_short_name(&self) -> &'static str {
+        match self {
+            PlayerCategory::Goal => "goal",
+            PlayerCategory::CentralDefender => "cd",
+            PlayerCategory::WingBack => "wb",
+            PlayerCategory::DefensiveMidfielder => "dm",
+            PlayerCategory::CentralMidfielder => "cm",
+            PlayerCategory::Winger => "wing",
+            PlayerCategory::AttackingMidfielder => "am",
+            PlayerCategory::Playmaker => "pm",
+            PlayerCategory::Striker => "str",
+        }
+    }
+}
+
+impl fmt::Display for PlayerCategory {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_short_name())
+    }
+}
+
+/// Player filter restricting a player to specific categories
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlayerFilter {
+    pub player_name: String,
+    pub allowed_categories: Vec<PlayerCategory>,
+}
+
+impl PlayerFilter {
+    pub fn new(player_name: String, allowed_categories: Vec<PlayerCategory>) -> Self {
+        Self {
+            player_name,
+            allowed_categories,
+        }
+    }
+}
+
+/// Role file content with roles and optional filters
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RoleFileContent {
+    pub roles: Vec<Role>,
+    pub filters: Vec<PlayerFilter>,
+}
+
+impl RoleFileContent {
+    pub fn new(roles: Vec<Role>, filters: Vec<PlayerFilter>) -> Self {
+        Self { roles, filters }
+    }
+}
+
 /// Valid roles that can be assigned to players
 const VALID_ROLES: &[&str] = &[
     "W(s) R", "W(s) L", "W(a) R", "W(a) L", "IF(s)", "IF(a)", "AP(s)", "AP(a)", "WTM(s)", "WTM(a)",
@@ -17,6 +99,50 @@ const VALID_ROLES: &[&str] = &[
     "CWB(a) L", "PF(d)", "PF(s)", "PF(a)", "TM(s)", "TM(a)", "AF", "P", "DLF(s)", "DLF(a)",
     "CF(s)", "CF(a)", "F9", "SS", "EG", "AM(s)", "AM(a)", "SK(d)", "SK(s)", "SK(a)", "GK",
 ];
+
+/// Get all roles that belong to a specific category
+pub fn get_roles_for_category(category: &PlayerCategory) -> Vec<&'static str> {
+    match category {
+        PlayerCategory::Goal => vec!["GK", "SK(d)", "SK(s)", "SK(a)"],
+        PlayerCategory::CentralDefender => vec![
+            "CD(d)", "CD(s)", "CD(c)", "BPD(d)", "BPD(s)", "BPD(c)", "NCB(d)", "WCB(d)", "WCB(s)",
+            "WCB(a)", "L(s)", "L(a)",
+        ],
+        PlayerCategory::WingBack => vec![
+            "FB(d) R", "FB(s) R", "FB(a) R", "FB(d) L", "FB(s) L", "FB(a) L", "WB(d) R", "WB(s) R",
+            "WB(a) R", "WB(d) L", "WB(s) L", "WB(a) L", "IFB(d) R", "IFB(d) L", "IWB(d) R",
+            "IWB(s) R", "IWB(a) R", "IWB(d) L", "IWB(s) L", "IWB(a) L", "CWB(s) R", "CWB(a) R",
+            "CWB(s) L", "CWB(a) L",
+        ],
+        PlayerCategory::DefensiveMidfielder => vec![
+            "DM(d)", "DM(s)", "HB", "BWM(d)", "BWM(s)", "A", "CM(d)", "DLP(d)", "BBM", "SV(s)",
+            "SV(a)",
+        ],
+        PlayerCategory::CentralMidfielder => vec![
+            "CM(d)", "CM(s)", "CM(a)", "DLP(d)", "DLP(s)", "RPM", "BBM", "CAR", "MEZ(s)", "MEZ(a)",
+        ],
+        PlayerCategory::Winger => vec![
+            "WM(d)", "WM(s)", "WM(a)", "WP(s)", "WP(a)", "W(s) R", "W(s) L", "W(a) R", "W(a) L",
+            "IF(s)", "IF(a)", "IW(s)", "IW(a)", "WTM(s)", "WTM(a)", "TQ(a)", "RD(A)", "DW(d)",
+            "DW(s)",
+        ],
+        PlayerCategory::AttackingMidfielder => vec![
+            "SS", "EG", "AM(s)", "AM(a)", "AP(s)", "AP(a)", "CM(a)", "MEZ(a)", "IW(a)", "IW(s)",
+        ],
+        PlayerCategory::Playmaker => vec![
+            "DLP(d)", "DLP(s)", "AP(s)", "AP(a)", "WP(s)", "WP(a)", "RGA", "RPM",
+        ],
+        PlayerCategory::Striker => vec![
+            "AF", "P", "DLF(s)", "DLF(a)", "CF(s)", "CF(a)", "F9", "TM(s)", "TM(a)", "PF(d)",
+            "PF(s)", "PF(a)", "IF(a)", "IF(s)",
+        ],
+    }
+}
+
+/// Check if a role belongs to a specific category
+pub fn role_belongs_to_category(role_name: &str, category: &PlayerCategory) -> bool {
+    get_roles_for_category(category).contains(&role_name)
+}
 
 /// Player abilities in the order they appear in the spreadsheet (columns D-AX)
 const ABILITIES: &[&str] = &[
@@ -453,6 +579,397 @@ pub fn format_team_output(team: &Team) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_player_category_from_short_name() {
+        assert_eq!(
+            PlayerCategory::from_short_name("goal").unwrap(),
+            PlayerCategory::Goal
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("cd").unwrap(),
+            PlayerCategory::CentralDefender
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("wb").unwrap(),
+            PlayerCategory::WingBack
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("dm").unwrap(),
+            PlayerCategory::DefensiveMidfielder
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("cm").unwrap(),
+            PlayerCategory::CentralMidfielder
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("wing").unwrap(),
+            PlayerCategory::Winger
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("am").unwrap(),
+            PlayerCategory::AttackingMidfielder
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("pm").unwrap(),
+            PlayerCategory::Playmaker
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("str").unwrap(),
+            PlayerCategory::Striker
+        );
+
+        // Test case insensitivity
+        assert_eq!(
+            PlayerCategory::from_short_name("GOAL").unwrap(),
+            PlayerCategory::Goal
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name("Cd").unwrap(),
+            PlayerCategory::CentralDefender
+        );
+        assert_eq!(
+            PlayerCategory::from_short_name(" wb ").unwrap(),
+            PlayerCategory::WingBack
+        );
+
+        // Test invalid category
+        assert!(PlayerCategory::from_short_name("invalid").is_err());
+        assert!(PlayerCategory::from_short_name("").is_err());
+    }
+
+    #[test]
+    fn test_player_category_to_short_name() {
+        assert_eq!(PlayerCategory::Goal.to_short_name(), "goal");
+        assert_eq!(PlayerCategory::CentralDefender.to_short_name(), "cd");
+        assert_eq!(PlayerCategory::WingBack.to_short_name(), "wb");
+        assert_eq!(PlayerCategory::DefensiveMidfielder.to_short_name(), "dm");
+        assert_eq!(PlayerCategory::CentralMidfielder.to_short_name(), "cm");
+        assert_eq!(PlayerCategory::Winger.to_short_name(), "wing");
+        assert_eq!(PlayerCategory::AttackingMidfielder.to_short_name(), "am");
+        assert_eq!(PlayerCategory::Playmaker.to_short_name(), "pm");
+        assert_eq!(PlayerCategory::Striker.to_short_name(), "str");
+    }
+
+    #[test]
+    fn test_player_category_display() {
+        assert_eq!(format!("{}", PlayerCategory::Goal), "goal");
+        assert_eq!(format!("{}", PlayerCategory::CentralDefender), "cd");
+        assert_eq!(format!("{}", PlayerCategory::Striker), "str");
+    }
+
+    #[test]
+    fn test_player_filter_creation() {
+        let categories = vec![PlayerCategory::Goal, PlayerCategory::CentralDefender];
+        let filter = PlayerFilter::new("Test Player".to_string(), categories.clone());
+
+        assert_eq!(filter.player_name, "Test Player");
+        assert_eq!(filter.allowed_categories, categories);
+    }
+
+    #[test]
+    fn test_role_file_content_creation() {
+        let roles = vec![Role::new("GK").unwrap(), Role::new("CD(d)").unwrap()];
+        let filters = vec![PlayerFilter::new(
+            "Player 1".to_string(),
+            vec![PlayerCategory::Goal],
+        )];
+        let content = RoleFileContent::new(roles.clone(), filters.clone());
+
+        assert_eq!(content.roles, roles);
+        assert_eq!(content.filters, filters);
+    }
+
+    #[test]
+    fn test_get_roles_for_category_goal() {
+        let roles = get_roles_for_category(&PlayerCategory::Goal);
+        assert_eq!(roles.len(), 4);
+        assert!(roles.contains(&"GK"));
+        assert!(roles.contains(&"SK(d)"));
+        assert!(roles.contains(&"SK(s)"));
+        assert!(roles.contains(&"SK(a)"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_central_defender() {
+        let roles = get_roles_for_category(&PlayerCategory::CentralDefender);
+        assert_eq!(roles.len(), 12);
+        assert!(roles.contains(&"CD(d)"));
+        assert!(roles.contains(&"CD(s)"));
+        assert!(roles.contains(&"CD(c)"));
+        assert!(roles.contains(&"BPD(d)"));
+        assert!(roles.contains(&"BPD(s)"));
+        assert!(roles.contains(&"BPD(c)"));
+        assert!(roles.contains(&"NCB(d)"));
+        assert!(roles.contains(&"WCB(d)"));
+        assert!(roles.contains(&"WCB(s)"));
+        assert!(roles.contains(&"WCB(a)"));
+        assert!(roles.contains(&"L(s)"));
+        assert!(roles.contains(&"L(a)"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_wing_back() {
+        let roles = get_roles_for_category(&PlayerCategory::WingBack);
+        assert_eq!(roles.len(), 24);
+        assert!(roles.contains(&"FB(d) R"));
+        assert!(roles.contains(&"FB(s) R"));
+        assert!(roles.contains(&"CWB(a) L"));
+        assert!(roles.contains(&"IWB(s) R"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_defensive_midfielder() {
+        let roles = get_roles_for_category(&PlayerCategory::DefensiveMidfielder);
+        assert_eq!(roles.len(), 11);
+        assert!(roles.contains(&"DM(d)"));
+        assert!(roles.contains(&"DM(s)"));
+        assert!(roles.contains(&"HB"));
+        assert!(roles.contains(&"BWM(d)"));
+        assert!(roles.contains(&"BWM(s)"));
+        assert!(roles.contains(&"A"));
+        assert!(roles.contains(&"CM(d)"));
+        assert!(roles.contains(&"DLP(d)"));
+        assert!(roles.contains(&"BBM"));
+        assert!(roles.contains(&"SV(s)"));
+        assert!(roles.contains(&"SV(a)"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_central_midfielder() {
+        let roles = get_roles_for_category(&PlayerCategory::CentralMidfielder);
+        assert_eq!(roles.len(), 10);
+        assert!(roles.contains(&"CM(d)"));
+        assert!(roles.contains(&"CM(s)"));
+        assert!(roles.contains(&"CM(a)"));
+        assert!(roles.contains(&"DLP(d)"));
+        assert!(roles.contains(&"DLP(s)"));
+        assert!(roles.contains(&"RPM"));
+        assert!(roles.contains(&"BBM"));
+        assert!(roles.contains(&"CAR"));
+        assert!(roles.contains(&"MEZ(s)"));
+        assert!(roles.contains(&"MEZ(a)"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_winger() {
+        let roles = get_roles_for_category(&PlayerCategory::Winger);
+        assert_eq!(roles.len(), 19);
+        assert!(roles.contains(&"WM(d)"));
+        assert!(roles.contains(&"W(s) R"));
+        assert!(roles.contains(&"W(a) L"));
+        assert!(roles.contains(&"IF(s)"));
+        assert!(roles.contains(&"IW(a)"));
+        assert!(roles.contains(&"TQ(a)"));
+        assert!(roles.contains(&"DW(s)"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_attacking_midfielder() {
+        let roles = get_roles_for_category(&PlayerCategory::AttackingMidfielder);
+        assert_eq!(roles.len(), 10);
+        assert!(roles.contains(&"SS"));
+        assert!(roles.contains(&"EG"));
+        assert!(roles.contains(&"AM(s)"));
+        assert!(roles.contains(&"AM(a)"));
+        assert!(roles.contains(&"AP(s)"));
+        assert!(roles.contains(&"AP(a)"));
+        assert!(roles.contains(&"CM(a)"));
+        assert!(roles.contains(&"MEZ(a)"));
+        assert!(roles.contains(&"IW(a)"));
+        assert!(roles.contains(&"IW(s)"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_playmaker() {
+        let roles = get_roles_for_category(&PlayerCategory::Playmaker);
+        assert_eq!(roles.len(), 8);
+        assert!(roles.contains(&"DLP(d)"));
+        assert!(roles.contains(&"DLP(s)"));
+        assert!(roles.contains(&"AP(s)"));
+        assert!(roles.contains(&"AP(a)"));
+        assert!(roles.contains(&"WP(s)"));
+        assert!(roles.contains(&"WP(a)"));
+        assert!(roles.contains(&"RGA"));
+        assert!(roles.contains(&"RPM"));
+    }
+
+    #[test]
+    fn test_get_roles_for_category_striker() {
+        let roles = get_roles_for_category(&PlayerCategory::Striker);
+        assert_eq!(roles.len(), 14);
+        assert!(roles.contains(&"AF"));
+        assert!(roles.contains(&"P"));
+        assert!(roles.contains(&"DLF(s)"));
+        assert!(roles.contains(&"DLF(a)"));
+        assert!(roles.contains(&"CF(s)"));
+        assert!(roles.contains(&"CF(a)"));
+        assert!(roles.contains(&"F9"));
+        assert!(roles.contains(&"TM(s)"));
+        assert!(roles.contains(&"TM(a)"));
+        assert!(roles.contains(&"PF(d)"));
+        assert!(roles.contains(&"PF(s)"));
+        assert!(roles.contains(&"PF(a)"));
+        assert!(roles.contains(&"IF(a)"));
+        assert!(roles.contains(&"IF(s)"));
+    }
+
+    #[test]
+    fn test_role_belongs_to_category() {
+        // Test goal category
+        assert!(role_belongs_to_category("GK", &PlayerCategory::Goal));
+        assert!(role_belongs_to_category("SK(d)", &PlayerCategory::Goal));
+        assert!(!role_belongs_to_category("CD(d)", &PlayerCategory::Goal));
+
+        // Test central defender category
+        assert!(role_belongs_to_category(
+            "CD(d)",
+            &PlayerCategory::CentralDefender
+        ));
+        assert!(role_belongs_to_category(
+            "BPD(s)",
+            &PlayerCategory::CentralDefender
+        ));
+        assert!(!role_belongs_to_category(
+            "GK",
+            &PlayerCategory::CentralDefender
+        ));
+
+        // Test overlapping roles
+        assert!(role_belongs_to_category(
+            "CM(d)",
+            &PlayerCategory::DefensiveMidfielder
+        ));
+        assert!(role_belongs_to_category(
+            "CM(d)",
+            &PlayerCategory::CentralMidfielder
+        ));
+        assert!(role_belongs_to_category(
+            "DLP(d)",
+            &PlayerCategory::DefensiveMidfielder
+        ));
+        assert!(role_belongs_to_category(
+            "DLP(d)",
+            &PlayerCategory::CentralMidfielder
+        ));
+        assert!(role_belongs_to_category(
+            "DLP(d)",
+            &PlayerCategory::Playmaker
+        ));
+
+        // Test winger overlaps
+        assert!(role_belongs_to_category("IF(s)", &PlayerCategory::Winger));
+        assert!(role_belongs_to_category("IF(s)", &PlayerCategory::Striker));
+        assert!(role_belongs_to_category("IW(a)", &PlayerCategory::Winger));
+        assert!(role_belongs_to_category(
+            "IW(a)",
+            &PlayerCategory::AttackingMidfielder
+        ));
+    }
+
+    #[test]
+    fn test_all_valid_roles_covered_by_categories() {
+        // Check that every valid role belongs to at least one category
+        let all_categories = vec![
+            PlayerCategory::Goal,
+            PlayerCategory::CentralDefender,
+            PlayerCategory::WingBack,
+            PlayerCategory::DefensiveMidfielder,
+            PlayerCategory::CentralMidfielder,
+            PlayerCategory::Winger,
+            PlayerCategory::AttackingMidfielder,
+            PlayerCategory::Playmaker,
+            PlayerCategory::Striker,
+        ];
+
+        for &role in VALID_ROLES {
+            let found_in_category = all_categories
+                .iter()
+                .any(|cat| role_belongs_to_category(role, cat));
+            assert!(
+                found_in_category,
+                "Role '{}' is not covered by any category",
+                role
+            );
+        }
+    }
+
+    #[test]
+    fn test_category_roles_are_valid() {
+        // Check that all roles in categories are actually valid roles
+        let all_categories = vec![
+            PlayerCategory::Goal,
+            PlayerCategory::CentralDefender,
+            PlayerCategory::WingBack,
+            PlayerCategory::DefensiveMidfielder,
+            PlayerCategory::CentralMidfielder,
+            PlayerCategory::Winger,
+            PlayerCategory::AttackingMidfielder,
+            PlayerCategory::Playmaker,
+            PlayerCategory::Striker,
+        ];
+
+        for category in all_categories {
+            let category_roles = get_roles_for_category(&category);
+            for &role in &category_roles {
+                assert!(
+                    VALID_ROLES.contains(&role),
+                    "Role '{}' in category '{}' is not a valid role",
+                    role,
+                    category
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_category_role_counts() {
+        // Verify expected role counts for each category
+        assert_eq!(get_roles_for_category(&PlayerCategory::Goal).len(), 4);
+        assert_eq!(
+            get_roles_for_category(&PlayerCategory::CentralDefender).len(),
+            12
+        );
+        assert_eq!(get_roles_for_category(&PlayerCategory::WingBack).len(), 24);
+        assert_eq!(
+            get_roles_for_category(&PlayerCategory::DefensiveMidfielder).len(),
+            11
+        );
+        assert_eq!(
+            get_roles_for_category(&PlayerCategory::CentralMidfielder).len(),
+            10
+        );
+        assert_eq!(get_roles_for_category(&PlayerCategory::Winger).len(), 19);
+        assert_eq!(
+            get_roles_for_category(&PlayerCategory::AttackingMidfielder).len(),
+            10
+        );
+        assert_eq!(get_roles_for_category(&PlayerCategory::Playmaker).len(), 8);
+        assert_eq!(get_roles_for_category(&PlayerCategory::Striker).len(), 14);
+
+        // Total should be more than 96 due to overlaps
+        let total_category_roles: usize = vec![
+            PlayerCategory::Goal,
+            PlayerCategory::CentralDefender,
+            PlayerCategory::WingBack,
+            PlayerCategory::DefensiveMidfielder,
+            PlayerCategory::CentralMidfielder,
+            PlayerCategory::Winger,
+            PlayerCategory::AttackingMidfielder,
+            PlayerCategory::Playmaker,
+            PlayerCategory::Striker,
+        ]
+        .iter()
+        .map(|cat| get_roles_for_category(cat).len())
+        .sum();
+
+        assert!(
+            total_category_roles > VALID_ROLES.len(),
+            "Total category roles ({}) should be greater than unique roles ({}) due to overlaps",
+            total_category_roles,
+            VALID_ROLES.len()
+        );
+    }
 
     #[test]
     fn test_footedness_from_str() {
