@@ -1,0 +1,24 @@
+[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+# Restrict goalkeeper to only goal roles
+Alisson: goal
+# Van Dijk can play central defender or wing back roles
+Van Dijk: cd, wb
+# Robertson limited to wing back positions
+Robertson: wb
+# Salah can play wing or attacking midfielder
+Salah: wing, am
+# Henderson restricted to central and defensive midfield
+Henderson: cm, dm

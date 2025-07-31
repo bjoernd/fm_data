@@ -106,8 +106,10 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, inp
 - Downloads player data from Google Sheets (range A2:EQ58)
 - Parses 96 Football Manager roles and 47 player abilities
 - Validates role files containing exactly 11 required roles
+- **Player filtering**: Optional player category restrictions (NEW FEATURE)
 - Uses greedy algorithm to assign players to roles for maximum total score
 - Supports duplicate roles (e.g., multiple goalkeepers)
+- Supports player filters to restrict players to specific position categories
 - Outputs clean team assignments in format "$ROLE -> $PLAYER_NAME"
 
 ### Error Handling
@@ -146,7 +148,11 @@ The application uses smart logging that adapts to the runtime mode:
 
 ### Role File Format
 
-The team selector requires a role file containing exactly 11 Football Manager roles, one per line:
+The team selector supports two role file formats:
+
+#### Legacy Format (Backward Compatible)
+
+Simple format with exactly 11 Football Manager roles, one per line:
 
 ```
 GK
@@ -162,15 +168,134 @@ W(s) L
 CF(s)
 ```
 
+#### Sectioned Format with Player Filters (NEW)
+
+Enhanced format with role definitions and optional player category filters:
+
+```
+[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+# Restrict goalkeeper to only goal roles
+Alisson: goal
+# Van Dijk can play central defender or wing back roles  
+Van Dijk: cd, wb
+# Robertson limited to wing back positions
+Robertson: wb
+# Salah can play wing or attacking midfielder
+Salah: wing, am
+# Henderson restricted to central and defensive midfield
+Henderson: cm, dm
+```
+
 **Valid Roles**: Any of the 96 predefined Football Manager roles (see `selection.rs` for complete list)
 **Duplicate Roles**: Allowed (e.g., two "GK" roles for multiple goalkeepers)
-**File Format**: Plain text, one role per line, whitespace is trimmed
+**File Format**: Plain text, supports comments with `#`, whitespace is trimmed
+**Player Filters**: Optional restrictions using player category short names
+
+### Player Categories and Role Mappings
+
+The player filter system uses 9 positional categories that map to Football Manager roles:
+
+#### 1. Goal (`goal`) - 4 roles
+- **GK** - Goalkeeper
+- **SK(d)** - Sweeper Keeper (Defend)
+- **SK(s)** - Sweeper Keeper (Support)
+- **SK(a)** - Sweeper Keeper (Attack)
+
+#### 2. Central Defender (`cd`) - 12 roles
+- **CD(d)**, **CD(s)**, **CD(c)** - Centre-Back (Defend/Support/Cover)
+- **BPD(d)**, **BPD(s)**, **BPD(c)** - Ball Playing Defender (Defend/Support/Cover)
+- **NCB(d)** - No-Nonsense Centre-Back (Defend)
+- **WCB(d)**, **WCB(s)**, **WCB(a)** - Wide Centre-Back (Defend/Support/Attack)
+- **L(s)**, **L(a)** - Libero (Support/Attack)
+
+#### 3. Wing Back (`wb`) - 24 roles
+- **FB(d/s/a) R/L** - Full-Back Right/Left (Defend/Support/Attack)
+- **WB(d/s/a) R/L** - Wing-Back Right/Left (Defend/Support/Attack)
+- **IFB(d) R/L** - Inverted Full-Back (Defend)
+- **IWB(d/s/a) R/L** - Inverted Wing-Back (Defend/Support/Attack)
+- **CWB(s/a) R/L** - Complete Wing-Back (Support/Attack)
+
+#### 4. Defensive Midfielder (`dm`) - 11 roles
+- **DM(d)**, **DM(s)** - Defensive Midfielder (Defend/Support)
+- **HB** - Half Back
+- **BWM(d)**, **BWM(s)** - Ball Winning Midfielder (Defend/Support)
+- **A** - Anchor Man
+- **CM(d)** - Central Midfielder (Defend)
+- **DLP(d)** - Deep Lying Playmaker (Defend)
+- **BBM** - Box to Box Midfielder
+- **SV(s)**, **SV(a)** - Segundo Volante (Support/Attack)
+
+#### 5. Central Midfielder (`cm`) - 10 roles
+- **CM(d)**, **CM(s)**, **CM(a)** - Central Midfielder (Defend/Support/Attack)
+- **DLP(d)**, **DLP(s)** - Deep Lying Playmaker (Defend/Support)
+- **RPM** - Roaming Playmaker
+- **BBM** - Box to Box Midfielder
+- **CAR** - Carrilero
+- **MEZ(s)**, **MEZ(a)** - Mezzala (Support/Attack)
+
+#### 6. Winger (`wing`) - 19 roles
+- **WM(d/s/a)** - Wide Midfielder (Defend/Support/Attack)
+- **WP(s/a)** - Wide Playmaker (Support/Attack)
+- **W(s/a) R/L** - Winger Right/Left (Support/Attack)
+- **IF(s/a)** - Inside Forward (Support/Attack)
+- **IW(s/a)** - Inverted Winger (Support/Attack)
+- **WTM(s/a)** - Wide Target Man (Support/Attack)
+- **TQ(a)** - Trequartista (Attack)
+- **RD(A)** - Raumdeuter (Attack)
+- **DW(d/s)** - Defensive Winger (Defend/Support)
+
+#### 7. Attacking Midfielder (`am`) - 10 roles
+- **SS** - Shadow Striker
+- **EG** - Enganche
+- **AM(s)**, **AM(a)** - Attacking Midfielder (Support/Attack)
+- **AP(s)**, **AP(a)** - Advanced Playmaker (Support/Attack)
+- **CM(a)** - Central Midfielder (Attack)
+- **MEZ(a)** - Mezzala (Attack)
+- **IW(a)**, **IW(s)** - Inverted Winger (Attack/Support)
+
+#### 8. Playmaker (`pm`) - 8 roles
+- **DLP(d)**, **DLP(s)** - Deep Lying Playmaker (Defend/Support)
+- **AP(s)**, **AP(a)** - Advanced Playmaker (Support/Attack)
+- **WP(s)**, **WP(a)** - Wide Playmaker (Support/Attack)
+- **RGA** - Regista
+- **RPM** - Roaming Playmaker
+
+#### 9. Striker (`str`) - 14 roles
+- **AF** - Advanced Forward
+- **P** - Poacher
+- **DLF(s)**, **DLF(a)** - Deep Lying Forward (Support/Attack)
+- **CF(s)**, **CF(a)** - Complete Forward (Support/Attack)
+- **F9** - False 9
+- **TM(s)**, **TM(a)** - Target Man (Support/Attack)
+- **PF(d/s/a)** - Pressing Forward (Defend/Support/Attack)
+- **IF(a)**, **IF(s)** - Inside Forward (Attack/Support)
+
+**Note**: Some roles appear in multiple categories (e.g., `DLP(d)` is in both Defensive Midfielder, Central Midfielder, and Playmaker categories). This allows flexible player assignments based on tactical interpretation.
 
 ### Example Usage
 
 ```bash
-# Basic team selection
-cargo run --bin fm_team_selector -- -r my_formation.txt
+# Basic team selection (legacy format)
+cargo run --bin fm_team_selector -- -r examples/formation_legacy.txt
+
+# Team selection with player filters (new sectioned format)
+cargo run --bin fm_team_selector -- -r examples/formation_with_filters.txt
+
+# Complex filtering scenario
+cargo run --bin fm_team_selector -- -r examples/formation_mixed_restrictions.txt
 
 # With custom spreadsheet and credentials
 cargo run --bin fm_team_selector -- -r roles.txt -s YOUR_SPREADSHEET_ID --credfile creds.json
@@ -178,11 +303,11 @@ cargo run --bin fm_team_selector -- -r roles.txt -s YOUR_SPREADSHEET_ID --credfi
 # Using config file
 cargo run --bin fm_team_selector -- -c config.json
 
-# Verbose mode for debugging
-cargo run --bin fm_team_selector -- -r roles.txt -v
+# Verbose mode for debugging (shows filter processing)
+cargo run --bin fm_team_selector -- -r examples/formation_with_filters.txt -v
 
 # Scripting mode (no progress bar)
-cargo run --bin fm_team_selector -- -r roles.txt --no-progress
+cargo run --bin fm_team_selector -- -r examples/formation_legacy.txt --no-progress
 ```
 
 ### Configuration Example
@@ -195,30 +320,97 @@ cargo run --bin fm_team_selector -- -r roles.txt --no-progress
     "team_sheet": "Squad"
   },
   "input": {
-    "role_file": "my_formation.txt"
+    "role_file": "examples/formation_with_filters.txt"
   }
 }
 ```
+
+### Error Messages and Troubleshooting
+
+#### Role File Validation Errors
+
+**"Role file must contain exactly 11 roles, found X"**
+- Ensure the `[roles]` section contains exactly 11 Football Manager roles
+- Check for empty lines or comments within the roles section
+
+**"Invalid role: 'ROLE_NAME'"**
+- Verify the role name matches one of the 96 valid Football Manager roles
+- Check for typos, extra spaces, or incorrect formatting
+- See the complete role list in `src/selection.rs`
+
+**"Duplicate role found: 'ROLE_NAME'"**
+- This is informational - duplicate roles are allowed for formations requiring multiple players in the same position
+
+#### Player Filter Validation Errors
+
+**"Invalid category 'CATEGORY' for player 'PLAYER_NAME' on line X"**
+- Use only valid category short names: `goal`, `cd`, `wb`, `dm`, `cm`, `wing`, `am`, `pm`, `str`
+- Check for typos or unsupported category names
+- Categories are case-insensitive but must match exactly
+
+**"Duplicate player filter for 'PLAYER_NAME' on line X"**
+- Each player can only have one filter entry in the `[filters]` section
+- Combine multiple categories for a player into a single line: `Player: cat1, cat2, cat3`
+
+**"Invalid filter format on line X: expected 'PLAYER_NAME: CATEGORIES'"**
+- Ensure filter lines follow the format: `PlayerName: category1, category2`
+- Use colon (`:`) to separate player name from categories
+- Use commas (`,`) to separate multiple categories
+
+#### Assignment Warnings
+
+**"Warning: Player 'PLAYER_NAME' could not be assigned due to filter restrictions"**
+- The player's allowed categories don't include any roles needed for the formation
+- Consider expanding the player's allowed categories or adjusting the formation
+- Check if the player's natural position matches their filter categories
+
+**"Warning: X players could not be assigned due to filter restrictions"**
+- Multiple players are filtered out of all available roles
+- Review filter settings and formation requirements
+- Some unfiltered players may be assigned instead
+
+#### File Format Issues
+
+**"Missing [roles] section in role file"**
+- When using sectioned format, the `[roles]` section is required
+- Ensure section headers are enclosed in square brackets: `[roles]`, `[filters]`
+
+**"No filters section found - using roles-only mode"**
+- This is informational when using sectioned format without filters
+- The `[filters]` section is optional
+
+#### Common Solutions
+
+1. **Backward Compatibility**: Old role files (11 lines without sections) continue to work unchanged
+2. **Section Headers**: Use `[roles]` and `[filters]` exactly (case-insensitive)
+3. **Comments**: Use `#` at the start of lines for comments in both sections
+4. **Whitespace**: Leading/trailing spaces are automatically trimmed
+5. **Case Sensitivity**: Category names are case-insensitive (`GOAL` = `goal` = `Goal`)
 
 ## Testing
 
 The codebase includes comprehensive unit and integration tests:
 
-### Unit Tests (92 tests)
+### Unit Tests (130 tests)
 - **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
 - **Sheets tests**: Data structure validation, range formatting
 - **Progress tests**: Progress tracker creation, message handling, no-op behavior
 - **Selection tests**: Role validation, player parsing, assignment algorithm, output formatting
+- **Player Category tests**: Category parsing, role mappings, filter validation (16 new tests)
+- **Role File Parser tests**: Sectioned format parsing, backward compatibility (12 new tests)
+- **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking (5 new tests)
 
-### Integration Tests (9 tests)
+### Integration Tests (16 tests)
 - **End-to-end workflow**: Role file → mock data → assignment → output
 - **Error handling**: Invalid roles, missing files, insufficient players
 - **Edge cases**: Exact player counts, large datasets, duplicate roles
 - **Performance testing**: 50+ players processed in <1 second
 - **Mock data**: Realistic Football Manager players (Alisson, Van Dijk, Haaland, etc.)
 - **Assignment quality**: Verification of logical team selections
+- **Filter scenarios**: Filtered assignments, blocked players, mixed filtering (5 new tests)
+- **Backward compatibility**: Legacy format support verification (2 new tests)
 
 ## Development Notes
 
@@ -230,7 +422,9 @@ The codebase includes comprehensive unit and integration tests:
   - Uploader: A2:AX58 (57 data rows max)
   - Team Selector: A2:EQ58 (reads player data including 96 role ratings)
 - Role file validation ensures exactly 11 valid Football Manager roles
-- All modules include comprehensive unit tests (101 tests total: 92 unit + 9 integration)
+- Player filtering system with 9 positional categories covering all 96 roles
+- Sectioned role file format with backward compatibility for legacy files
+- All modules include comprehensive unit tests (146 tests total: 130 unit + 16 integration)
 
 ## Code Quality
 
@@ -239,5 +433,5 @@ The codebase follows Rust best practices and coding standards:
 - **Clippy compliance**: All clippy lints are resolved, including modern format string usage
 - **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
 - **Error handling**: Comprehensive error context using `anyhow` throughout
-- **Testing**: Comprehensive test coverage with 101 tests (unit + integration) for all public APIs
+- **Testing**: Comprehensive test coverage with 146 tests (unit + integration) for all public APIs
 - **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance

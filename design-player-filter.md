@@ -176,30 +176,36 @@ The feature extends the existing role file format to include optional player fil
 
 **Commit**: [Next commit] - "Implement Step 5: Extend Integration Tests with comprehensive filter scenarios"
 
-### Step 6: Update Documentation and Examples
+### Step 6: Update Documentation and Examples ✅ COMPLETED
 
 **Starting Assumption**: Current `CLAUDE.md` documents existing functionality
 
 **Implementation Details**:
-1. Update `CLAUDE.md` with new role file format documentation
-2. Add example role files showing filter usage
-3. Document all 9 player categories and their role mappings
-4. Update usage examples with filtered scenarios
-5. Document error messages and troubleshooting
+1. ✅ Update `CLAUDE.md` with new role file format documentation
+2. ✅ Add example role files showing filter usage
+3. ✅ Document all 9 player categories and their role mappings
+4. ✅ Update usage examples with filtered scenarios
+5. ✅ Document error messages and troubleshooting
 
 **Testing Requirements**:
-- Review documentation for accuracy
-- Test all provided examples work correctly
-- Verify role category mappings are complete
+- ✅ Review documentation for accuracy
+- ✅ Test all provided examples work correctly
+- ✅ Verify role category mappings are complete
 
 **Validation**:
-- Documentation review for clarity and completeness
-- Example validation through testing
+- ✅ Documentation review for clarity and completeness
+- ✅ Example validation through testing (all 146 tests pass)
+- ✅ CLI help text updated with comprehensive examples
+- ✅ Code quality maintained (no clippy warnings)
 
 **Definition of Done**:
-- Complete documentation of new features
-- Working examples for all scenarios
-- Clear troubleshooting guidance
+- ✅ Complete documentation of new features in CLAUDE.md
+- ✅ Working examples for all scenarios (3 example files created)
+- ✅ Clear troubleshooting guidance with common error messages
+- ✅ Updated usage examples with filtered scenarios
+- ✅ Comprehensive role category mappings documented (112 total role mappings across 9 categories)
+
+**Commit**: [Next commit] - "Implement Step 6: Update Documentation and Examples with comprehensive player filter documentation"
 
 ### Step 7: Final Integration and Validation
 

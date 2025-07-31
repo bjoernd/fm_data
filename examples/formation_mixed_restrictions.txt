@@ -1,0 +1,28 @@
+[roles]
+GK
+GK
+CD(d)
+CD(s)
+WB(a) R
+WB(a) L
+DM(d)
+CM(s)
+AM(a)
+W(a) R
+CF(a)
+
+[filters]
+# Multiple goalkeepers with goal restriction
+Alisson: goal
+Becker: goal
+# Strict positional restrictions
+Van Dijk: cd
+Matip: cd
+# Wing backs with flexibility
+Alexander-Arnold: wb, dm, cm
+Robertson: wb, wing
+# Attacking players with multiple options
+De Bruyne: cm, am, pm
+Salah: wing, am, str
+# Strikers with forward flexibility
+Haaland: str
