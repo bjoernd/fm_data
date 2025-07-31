@@ -107,30 +107,36 @@ The feature extends the existing role file format to include optional player fil
 
 **Commit**: [Next commit] - "Implement Step 3: Modify Player Assignment Algorithm with filter support"
 
-### Step 4: Update Configuration and CLI
+### Step 4: Update Configuration and CLI ✅ COMPLETED
 
 **Starting Assumption**: Current CLI in `src/bin/fm_team_selector.rs` accepts role file path
 
 **Implementation Details**:
-1. No CLI changes needed - role file path remains the same
-2. Update help text to mention new sectioned format
-3. Ensure error messages clearly indicate file format issues
-4. Update example role files in documentation
+1. ✅ CLI argument structure unchanged - role file path remains the same
+2. ✅ Updated imports to use `parse_role_file_content()` and `find_optimal_assignments_with_filters()`
+3. ✅ Updated help text to clearly explain both legacy and new sectioned formats
+4. ✅ Updated command description to mention player filter functionality
+5. ✅ Enhanced logging to show both roles and filters count
 
 **Testing Requirements**:
-- Integration tests with new role file format
-- Test CLI error handling for malformed files
-- Verify help text accuracy
+- ✅ Integration tests with new role file format (already added in Step 3)
+- ✅ Test CLI error handling for malformed files (tested legacy, sectioned, and invalid formats)
+- ✅ Verify help text accuracy (comprehensive help shows both formats clearly)
 
 **Validation**:
-- Run `cargo test` - all tests pass
-- Manual CLI testing with various file formats
-- Help text review
+- ✅ Run `cargo test` - all 141 tests pass (130 unit + 11 integration)
+- ✅ Manual CLI testing with various file formats (legacy, sectioned, malformed)
+- ✅ Help text review - clear documentation of both formats with examples
+- ✅ Error handling verification - clear, informative error messages
 
 **Definition of Done**:
-- CLI seamlessly handles new format
-- Clear error messages guide users
-- Help documentation updated
+- ✅ CLI seamlessly handles both legacy and new sectioned formats
+- ✅ Clear error messages guide users (invalid roles, wrong counts, bad categories)
+- ✅ Help documentation comprehensively updated with examples
+- ✅ Backward compatibility maintained - existing role files work unchanged
+- ✅ New filter functionality fully integrated into CLI workflow
+
+**Commit**: [Next commit] - "Implement Step 4: Update Configuration and CLI with sectioned format support"
 
 ### Step 5: Extend Integration Tests
 

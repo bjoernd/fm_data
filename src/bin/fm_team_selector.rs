@@ -2,8 +2,8 @@ use clap::Parser;
 use fm_data::constants::ranges;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, AppRunner,
-    CLIArgumentValidator,
+    find_optimal_assignments_with_filters, format_team_output, parse_player_data, 
+    parse_role_file_content, AppRunner, CLIArgumentValidator,
 };
 use log::{debug, error, info};
 use std::path::Path;
@@ -15,9 +15,10 @@ use std::path::Path;
     long_about = "A tool to analyze player data from Google Sheets and find the optimal assignment 
 of players to roles that maximizes the total team score using a greedy algorithm.
 
-The tool reads a list of 11 required roles from a local file and downloads player data 
-from Google Sheets, then assigns each role to the player with the highest rating for 
-that specific role.
+The tool reads a list of 11 required roles and optional player filters from a local file, 
+downloads player data from Google Sheets, then assigns each role to the eligible player 
+with the highest rating for that specific role. Player filters can restrict players to 
+specific position categories (goal, cd, wb, dm, cm, wing, am, pm, str).
 
 Examples:
     # Basic usage with config file and role file
@@ -37,10 +38,26 @@ struct CLIArguments {
         short,
         long,
         env = "FM_ROLE_FILE",
-        help = "Path to role file containing 11 roles (required)",
-        long_help = "Path to a text file containing exactly 11 Football Manager roles, one per line.
-Each role must be a valid role from the predefined list. Duplicate roles are allowed.
-Example roles: GK, W(s) R, CD(d), CM(s), etc.
+        help = "Path to role file containing 11 roles and optional player filters (required)",
+        long_help = "Path to a text file containing exactly 11 Football Manager roles and optional player filters.
+
+Basic format (legacy, still supported):
+GK
+CD(d)
+...
+
+New sectioned format with player filters:
+[roles]
+GK
+CD(d)
+...
+
+[filters]
+Alisson: goal
+Van Dijk: cd
+...
+
+Each role must be valid. Duplicate roles are allowed. Player filters restrict players to specific position categories (goal, cd, wb, dm, cm, wing, am, pm, str).
 Can also be set via FM_ROLE_FILE environment variable."
     )]
     role_file: Option<String>,
@@ -152,17 +169,19 @@ async fn main() -> Result<()> {
     app_runner
         .progress()
         .update(10, 100, "Loading and validating roles...");
-    let roles = parse_role_file(&role_file_path).await.map_err(|e| {
+    let role_file_content = parse_role_file_content(&role_file_path).await.map_err(|e| {
         error!("Failed to parse role file: {}", e);
         e
     })?;
 
     info!(
-        "Successfully loaded {} roles from {}",
-        roles.len(),
+        "Successfully loaded {} roles and {} player filters from {}",
+        role_file_content.roles.len(),
+        role_file_content.filters.len(),
         role_file_path
     );
-    debug!("Roles: {:?}", roles);
+    debug!("Roles: {:?}", role_file_content.roles);
+    debug!("Filters: {:?}", role_file_content.filters);
 
     // Complete authentication after role file processing
     app_runner
@@ -199,7 +218,11 @@ async fn main() -> Result<()> {
     app_runner
         .progress()
         .update(80, 100, "Finding optimal player assignments...");
-    let team = find_optimal_assignments(players, roles).map_err(|e| {
+    let team = find_optimal_assignments_with_filters(
+        players, 
+        role_file_content.roles, 
+        &role_file_content.filters
+    ).map_err(|e| {
         error!("Failed to find optimal assignments: {}", e);
         e
     })?;
