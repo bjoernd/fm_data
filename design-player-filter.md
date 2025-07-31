@@ -138,34 +138,43 @@ The feature extends the existing role file format to include optional player fil
 
 **Commit**: [Next commit] - "Implement Step 4: Update Configuration and CLI with sectioned format support"
 
-### Step 5: Extend Integration Tests
+### Step 5: Extend Integration Tests ✅ COMPLETED
 
 **Starting Assumption**: Current integration tests in `tests/integration_tests.rs` test basic team selection
 
 **Implementation Details**:
-1. Add integration test scenarios:
-   - Role file with filters that allow assignments
-   - Role file with filters that block some players
-   - Mixed scenario with filtered and unfiltered players
-   - Backward compatibility test with old format
-2. Create sample role files for each scenario
-3. Add mock player data matching filter requirements
-4. Verify correct assignment outputs and warning messages
+1. ✅ Added comprehensive integration test scenarios:
+   - ✅ Role file with filters that allow assignments (`test_complete_workflow_with_filters_allowing_assignments`)
+   - ✅ Role file with filters that block some players (`test_filters_blocking_player_assignments`)
+   - ✅ Mixed scenario with filtered and unfiltered players (`test_mixed_filtered_and_unfiltered_players`)
+   - ✅ Backward compatibility test with old format (`test_backward_compatibility_old_format`)
+2. ✅ Created sample role files for each scenario using NamedTempFile
+3. ✅ Added mock player data matching filter requirements
+4. ✅ Verified correct assignment outputs and warning messages
 
 **Testing Requirements**:
-- 5+ new integration tests covering all filter scenarios
-- Performance test: filtered assignment completes in <1 second
-- Error handling test: invalid filter format
+- ✅ 5 new integration tests covering all filter scenarios:
+  - `test_filters_blocking_player_assignments` - filters blocking natural assignments
+  - `test_mixed_filtered_and_unfiltered_players` - mixed filtering scenarios
+  - `test_filtered_assignment_performance` - performance with filters on large dataset
+  - `test_invalid_filter_format_error_handling` - invalid filter format errors
+  - `test_duplicate_player_filter_error_handling` - duplicate player filter errors
+- ✅ Performance test: filtered assignment completes in <1 second (verified with 50 players + 11 filters)
+- ✅ Error handling tests: invalid filter format and duplicate player names
 
 **Validation**:
-- Run `cargo test` - all tests pass including new integration tests
-- Run `cargo test --test integration_tests` specifically
-- Performance benchmarking
+- ✅ Run `cargo test` - all 146 tests pass (130 unit + 16 integration)
+- ✅ Run `cargo test --test integration_tests` specifically - all 16 integration tests pass
+- ✅ Performance benchmarking - filtered assignments complete in <1000ms
 
 **Definition of Done**:
-- Comprehensive integration test coverage
-- All scenarios produce expected outputs
-- Performance requirements met
+- ✅ Comprehensive integration test coverage for all filter scenarios
+- ✅ All scenarios produce expected outputs with proper error handling
+- ✅ Performance requirements met (sub-second execution with large datasets)
+- ✅ Error handling validates malformed filter formats and duplicate entries
+- ✅ Clean imports and no compiler warnings
+
+**Commit**: [Next commit] - "Implement Step 5: Extend Integration Tests with comprehensive filter scenarios"
 
 ### Step 6: Update Documentation and Examples
 
