@@ -1,6 +1,7 @@
 use crate::constants::data_layout;
 use crate::error::{FMDataError, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fmt;
 use tokio::fs;
 
@@ -342,7 +343,7 @@ impl Team {
         }
 
         // Validate no duplicate players
-        let mut player_names = std::collections::HashSet::new();
+        let mut player_names = HashSet::new();
         for assignment in &assignments {
             if !player_names.insert(&assignment.player.name) {
                 return Err(FMDataError::selection(format!(
@@ -393,21 +394,119 @@ impl fmt::Display for Team {
     }
 }
 
-/// Parse a role file containing 11 roles (one per line)
+/// Parse a role file containing 11 roles (one per line) - legacy format
 pub async fn parse_role_file(file_path: &str) -> Result<Vec<Role>> {
+    let content = parse_role_file_content(file_path).await?;
+    Ok(content.roles)
+}
+
+/// Parse a role file with optional filters (new sectioned format)
+pub async fn parse_role_file_content(file_path: &str) -> Result<RoleFileContent> {
     let content = fs::read_to_string(file_path).await.map_err(|e| {
         FMDataError::selection(format!("Failed to read role file '{file_path}': {e}"))
     })?;
 
     let lines: Vec<String> = content
         .lines()
-        .map(|line| line.trim().to_string())
+        .map(|line| {
+            // Remove inline comments and trim whitespace
+            let without_comment = if let Some(pos) = line.find('#') {
+                &line[..pos]
+            } else {
+                line
+            };
+            without_comment.trim().to_string()
+        })
         .filter(|line| !line.is_empty())
         .collect();
 
+    if lines.is_empty() {
+        return Err(FMDataError::selection(
+            "Role file is empty or contains no valid lines".to_string(),
+        ));
+    }
+
+    // Check if this is a sectioned file
+    let has_sections = lines
+        .iter()
+        .any(|line| line.starts_with('[') && line.ends_with(']'));
+
+    if has_sections {
+        parse_sectioned_role_file(lines)
+    } else {
+        // Legacy format - treat entire file as roles
+        let roles = parse_roles_section(lines)?;
+        log::warn!("Role file does not contain [filters] section - using legacy format");
+        Ok(RoleFileContent::new(roles, vec![]))
+    }
+}
+
+/// Parse sectioned role file with [roles] and optional [filters] sections
+fn parse_sectioned_role_file(lines: Vec<String>) -> Result<RoleFileContent> {
+    let mut current_section = None;
+    let mut roles_lines = Vec::new();
+    let mut filters_lines = Vec::new();
+
+    for (line_num, line) in lines.iter().enumerate() {
+        if line.starts_with('[') && line.ends_with(']') {
+            // Section header
+            match line.to_lowercase().as_str() {
+                "[roles]" => current_section = Some("roles"),
+                "[filters]" => current_section = Some("filters"),
+                _ => {
+                    return Err(FMDataError::selection(format!(
+                        "Unknown section '{}' on line {}",
+                        line,
+                        line_num + 1
+                    )));
+                }
+            }
+        } else {
+            // Section content
+            match current_section {
+                Some("roles") => roles_lines.push(line.clone()),
+                Some("filters") => filters_lines.push(line.clone()),
+                Some(_) => {
+                    // This shouldn't happen since we validate sections above
+                    return Err(FMDataError::selection(format!(
+                        "Unknown section state on line {}: {}",
+                        line_num + 1,
+                        line
+                    )));
+                }
+                None => {
+                    return Err(FMDataError::selection(format!(
+                        "Content found outside of section on line {}: {}",
+                        line_num + 1,
+                        line
+                    )));
+                }
+            }
+        }
+    }
+
+    if roles_lines.is_empty() {
+        return Err(FMDataError::selection(
+            "No [roles] section found in role file".to_string(),
+        ));
+    }
+
+    let roles = parse_roles_section(roles_lines)?;
+
+    if filters_lines.is_empty() {
+        log::warn!("No [filters] section found in role file");
+        Ok(RoleFileContent::new(roles, vec![]))
+    } else {
+        let filters = parse_filters_section(filters_lines)?;
+        Ok(RoleFileContent::new(roles, filters))
+    }
+}
+
+/// Parse roles section - expects exactly 11 valid roles
+fn parse_roles_section(lines: Vec<String>) -> Result<Vec<Role>> {
     if lines.len() != 11 {
         return Err(FMDataError::selection(format!(
-            "Role file must contain exactly 11 roles, found {}",
+            "Roles section must contain exactly 11 roles, found {}",
             lines.len()
         )));
     }
@@ -423,6 +522,74 @@ pub async fn parse_role_file(file_path: &str) -> Result<Vec<Role>> {
     }
 
     Ok(roles)
+}
+
+/// Parse filters section - expects "PLAYER_NAME: CATEGORY_LIST" format
+fn parse_filters_section(lines: Vec<String>) -> Result<Vec<PlayerFilter>> {
+    let mut filters = Vec::new();
+    let mut seen_players = HashSet::new();
+
+    for (line_num, line) in lines.iter().enumerate() {
+        let parts: Vec<&str> = line.splitn(2, ':').collect();
+        if parts.len() != 2 {
+            return Err(FMDataError::selection(format!(
+                "Invalid filter format on line {}: '{}'. Expected 'PLAYER_NAME: CATEGORY_LIST'",
+                line_num + 1,
+                line
+            )));
+        }
+
+        let player_name = parts[0].trim().to_string();
+        let categories_str = parts[1].trim();
+
+        if player_name.is_empty() {
+            return Err(FMDataError::selection(format!(
+                "Empty player name on line {}",
+                line_num + 1
+            )));
+        }
+
+        if !seen_players.insert(player_name.clone()) {
+            return Err(FMDataError::selection(format!(
+                "Duplicate player filter for '{}' on line {}",
+                player_name,
+                line_num + 1
+            )));
+        }
+
+        let categories = if categories_str.is_empty() {
+            Vec::new()
+        } else {
+            categories_str
+                .split(',')
+                .map(|cat| cat.trim())
+                .filter(|cat| !cat.is_empty())
+                .map(|cat| {
+                    PlayerCategory::from_short_name(cat).map_err(|e| {
+                        FMDataError::selection(format!(
+                            "Invalid category '{}' for player '{}' on line {}: {}",
+                            cat,
+                            player_name,
+                            line_num + 1,
+                            e
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?
+        };
+
+        if categories.is_empty() {
+            return Err(FMDataError::selection(format!(
+                "No valid categories specified for player '{}' on line {}",
+                player_name,
+                line_num + 1
+            )));
+        }
+
+        filters.push(PlayerFilter::new(player_name, categories));
+    }
+
+    Ok(filters)
 }
 
 /// Parse player data from Google Sheets raw data into Player structs
@@ -971,6 +1138,468 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_parse_role_file_content_sectioned_format() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let sectioned_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson: goal
+Van Dijk: cd
+Robertson: wb, dm
+Salah: wing, am"#;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(sectioned_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_ok());
+
+        let content = result.unwrap();
+        assert_eq!(content.roles.len(), 11);
+        assert_eq!(content.filters.len(), 4);
+
+        // Check roles
+        assert_eq!(content.roles[0].name, "GK");
+        assert_eq!(content.roles[1].name, "CD(d)");
+
+        // Check filters
+        assert_eq!(content.filters[0].player_name, "Alisson");
+        assert_eq!(
+            content.filters[0].allowed_categories,
+            vec![PlayerCategory::Goal]
+        );
+
+        assert_eq!(content.filters[1].player_name, "Van Dijk");
+        assert_eq!(
+            content.filters[1].allowed_categories,
+            vec![PlayerCategory::CentralDefender]
+        );
+
+        assert_eq!(content.filters[2].player_name, "Robertson");
+        assert_eq!(
+            content.filters[2].allowed_categories,
+            vec![
+                PlayerCategory::WingBack,
+                PlayerCategory::DefensiveMidfielder
+            ]
+        );
+
+        assert_eq!(content.filters[3].player_name, "Salah");
+        assert_eq!(
+            content.filters[3].allowed_categories,
+            vec![PlayerCategory::Winger, PlayerCategory::AttackingMidfielder]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_legacy_format() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let legacy_content =
+            "GK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R\nW(s) L\nCF(s)";
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(legacy_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_ok());
+
+        let content = result.unwrap();
+        assert_eq!(content.roles.len(), 11);
+        assert_eq!(content.filters.len(), 0); // No filters in legacy format
+
+        assert_eq!(content.roles[0].name, "GK");
+        assert_eq!(content.roles[10].name, "CF(s)");
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_missing_roles_section() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let content_without_roles = r#"[filters]
+Alisson: goal"#;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(content_without_roles.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No [roles] section found"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_invalid_filter_format() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let invalid_filter_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson goal"#; // Missing colon
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(invalid_filter_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid filter format"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_duplicate_player_filters() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let duplicate_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson: goal
+Alisson: cd"#; // Duplicate player
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(duplicate_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Duplicate player filter"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_invalid_categories() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let invalid_category_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson: invalid_cat"#;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(invalid_category_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid category"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_empty_categories() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let empty_categories_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson:"#; // Empty categories
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(empty_categories_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No valid categories specified"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_unknown_section() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let unknown_section_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[unknown]
+Some content"#;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(unknown_section_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Unknown section"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_content_outside_section() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let outside_content = r#"GK
+[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)"#; // Content before section
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(outside_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Content found outside of section"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_wrong_number_roles_in_section() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let wrong_roles_content = r#"[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L"#; // Only 5 roles
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(wrong_roles_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Roles section must contain exactly 11 roles"));
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_comments_and_whitespace() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let content_with_comments = r#"# This is a comment
+[roles]
+GK  
+CD(d)
+CD(s)
+
+FB(d) R   # Comment after role
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+# Another comment
+[filters]
+Alisson: goal   # Goal category
+Van Dijk: cd, wb    # Multiple categories
+"#;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(content_with_comments.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_ok());
+
+        let content = result.unwrap();
+        assert_eq!(content.roles.len(), 11);
+        assert_eq!(content.filters.len(), 2);
+
+        assert_eq!(content.filters[0].player_name, "Alisson");
+        assert_eq!(content.filters[1].player_name, "Van Dijk");
+        assert_eq!(
+            content.filters[1].allowed_categories,
+            vec![PlayerCategory::CentralDefender, PlayerCategory::WingBack]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_parse_role_file_content_case_insensitive_sections() {
+        use tempfile::NamedTempFile;
+        use tokio::io::AsyncWriteExt;
+
+        let mixed_case_content = r#"[ROLES]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[Filters]
+Alisson: GOAL
+Van Dijk: Cd"#;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let mut async_file = tokio::fs::File::create(temp_file.path()).await.unwrap();
+        async_file
+            .write_all(mixed_case_content.as_bytes())
+            .await
+            .unwrap();
+        async_file.flush().await.unwrap();
+
+        let result = parse_role_file_content(temp_file.path().to_str().unwrap()).await;
+        assert!(result.is_ok());
+
+        let content = result.unwrap();
+        assert_eq!(content.roles.len(), 11);
+        assert_eq!(content.filters.len(), 2);
+
+        assert_eq!(
+            content.filters[0].allowed_categories,
+            vec![PlayerCategory::Goal]
+        );
+        assert_eq!(
+            content.filters[1].allowed_categories,
+            vec![PlayerCategory::CentralDefender]
+        );
+    }
+
     #[test]
     fn test_footedness_from_str() {
         assert_eq!("R".parse::<Footedness>().unwrap(), Footedness::Right);
@@ -1346,7 +1975,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Role file must contain exactly 11 roles, found 5"));
+            .contains("Roles section must contain exactly 11 roles, found 5"));
 
         // Test with too many roles (15)
         let many_roles = "GK\nW(s) R\nW(s) L\nIF(s)\nCM(d)\nCM(s)\nCM(a)\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nExtra1\nExtra2\nExtra3\nExtra4";
@@ -1361,7 +1990,7 @@ mod tests {
         assert!(result2
             .unwrap_err()
             .to_string()
-            .contains("Role file must contain exactly 11 roles, found 15"));
+            .contains("Roles section must contain exactly 11 roles, found 15"));
     }
 
     #[tokio::test]
@@ -1456,7 +2085,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Role file must contain exactly 11 roles, found 0"));
+            .contains("Role file is empty or contains no valid lines"));
     }
 
     #[test]

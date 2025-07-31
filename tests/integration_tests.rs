@@ -97,7 +97,7 @@ async fn test_error_handling_invalid_role_file() {
     assert!(result2
         .unwrap_err()
         .to_string()
-        .contains("Role file must contain exactly 11 roles"));
+        .contains("Roles section must contain exactly 11 roles"));
 }
 
 /// Test error handling for assignment algorithm edge cases

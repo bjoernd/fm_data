@@ -8,66 +8,71 @@ The feature extends the existing role file format to include optional player fil
 
 ## Implementation Steps
 
-### Step 1: Define Role Category Data Structures
+### Step 1: Define Role Category Data Structures ✅ COMPLETED
 
 **Starting Assumption**: Current codebase has basic role validation in `src/selection.rs`
 
 **Implementation Details**:
-1. Add `PlayerCategory` enum in `src/selection.rs` with variants: `Goal, CentralDefender, WingBack, DefensiveMidfielder, CentralMidfielder, Winger, AttackingMidfielder, Playmaker, Striker`
-2. Add `PlayerFilter` struct containing player name and allowed categories
-3. Add `RoleFileContent` struct to hold both roles and optional filters
-4. Implement category-to-roles mapping function `get_roles_for_category()`
-5. Add category parsing from short names (goal, cd, wb, dm, cm, wing, am, pm, str)
+1. ✅ Add `PlayerCategory` enum in `src/selection.rs` with variants: `Goal, CentralDefender, WingBack, DefensiveMidfielder, CentralMidfielder, Winger, AttackingMidfielder, Playmaker, Striker`
+2. ✅ Add `PlayerFilter` struct containing player name and allowed categories
+3. ✅ Add `RoleFileContent` struct to hold both roles and optional filters
+4. ✅ Implement category-to-roles mapping function `get_roles_for_category()`
+5. ✅ Add category parsing from short names (goal, cd, wb, dm, cm, wing, am, pm, str)
 
 **Testing Requirements**:
-- Unit tests for `PlayerCategory` enum serialization/parsing
-- Unit tests for category-to-roles mapping covering all 96 roles
-- Unit tests for short name parsing (case sensitivity, invalid names)
-- Integration test with sample filter data
+- ✅ Unit tests for `PlayerCategory` enum serialization/parsing
+- ✅ Unit tests for category-to-roles mapping covering all 96 roles
+- ✅ Unit tests for short name parsing (case sensitivity, invalid names)
+- ✅ Integration test with sample filter data
 
 **Validation**:
-- Run `cargo test` - all existing tests pass + new tests pass
-- Run `cargo clippy` - no warnings
-- Run `cargo fmt` - code formatted
+- ✅ Run `cargo test` - all existing tests pass + new tests pass (110 total)
+- ✅ Run `cargo clippy` - no warnings
+- ✅ Run `cargo fmt` - code formatted
 
 **Definition of Done**: 
-- All data structures defined with proper derives
-- Category mapping function covers all roles from specification
-- Comprehensive unit tests with 100% coverage
-- Code passes all quality checks
+- ✅ All data structures defined with proper derives
+- ✅ Category mapping function covers all roles from specification
+- ✅ Comprehensive unit tests with 100% coverage (16 new tests)
+- ✅ Code passes all quality checks
 
-### Step 2: Extend Role File Parser
+**Commit**: c3cdad7 - "Implement Step 1: Define Role Category Data Structures for player filtering"
+
+### Step 2: Extend Role File Parser ✅ COMPLETED
 
 **Starting Assumption**: Current role file parser reads 11 lines sequentially in `src/selection.rs`
 
 **Implementation Details**:
-1. Modify `parse_role_file()` function to handle sectioned format
-2. Add section detection for `[roles]` and `[filters]`
-3. Implement backward compatibility - if no sections found, treat entire file as roles
-4. Add `parse_filters_section()` function to parse player filter lines
-5. Validate filter format: "PLAYER_NAME: CATEGORY_LIST"
-6. Ensure exactly 11 roles in `[roles]` section
-7. Enforce unique player names in filters section
-8. Add warning when `[filters]` section is missing
+1. ✅ Modify `parse_role_file()` function to handle sectioned format
+2. ✅ Add section detection for `[roles]` and `[filters]`
+3. ✅ Implement backward compatibility - if no sections found, treat entire file as roles
+4. ✅ Add `parse_filters_section()` function to parse player filter lines
+5. ✅ Validate filter format: "PLAYER_NAME: CATEGORY_LIST"
+6. ✅ Ensure exactly 11 roles in `[roles]` section
+7. ✅ Enforce unique player names in filters section
+8. ✅ Add warning when `[filters]` section is missing
 
 **Testing Requirements**:
-- Unit tests for sectioned file parsing (roles + filters)
-- Unit tests for backward compatibility (roles only)
-- Unit tests for malformed filter lines
-- Unit tests for duplicate player names
-- Unit tests for invalid categories
-- Unit tests for missing sections
+- ✅ Unit tests for sectioned file parsing (roles + filters)
+- ✅ Unit tests for backward compatibility (roles only)
+- ✅ Unit tests for malformed filter lines
+- ✅ Unit tests for duplicate player names
+- ✅ Unit tests for invalid categories
+- ✅ Unit tests for missing sections
 
 **Validation**:
-- Run `cargo test` - all tests pass
-- Run `cargo clippy` - no warnings
-- Test with existing role files to ensure backward compatibility
+- ✅ Run `cargo test` - all tests pass (131 total: 122 unit + 9 integration)
+- ✅ Run `cargo clippy` - no warnings
+- ✅ Test with existing role files to ensure backward compatibility
 
 **Definition of Done**:
-- Parser handles both old and new file formats
-- Comprehensive error messages for malformed input
-- All edge cases covered by tests
-- Backward compatibility verified with existing files
+- ✅ Parser handles both old and new file formats seamlessly
+- ✅ Comprehensive error messages for malformed input
+- ✅ All edge cases covered by tests (12 new parser tests)
+- ✅ Backward compatibility verified with existing files
+- ✅ Comment handling and whitespace normalization implemented
+
+**Commit**: [To be added] - "Implement Step 2: Extend Role File Parser with sectioned format support"
 
 ### Step 3: Modify Player Assignment Algorithm
 
