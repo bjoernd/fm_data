@@ -1,12 +1,11 @@
 use clap::Parser;
 use fm_data::constants::ranges;
-use fm_data::error::{FMDataError, Result};
+use fm_data::error::Result;
 use fm_data::{
     find_optimal_assignments_with_filters, format_team_output, parse_player_data,
-    parse_role_file_content, AppRunner, CLIArgumentValidator,
+    parse_role_file_content, AppRunner, CLIArgumentValidator, CommonCLIArgs, SelectorCLI,
 };
 use log::{debug, error, info};
-use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -34,124 +33,25 @@ Examples:
     fm_team_selector -r roles.txt --no-progress"
 )]
 struct CLIArguments {
-    #[arg(
-        short,
-        long,
-        env = "FM_ROLE_FILE",
-        help = "Path to role file containing 11 roles and optional player filters (required)",
-        long_help = "Path to a text file containing exactly 11 Football Manager roles and optional player filters.
-
-Basic format (legacy, still supported):
-GK
-CD(d)
-...
-
-New sectioned format with player filters:
-[roles]
-GK
-CD(d)
-...
-
-[filters]
-Alisson: goal
-Van Dijk: cd
-...
-
-Each role must be valid. Duplicate roles are allowed. Player filters restrict players to specific position categories (goal, cd, wb, dm, cm, wing, am, pm, str).
-Can also be set via FM_ROLE_FILE environment variable."
-    )]
-    role_file: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        env = "FM_SPREADSHEET_ID",
-        help = "Google Sheets spreadsheet ID",
-        long_help = "The Google Sheets spreadsheet ID containing player data.
-Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
-Can also be set via FM_SPREADSHEET_ID environment variable."
-    )]
-    spreadsheet: Option<String>,
-
-    #[arg(
-        long,
-        env = "FM_CREDENTIALS_FILE",
-        help = "Path to Google API credentials JSON file",
-        long_help = "Path to the Google API service account credentials file.
-Download this from Google Cloud Console under APIs & Services > Credentials.
-Example: /path/to/service-account-key.json
-Can also be set via FM_CREDENTIALS_FILE environment variable."
-    )]
-    credfile: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        default_value = "config.json",
-        help = "Path to configuration file",
-        long_help = "Path to JSON configuration file containing default settings.
-If the file doesn't exist, default values will be used.
-Example config.json structure:
-{
-  \"google\": {
-    \"spreadsheet_id\": \"1BCD...xyz123\",
-    \"credentials_file\": \"creds.json\",
-    \"team_sheet\": \"Squad\",
-    \"token_file\": \"tokencache.json\"
-  },
-  \"input\": {
-    \"role_file\": \"roles.txt\"
-  }
-}"
-    )]
-    config: String,
-
-    #[arg(short, long, help = "Enable verbose logging for debugging")]
-    verbose: bool,
-
-    #[arg(
-        long,
-        help = "Disable progress bar (useful for scripting)",
-        long_help = "Disable the progress bar display. Useful when running in scripts 
-or CI/CD environments where progress bars may interfere with output parsing."
-    )]
-    no_progress: bool,
+    #[command(flatten)]
+    common: SelectorCLI,
 }
 
 impl CLIArgumentValidator for CLIArguments {
     fn validate(&self) -> Result<()> {
-        // Validate config file path if it's not the default and doesn't exist
-        if self.config != "config.json" {
-            let config_path = Path::new(&self.config);
-            if !config_path.exists() {
-                return Err(FMDataError::config(format!(
-                    "Config file '{}' does not exist. Use --config to specify a valid config file or create '{}'",
-                    self.config,
-                    self.config
-                )));
-            }
-        }
-
-        // Role file is required for team selection
-        if self.role_file.is_none() {
-            return Err(FMDataError::config(
-                "Role file is required. Use --role-file or -r to specify the path to your role file.".to_string()
-            ));
-        }
-
-        Ok(())
+        self.common.validate_common()
     }
 
     fn is_verbose(&self) -> bool {
-        self.verbose
+        self.common.verbose
     }
 
     fn is_no_progress(&self) -> bool {
-        self.no_progress
+        self.common.no_progress
     }
 
     fn config_path(&self) -> &str {
-        &self.config
+        &self.common.config
     }
 }
 
@@ -162,7 +62,11 @@ async fn main() -> Result<()> {
     // Use AppRunner for consolidated setup
     let mut app_runner = AppRunner::new_complete(&cli, "fm_team_selector").await?;
     let (spreadsheet, credfile, role_file_path) = app_runner
-        .setup_for_team_selector(cli.spreadsheet, cli.credfile, cli.role_file)
+        .setup_for_team_selector(
+            cli.common.spreadsheet,
+            cli.common.credfile,
+            cli.common.role_file,
+        )
         .await?;
 
     // Parse role file

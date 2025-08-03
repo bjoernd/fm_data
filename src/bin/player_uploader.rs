@@ -2,10 +2,9 @@ use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
     process_table_data, read_table, validate_data_size, validate_table_structure, AppRunner,
-    CLIArgumentValidator,
+    CLIArgumentValidator, CommonCLIArgs, UploaderCLI,
 };
 use log::{debug, info};
-use std::path::Path;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -27,101 +26,25 @@ Examples:
     fm_google_up --no-progress -i players.html"
 )]
 struct CLIArguments {
-    #[arg(
-        short,
-        long,
-        env = "FM_SPREADSHEET_ID",
-        help = "Google Sheets spreadsheet ID",
-        long_help = "The Google Sheets spreadsheet ID where data will be uploaded.
-Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
-Can also be set via FM_SPREADSHEET_ID environment variable."
-    )]
-    spreadsheet: Option<String>,
-
-    #[arg(
-        long,
-        env = "FM_CREDENTIALS_FILE",
-        help = "Path to Google API credentials JSON file",
-        long_help = "Path to the Google API service account credentials file.
-Download this from Google Cloud Console under APIs & Services > Credentials.
-Example: /path/to/service-account-key.json
-Can also be set via FM_CREDENTIALS_FILE environment variable."
-    )]
-    credfile: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        env = "FM_INPUT_FILE",
-        help = "Path to Football Manager HTML export file",
-        long_help = "Path to the HTML file exported from Football Manager containing player data.
-The file should contain a table with player statistics.
-Example: /path/to/players_export.html
-Can also be set via FM_INPUT_FILE environment variable."
-    )]
-    input: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        default_value = "config.json",
-        help = "Path to configuration file",
-        long_help = "Path to JSON configuration file containing default settings.
-If the file doesn't exist, default values will be used.
-Example config.json structure:
-{
-  \"google\": {
-    \"spreadsheet_id\": \"1BCD...xyz123\",
-    \"credentials_file\": \"creds.json\",
-    \"team_sheet\": \"Sheet1\",
-    \"token_file\": \"tokencache.json\"
-  },
-  \"input_file\": \"players.html\"
-}"
-    )]
-    config: String,
-
-    #[arg(short, long, help = "Enable verbose logging for debugging")]
-    verbose: bool,
-
-    #[arg(
-        long,
-        help = "Disable progress bar (useful for scripting)",
-        long_help = "Disable the progress bar display. Useful when running in scripts 
-or CI/CD environments where progress bars may interfere with output parsing."
-    )]
-    no_progress: bool,
+    #[command(flatten)]
+    common: UploaderCLI,
 }
 
 impl CLIArgumentValidator for CLIArguments {
     fn validate(&self) -> Result<()> {
-        // Validate config file path if it's not the default and doesn't exist
-        if self.config != "config.json" {
-            let config_path = Path::new(&self.config);
-            if !config_path.exists() {
-                return Err(FMDataError::config(format!(
-                    "Config file '{}' does not exist. Use --config to specify a valid config file or create '{}'",
-                    self.config,
-                    self.config
-                )));
-            }
-        }
-
-        // The rest of the validation is now handled by the validation module
-        // when resolve_paths is called, so we just do basic existence checks here
-        Ok(())
+        self.common.validate_common()
     }
 
     fn is_verbose(&self) -> bool {
-        self.verbose
+        self.common.verbose
     }
 
     fn is_no_progress(&self) -> bool {
-        self.no_progress
+        self.common.no_progress
     }
 
     fn config_path(&self) -> &str {
-        &self.config
+        &self.common.config
     }
 }
 
@@ -132,7 +55,11 @@ async fn main() -> Result<()> {
     // Use AppRunner for consolidated setup and authentication
     let mut app_runner = AppRunner::new_complete(&cli, "fm_google_up").await?;
     let (_spreadsheet, _credfile, input) = app_runner
-        .setup_for_player_uploader(cli.spreadsheet, cli.credfile, cli.input)
+        .setup_for_player_uploader(
+            cli.common.spreadsheet,
+            cli.common.credfile,
+            cli.common.input,
+        )
         .await?;
 
     // Read table from HTML
