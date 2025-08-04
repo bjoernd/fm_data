@@ -7,11 +7,11 @@ pub fn format_team_output(team: &Team) -> String {
     // Sort assignments by role name for consistent output
     let sorted_assignments = team.sorted_by_role();
 
-    // Format each assignment as "$ROLE -> $PLAYER_NAME"
+    // Format each assignment as "$ROLE -> $PLAYER_NAME (score: $SCORE)"
     for assignment in sorted_assignments {
         output.push_str(&format!(
-            "{} -> {}\n",
-            assignment.role.name, assignment.player.name
+            "{} -> {} (score: {:.1})\n",
+            assignment.role.name, assignment.player.name, assignment.score
         ));
     }
 
