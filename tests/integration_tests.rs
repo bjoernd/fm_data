@@ -2,6 +2,7 @@ use fm_data::error::Result;
 use fm_data::{
     find_optimal_assignments, format_team_output, parse_player_data, parse_role_file, Config,
 };
+use std::io::Write;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 
@@ -1197,6 +1198,79 @@ TestPlayer: cd"#;
             || error_message.contains("already defined"),
         "Error message should indicate duplicate player: {}",
         error_message
+    );
+
+    Ok(())
+}
+
+/// Test that configuration file paths are properly resolved and used
+#[tokio::test]
+async fn test_config_file_input_path_resolution() -> Result<()> {
+    use fm_data::Config;
+    // Create temporary files for testing
+    let _creds_file = NamedTempFile::new().unwrap();
+    let input_file = NamedTempFile::new().unwrap();
+    let config_file = NamedTempFile::new().unwrap();
+
+    // Write a simple HTML table to the input file
+    let html_content = r#"
+        <html>
+            <body>
+                <table>
+                    <tr><td>Name</td><td>Age</td><td>Position</td></tr>
+                    <tr><td>Player1</td><td>25</td><td>GK</td></tr>
+                </table>
+            </body>
+        </html>
+    "#;
+    std::fs::write(input_file.path(), html_content).unwrap();
+
+    // Create a config file that specifies the input path
+    let config_json = format!(
+        r#"{{
+            "google": {{
+                "spreadsheet_name": "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc",
+                "team_sheet": "Squad"
+            }},
+            "input": {{
+                "data_html": "{}"
+            }}
+        }}"#,
+        input_file.path().to_string_lossy().replace('\\', "\\\\")
+    );
+    
+    let mut config_file_handle = config_file.reopen().unwrap();
+    config_file_handle.write_all(config_json.as_bytes()).unwrap();
+    drop(config_file_handle);
+
+    // Test that Config::from_file correctly loads the input path
+    let config = Config::from_file(config_file.path())?;
+    assert_eq!(
+        config.input.data_html,
+        input_file.path().to_string_lossy().to_string()
+    );
+
+    // Test that resolve_paths uses the config file path when CLI input is None
+    let (_spreadsheet, _credfile, resolved_input) = config.resolve_paths_unchecked(None, None, None);
+    assert_eq!(
+        resolved_input,
+        input_file.path().to_string_lossy().to_string(),
+        "Config file input path should be used when CLI input is None"
+    );
+
+    // Test that CLI input overrides config file input
+    let other_input_file = NamedTempFile::new().unwrap();
+    std::fs::write(other_input_file.path(), html_content).unwrap();
+    
+    let (_spreadsheet, _credfile, resolved_input) = config.resolve_paths_unchecked(
+        None,
+        None,
+        Some(other_input_file.path().to_string_lossy().to_string()),
+    );
+    assert_eq!(
+        resolved_input,
+        other_input_file.path().to_string_lossy().to_string(),
+        "CLI input should override config file input"
     );
 
     Ok(())

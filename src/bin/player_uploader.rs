@@ -53,22 +53,26 @@ async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
     // Use AppRunnerBuilder for consolidated setup and authentication
-    let app_runner = AppRunnerBuilder::from_cli(&cli, "fm_google_up")
-        .spreadsheet_id(cli.common.spreadsheet)
-        .creds_file(cli.common.credfile)
-        .input_file(cli.common.input.clone())
-        .build_uploader()
+    let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_google_up")
+        .build_basic()
         .await?;
 
-    let input = cli.common.input.unwrap_or_else(|| "input.html".to_string());
+    // Setup for player uploader and get resolved paths
+    let (_spreadsheet_id, _credfile_path, input_path) = app_runner
+        .setup_for_player_uploader(
+            cli.common.spreadsheet,
+            cli.common.credfile,
+            cli.common.input,
+        )
+        .await?;
 
     // Read table from HTML
     app_runner
         .progress()
         .update(40, 100, "Reading HTML table data...");
-    let table = read_table(&input)
+    let table = read_table(&input_path)
         .await
-        .map_err(|e| FMDataError::table(format!("Failed to extract table from '{input}': {e}")))?;
+        .map_err(|e| FMDataError::table(format!("Failed to extract table from '{input_path}': {e}")))?;
 
     // Validate table structure
     app_runner

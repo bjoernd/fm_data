@@ -546,4 +546,40 @@ mod tests {
         assert!(rolefile.contains("tmp"));
         Ok(())
     }
+
+    #[test]
+    fn test_config_input_path_takes_precedence_over_cli_none() -> Result<()> {
+        // Create temporary files for testing
+        let creds_file = NamedTempFile::new().unwrap();
+        let input_file = NamedTempFile::new().unwrap();
+
+        // Create config with specific input path
+        let config = Config {
+            google: GoogleConfig {
+                creds_file: creds_file.path().to_string_lossy().to_string(),
+                token_file: "tokencache.json".to_string(),
+                spreadsheet_name: "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string(),
+                team_sheet: "Squad".to_string(),
+                team_perf_sheet: "Stats_Team".to_string(),
+                league_perf_sheet: "Stats_Division".to_string(),
+            },
+            input: InputConfig {
+                data_html: input_file.path().to_string_lossy().to_string(),
+                league_perf_html: "league.html".to_string(),
+                team_perf_html: "team.html".to_string(),
+                role_file: String::new(),
+            },
+        };
+
+        // Resolve paths with CLI input = None (simulating no --input flag)
+        let (spreadsheet, credfile, input) = config.resolve_paths(None, None, None)?;
+
+        assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
+        assert!(credfile.contains("tmp"));
+        // Verify that the config's data_html path is used, not a default
+        assert_eq!(input, input_file.path().to_string_lossy().to_string());
+        assert!(input.contains("tmp"), "Expected temp file path, got: {}", input);
+        
+        Ok(())
+    }
 }
