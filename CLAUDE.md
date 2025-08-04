@@ -57,12 +57,18 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 
 ### Library Modules
 
+- **`cli.rs`**: Common CLI argument parsing and validation for both binaries
 - **`config.rs`**: Configuration management with hierarchical priority (CLI > config file > defaults)
 - **`table.rs`**: HTML table extraction, validation, and data processing
 - **`auth.rs`**: Google OAuth2 authentication handling
 - **`sheets_client.rs`**: Google Sheets API operations wrapper (read/write)
 - **`progress.rs`**: Progress tracking and user feedback using indicatif
-- **`selection.rs`**: Team selection algorithm, player/role data structures, and assignment logic
+- **`selection/`**: Team selection functionality split into focused sub-modules:
+  - **`types.rs`**: Core data structures (Player, Role, Team, Assignment, etc.)
+  - **`categories.rs`**: Player position categories and role mappings
+  - **`parser.rs`**: Role file parsing (both legacy and sectioned formats)
+  - **`algorithm.rs`**: Player data parsing and optimal assignment algorithms
+  - **`formatter.rs`**: Team output formatting for display
 
 ### Main Components
 

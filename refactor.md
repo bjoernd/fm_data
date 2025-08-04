@@ -16,9 +16,17 @@ The codebase analysis identified 7 key areas for improvement:
 
 ---
 
-## 1. Extract Common CLI Infrastructure (HIGH PRIORITY)
+## 1. Extract Common CLI Infrastructure (HIGH PRIORITY) ✅ COMPLETED
 
 **Problem**: `src/bin/fm_google_up.rs` and `src/bin/fm_team_selector.rs` contain ~120 lines of nearly identical CLI argument definitions.
+
+**Status**: ✅ Completed in commit 06d1382
+- Created shared CLI module (src/cli.rs) with UploaderCLI and SelectorCLI structs
+- Implemented CommonCLIArgs trait for shared validation logic  
+- Updated both binaries to use flattened common CLI structure
+- Eliminated ~120 lines of duplicated CLI argument definitions
+- All 146 tests passing, zero clippy warnings
+- Full backward compatibility maintained
 
 ### Implementation Steps:
 

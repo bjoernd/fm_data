@@ -329,7 +329,7 @@ async fn test_realistic_mock_squad() -> Result<()> {
 
     // Should have exactly the expected players
     assert_eq!(players.len(), 20);
-
+    
     // Run assignment algorithm
     let team = find_optimal_assignments(players, roles)?;
     assert_eq!(team.assignments.len(), 11);
@@ -340,6 +340,7 @@ async fn test_realistic_mock_squad() -> Result<()> {
         .iter()
         .find(|a| a.role.name == "GK")
         .unwrap();
+    
     assert!(gk_assignment.player.name.contains("Alisson")); // Best GK in mock data
 
     // Verify team has reasonable total score
@@ -489,7 +490,7 @@ fn create_realistic_mock_squad() -> Vec<Vec<String>> {
             "R",
             vec![12, 8, 6, 7, 15, 16, 17, 8, 5, 10, 16],
             88.0,
-            vec![5, 5, 5, 5, 5, 19],
+            vec![5, 5, 5, 19, 5, 5],
         ), // Excellent GK
         (
             "Ederson",
@@ -497,7 +498,7 @@ fn create_realistic_mock_squad() -> Vec<Vec<String>> {
             "L",
             vec![10, 9, 8, 6, 14, 15, 16, 12, 7, 11, 15],
             85.0,
-            vec![6, 6, 6, 6, 6, 18],
+            vec![6, 6, 6, 18, 6, 6],
         ), // Good GK
         // Defenders
         (
@@ -522,7 +523,7 @@ fn create_realistic_mock_squad() -> Vec<Vec<String>> {
             "L",
             vec![8, 13, 14, 9, 14, 12, 15, 16, 12, 15, 11],
             87.0,
-            vec![11, 12, 13, 16, 17, 6],
+            vec![11, 12, 13, 7, 17, 6],
         ), // Elite LB
         (
             "Alexander-Arnold",
@@ -530,7 +531,7 @@ fn create_realistic_mock_squad() -> Vec<Vec<String>> {
             "R",
             vec![9, 15, 13, 10, 13, 11, 14, 17, 13, 16, 12],
             88.0,
-            vec![10, 11, 12, 17, 16, 7],
+            vec![10, 11, 12, 8, 16, 7],
         ), // Elite RB
         (
             "Cancelo",
@@ -538,7 +539,7 @@ fn create_realistic_mock_squad() -> Vec<Vec<String>> {
             "R",
             vec![10, 14, 15, 11, 15, 13, 16, 15, 11, 14, 13],
             86.0,
-            vec![12, 13, 14, 16, 15, 8],
+            vec![12, 13, 14, 6, 15, 8],
         ), // Versatile FB
         // Midfielders
         (
