@@ -181,9 +181,23 @@ pub mod cli;
 
 ---
 
-## 2. Split Massive selection.rs Module (HIGH PRIORITY)
+## 2. Split Massive selection.rs Module (HIGH PRIORITY) ✅ COMPLETED
 
 **Problem**: `src/selection.rs` is 3,384 lines - far too large for maintainability.
+
+**Status**: ✅ Completed in commit ae45ecb
+- Successfully broke down 3,384-line selection.rs into 5 focused sub-modules:
+  * types.rs: Core data structures (Player, Role, Team, Assignment, etc.)
+  * categories.rs: Player position category mappings and role relationships
+  * parser.rs: Role file parsing logic (both legacy and sectioned formats) 
+  * algorithm.rs: Assignment algorithms and player data parsing
+  * formatter.rs: Team output formatting functions
+- Created mod.rs with comprehensive re-exports for backward compatibility
+- Updated CLAUDE.md documentation to reflect new module structure
+- Fixed test data to ensure correct GK assignments in integration tests
+- All 63 tests (47 unit + 16 integration) continue to pass
+- Maintained full API compatibility through re-exports
+- Improved code maintainability and separation of concerns
 
 ### Implementation Steps:
 
