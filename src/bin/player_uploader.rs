@@ -70,9 +70,9 @@ async fn main() -> Result<()> {
     app_runner
         .progress()
         .update(40, 100, "Reading HTML table data...");
-    let table = read_table(&input_path)
-        .await
-        .map_err(|e| FMDataError::table(format!("Failed to extract table from '{input_path}': {e}")))?;
+    let table = read_table(&input_path).await.map_err(|e| {
+        FMDataError::table(format!("Failed to extract table from '{input_path}': {e}"))
+    })?;
 
     // Validate table structure
     app_runner

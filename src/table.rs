@@ -1,6 +1,6 @@
 use crate::constants::ranges;
 use crate::error::Result;
-use crate::error_helpers::{ErrorContext, table_processing_error};
+use crate::error_helpers::{table_processing_error, ErrorContext};
 use crate::validation::Validator;
 use std::path::Path;
 use table_extract::Table;
@@ -11,8 +11,9 @@ pub async fn read_table(html_file: &str) -> Result<Table> {
         .await
         .with_file_context(html_file, "read")?;
 
-    Table::find_first(&html_content)
-        .ok_or_else(|| table_processing_error(None, None, "No table found in the provided HTML document"))
+    Table::find_first(&html_content).ok_or_else(|| {
+        table_processing_error(None, None, "No table found in the provided HTML document")
+    })
 }
 
 pub fn validate_table_structure(table: &Table) -> Result<()> {

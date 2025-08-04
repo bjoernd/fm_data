@@ -4,61 +4,64 @@ use crate::error::FMDataError;
 pub trait ErrorContext<T> {
     /// Add file operation context to any error
     fn with_file_context(self, file_path: &str, operation: &str) -> Result<T, FMDataError>;
-    
+
     /// Add configuration validation context to any error
     fn with_config_context(self, field_name: &str) -> Result<T, FMDataError>;
-    
+
     /// Add Google Sheets operation context to any error
     fn with_sheets_context(self, operation: &str) -> Result<T, FMDataError>;
-    
+
     /// Add table processing context to any error
     fn with_table_context(self, context: &str) -> Result<T, FMDataError>;
-    
+
     /// Add authentication context to any error
     fn with_auth_context(self, context: &str) -> Result<T, FMDataError>;
-    
+
     /// Add selection/team assignment context to any error
     fn with_selection_context(self, context: &str) -> Result<T, FMDataError>;
 }
 
-impl<T, E> ErrorContext<T> for Result<T, E> 
-where 
-    E: std::fmt::Display
+impl<T, E> ErrorContext<T> for Result<T, E>
+where
+    E: std::fmt::Display,
 {
     fn with_file_context(self, file_path: &str, operation: &str) -> Result<T, FMDataError> {
-        self.map_err(|e| FMDataError::config(format!(
-            "Failed to {} file '{}': {}", operation, file_path, e
-        )))
+        self.map_err(|e| {
+            FMDataError::config(format!(
+                "Failed to {} file '{}': {}",
+                operation, file_path, e
+            ))
+        })
     }
-    
+
     fn with_config_context(self, field_name: &str) -> Result<T, FMDataError> {
-        self.map_err(|e| FMDataError::config(format!(
-            "Configuration error in field '{}': {}", field_name, e
-        )))
+        self.map_err(|e| {
+            FMDataError::config(format!(
+                "Configuration error in field '{}': {}",
+                field_name, e
+            ))
+        })
     }
-    
+
     fn with_sheets_context(self, operation: &str) -> Result<T, FMDataError> {
-        self.map_err(|e| FMDataError::sheets_api(format!(
-            "Google Sheets {} operation failed: {}", operation, e
-        )))
+        self.map_err(|e| {
+            FMDataError::sheets_api(format!(
+                "Google Sheets {} operation failed: {}",
+                operation, e
+            ))
+        })
     }
-    
+
     fn with_table_context(self, context: &str) -> Result<T, FMDataError> {
-        self.map_err(|e| FMDataError::table(format!(
-            "Table processing error ({}): {}", context, e
-        )))
+        self.map_err(|e| FMDataError::table(format!("Table processing error ({}): {}", context, e)))
     }
-    
+
     fn with_auth_context(self, context: &str) -> Result<T, FMDataError> {
-        self.map_err(|e| FMDataError::auth(format!(
-            "Authentication error ({}): {}", context, e
-        )))
+        self.map_err(|e| FMDataError::auth(format!("Authentication error ({}): {}", context, e)))
     }
-    
+
     fn with_selection_context(self, context: &str) -> Result<T, FMDataError> {
-        self.map_err(|e| FMDataError::selection(format!(
-            "Selection error ({}): {}", context, e
-        )))
+        self.map_err(|e| FMDataError::selection(format!("Selection error ({}): {}", context, e)))
     }
 }
 
@@ -80,19 +83,22 @@ pub fn config_missing_field(field: &str) -> FMDataError {
 }
 
 pub fn role_file_format_error(line_num: usize, message: &str) -> FMDataError {
-    FMDataError::selection(format!("Role file format error on line {}: {}", line_num, message))
+    FMDataError::selection(format!(
+        "Role file format error on line {}: {}",
+        line_num, message
+    ))
 }
 
 pub fn player_filter_error(player_name: &str, line_num: usize, message: &str) -> FMDataError {
     FMDataError::selection(format!(
-        "Player filter error for '{}' on line {}: {}", 
+        "Player filter error for '{}' on line {}: {}",
         player_name, line_num, message
     ))
 }
 
 pub fn insufficient_players(needed: usize, available: usize) -> FMDataError {
     FMDataError::selection(format!(
-        "Insufficient players: need {} but only {} available", 
+        "Insufficient players: need {} but only {} available",
         needed, available
     ))
 }
@@ -103,7 +109,7 @@ pub fn duplicate_role_info(role_name: &str) -> FMDataError {
 
 pub fn assignment_blocked(player_name: &str, reason: &str) -> FMDataError {
     FMDataError::selection(format!(
-        "Player '{}' could not be assigned: {}", 
+        "Player '{}' could not be assigned: {}",
         player_name, reason
     ))
 }
@@ -111,19 +117,23 @@ pub fn assignment_blocked(player_name: &str, reason: &str) -> FMDataError {
 /// Helper for creating validation errors with specific context
 pub fn validation_error(item_type: &str, item_name: &str, message: &str) -> FMDataError {
     FMDataError::selection(format!(
-        "Validation error for {} '{}': {}", 
+        "Validation error for {} '{}': {}",
         item_type, item_name, message
     ))
 }
 
 /// Helper for creating table processing errors with row/column context
-pub fn table_processing_error(row: Option<usize>, column: Option<&str>, message: &str) -> FMDataError {
+pub fn table_processing_error(
+    row: Option<usize>,
+    column: Option<&str>,
+    message: &str,
+) -> FMDataError {
     let location = match (row, column) {
         (Some(r), Some(c)) => format!(" at row {}, column '{}'", r, c),
         (Some(r), None) => format!(" at row {}", r),
         (None, Some(c)) => format!(" at column '{}'", c),
         (None, None) => String::new(),
     };
-    
+
     FMDataError::table(format!("Table processing error{}: {}", location, message))
 }

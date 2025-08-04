@@ -27,9 +27,10 @@ impl AppRunner {
     #[deprecated(note = "Use AppRunnerBuilder::from_cli().build_basic() instead")]
     pub async fn new<T: CLIArgumentValidator>(cli: &T, binary_name: &str) -> Result<Self> {
         use crate::AppRunnerBuilder;
-        AppRunnerBuilder::from_cli(cli, binary_name).build_basic().await
+        AppRunnerBuilder::from_cli(cli, binary_name)
+            .build_basic()
+            .await
     }
-
 
     /// Complete authentication setup with resolved paths and create sheets manager
     pub async fn complete_authentication(
@@ -166,5 +167,4 @@ impl AppRunner {
             self.start_time.elapsed().as_millis()
         );
     }
-
 }

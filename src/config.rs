@@ -1,6 +1,6 @@
 use crate::constants::defaults;
 use crate::error::Result;
-use crate::error_helpers::{ErrorContext, config_missing_field};
+use crate::error_helpers::{config_missing_field, ErrorContext};
 use crate::validation::Validator;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -93,8 +93,8 @@ impl Config {
         let config_str = fs::read_to_string(config_path)
             .with_file_context(&config_path.display().to_string(), "read")?;
 
-        let config: Config = serde_json::from_str(&config_str)
-            .with_config_context("JSON parsing")?;
+        let config: Config =
+            serde_json::from_str(&config_str).with_config_context("JSON parsing")?;
 
         Ok(config)
     }
@@ -578,8 +578,12 @@ mod tests {
         assert!(credfile.contains("tmp"));
         // Verify that the config's data_html path is used, not a default
         assert_eq!(input, input_file.path().to_string_lossy().to_string());
-        assert!(input.contains("tmp"), "Expected temp file path, got: {}", input);
-        
+        assert!(
+            input.contains("tmp"),
+            "Expected temp file path, got: {}",
+            input
+        );
+
         Ok(())
     }
 
@@ -590,7 +594,11 @@ mod tests {
         let role_file = NamedTempFile::new().unwrap();
 
         // Write a simple role file content
-        std::fs::write(role_file.path(), "GK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R\nW(s) L\nCF(s)").unwrap();
+        std::fs::write(
+            role_file.path(),
+            "GK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R\nW(s) L\nCF(s)",
+        )
+        .unwrap();
 
         // Create config with specific role file path
         let config = Config {
@@ -611,14 +619,22 @@ mod tests {
         };
 
         // Resolve paths with CLI role_file = None (simulating no --role-file flag)
-        let (spreadsheet, credfile, resolved_role_file) = config.resolve_team_selector_paths(None, None, None)?;
+        let (spreadsheet, credfile, resolved_role_file) =
+            config.resolve_team_selector_paths(None, None, None)?;
 
         assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
         assert!(credfile.contains("tmp"));
         // Verify that the config's role_file path is used, not a default
-        assert_eq!(resolved_role_file, role_file.path().to_string_lossy().to_string());
-        assert!(resolved_role_file.contains("tmp"), "Expected temp file path, got: {}", resolved_role_file);
-        
+        assert_eq!(
+            resolved_role_file,
+            role_file.path().to_string_lossy().to_string()
+        );
+        assert!(
+            resolved_role_file.contains("tmp"),
+            "Expected temp file path, got: {}",
+            resolved_role_file
+        );
+
         Ok(())
     }
 }

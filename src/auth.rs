@@ -17,7 +17,10 @@ pub async fn get_secure_config_dir() -> Result<PathBuf> {
     if !config_dir.exists() {
         async_fs::create_dir_all(&config_dir)
             .await
-            .with_auth_context(&format!("creating config directory '{}'", config_dir.display()))?;
+            .with_auth_context(&format!(
+                "creating config directory '{}'",
+                config_dir.display()
+            ))?;
 
         // Set secure permissions on Unix systems
         #[cfg(unix)]

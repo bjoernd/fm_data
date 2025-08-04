@@ -1,6 +1,6 @@
-use super::types::{Role, RoleFileContent, PlayerFilter, PlayerCategory};
+use super::types::{PlayerCategory, PlayerFilter, Role, RoleFileContent};
 use crate::error::{FMDataError, Result};
-use crate::error_helpers::{ErrorContext, role_file_format_error, invalid_role};
+use crate::error_helpers::{invalid_role, role_file_format_error, ErrorContext};
 use std::collections::HashSet;
 use tokio::fs;
 
@@ -31,7 +31,10 @@ pub async fn parse_role_file_content(file_path: &str) -> Result<RoleFileContent>
         .collect();
 
     if lines.is_empty() {
-        return Err(role_file_format_error(0, "Role file is empty or contains no valid lines"));
+        return Err(role_file_format_error(
+            0,
+            "Role file is empty or contains no valid lines",
+        ));
     }
 
     // Check if this is a sectioned file

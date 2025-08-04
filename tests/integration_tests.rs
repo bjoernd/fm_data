@@ -330,7 +330,7 @@ async fn test_realistic_mock_squad() -> Result<()> {
 
     // Should have exactly the expected players
     assert_eq!(players.len(), 20);
-    
+
     // Run assignment algorithm
     let team = find_optimal_assignments(players, roles)?;
     assert_eq!(team.assignments.len(), 11);
@@ -341,7 +341,7 @@ async fn test_realistic_mock_squad() -> Result<()> {
         .iter()
         .find(|a| a.role.name == "GK")
         .unwrap();
-    
+
     assert!(gk_assignment.player.name.contains("Alisson")); // Best GK in mock data
 
     // Verify team has reasonable total score
@@ -1238,9 +1238,11 @@ async fn test_config_file_input_path_resolution() -> Result<()> {
         }}"#,
         input_file.path().to_string_lossy().replace('\\', "\\\\")
     );
-    
+
     let mut config_file_handle = config_file.reopen().unwrap();
-    config_file_handle.write_all(config_json.as_bytes()).unwrap();
+    config_file_handle
+        .write_all(config_json.as_bytes())
+        .unwrap();
     drop(config_file_handle);
 
     // Test that Config::from_file correctly loads the input path
@@ -1251,7 +1253,8 @@ async fn test_config_file_input_path_resolution() -> Result<()> {
     );
 
     // Test that resolve_paths uses the config file path when CLI input is None
-    let (_spreadsheet, _credfile, resolved_input) = config.resolve_paths_unchecked(None, None, None);
+    let (_spreadsheet, _credfile, resolved_input) =
+        config.resolve_paths_unchecked(None, None, None);
     assert_eq!(
         resolved_input,
         input_file.path().to_string_lossy().to_string(),
@@ -1261,7 +1264,7 @@ async fn test_config_file_input_path_resolution() -> Result<()> {
     // Test that CLI input overrides config file input
     let other_input_file = NamedTempFile::new().unwrap();
     std::fs::write(other_input_file.path(), html_content).unwrap();
-    
+
     let (_spreadsheet, _credfile, resolved_input) = config.resolve_paths_unchecked(
         None,
         None,
