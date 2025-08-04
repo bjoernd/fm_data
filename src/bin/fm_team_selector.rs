@@ -59,17 +59,19 @@ impl CLIArgumentValidator for CLIArguments {
 async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
-    // Use AppRunnerBuilder for consolidated setup
+    // Use AppRunnerBuilder for consolidated setup and get resolved paths
     let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_team_selector")
-        .spreadsheet_id(cli.common.spreadsheet.clone())
-        .creds_file(cli.common.credfile.clone())
-        .role_file(cli.common.role_file.clone())
-        .build_team_selector()
+        .build_basic()
         .await?;
 
-    let role_file_path = cli.common.role_file.unwrap_or_else(|| "roles.txt".to_string());
-    let spreadsheet = cli.common.spreadsheet.unwrap_or_else(|| "default_spreadsheet".to_string());
-    let credfile = cli.common.credfile.unwrap_or_else(|| "credentials.json".to_string());
+    // Setup for team selector and get resolved paths
+    let (spreadsheet, credfile, role_file_path) = app_runner
+        .setup_for_team_selector(
+            cli.common.spreadsheet,
+            cli.common.credfile,
+            cli.common.role_file,
+        )
+        .await?;
 
     // Parse role file
     app_runner
@@ -93,7 +95,7 @@ async fn main() -> Result<()> {
 
     // Complete authentication after role file processing
     app_runner
-        .complete_team_selector_auth(spreadsheet, credfile)
+        .complete_team_selector_auth(spreadsheet.clone(), credfile.clone())
         .await?;
 
     // Download player data from Google Sheets
