@@ -1,5 +1,6 @@
 use super::types::{Role, RoleFileContent, PlayerFilter, PlayerCategory};
 use crate::error::{FMDataError, Result};
+use crate::error_helpers::{ErrorContext, role_file_format_error, invalid_role};
 use std::collections::HashSet;
 use tokio::fs;
 
@@ -11,9 +12,9 @@ pub async fn parse_role_file(file_path: &str) -> Result<Vec<Role>> {
 
 /// Parse a role file with optional filters (new sectioned format)
 pub async fn parse_role_file_content(file_path: &str) -> Result<RoleFileContent> {
-    let content = fs::read_to_string(file_path).await.map_err(|e| {
-        FMDataError::selection(format!("Failed to read role file '{file_path}': {e}"))
-    })?;
+    let content = fs::read_to_string(file_path)
+        .await
+        .with_file_context(file_path, "read")?;
 
     let lines: Vec<String> = content
         .lines()
@@ -30,9 +31,7 @@ pub async fn parse_role_file_content(file_path: &str) -> Result<RoleFileContent>
         .collect();
 
     if lines.is_empty() {
-        return Err(FMDataError::selection(
-            "Role file is empty or contains no valid lines".to_string(),
-        ));
+        return Err(role_file_format_error(0, "Role file is empty or contains no valid lines"));
     }
 
     // Check if this is a sectioned file
@@ -123,9 +122,8 @@ fn parse_roles_section(lines: Vec<String>) -> Result<Vec<Role>> {
     let mut roles = Vec::new();
 
     for (line_num, line) in lines.iter().enumerate() {
-        let role = Role::new(line).map_err(|e| {
-            FMDataError::selection(format!("Invalid role on line {}: {}", line_num + 1, e))
-        })?;
+        let role = Role::new(line)
+            .map_err(|e| role_file_format_error(line_num + 1, &format!("Invalid role: {}", e)))?;
 
         roles.push(role);
     }
@@ -205,7 +203,7 @@ fn parse_filters_section(lines: Vec<String>) -> Result<Vec<PlayerFilter>> {
 pub fn validate_roles(roles: &[String]) -> Result<()> {
     for role_name in roles {
         if !Role::is_valid_role(role_name) {
-            return Err(FMDataError::selection(format!("Invalid role: {role_name}")));
+            return Err(invalid_role(role_name));
         }
     }
     Ok(())

@@ -5,6 +5,7 @@ pub mod cli;
 pub mod config;
 pub mod constants;
 pub mod error;
+pub mod error_helpers;
 pub mod progress;
 pub mod selection;
 pub mod sheets_client;

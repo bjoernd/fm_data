@@ -1,5 +1,6 @@
 use crate::constants::defaults;
-use crate::error::{FMDataError, Result};
+use crate::error::Result;
+use crate::error_helpers::{ErrorContext, config_missing_field};
 use crate::validation::Validator;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -89,16 +90,11 @@ impl Config {
     }
 
     pub fn from_file(config_path: &Path) -> Result<Config> {
-        let config_str = fs::read_to_string(config_path).map_err(|e| {
-            FMDataError::config(format!(
-                "Failed to read config file '{}': {}",
-                config_path.display(),
-                e
-            ))
-        })?;
+        let config_str = fs::read_to_string(config_path)
+            .with_file_context(&config_path.display().to_string(), "read")?;
 
         let config: Config = serde_json::from_str(&config_str)
-            .map_err(|e| FMDataError::config(format!("Failed to parse config JSON: {e}")))?;
+            .with_config_context("JSON parsing")?;
 
         Ok(config)
     }
@@ -207,7 +203,7 @@ impl Config {
         let resolved_role_file = role_file
             .or_else(|| Some(self.input.role_file.clone()))
             .filter(|s| !s.is_empty())
-            .ok_or_else(|| FMDataError::config("Role file path is required".to_string()))?;
+            .ok_or_else(|| config_missing_field("role_file"))?;
 
         // Validate the resolved paths
         Validator::validate_spreadsheet_id(&resolved_spreadsheet)?;
@@ -281,7 +277,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Failed to parse config JSON"));
+            .contains("Configuration error in field 'JSON parsing'"));
     }
 
     #[test]
@@ -291,7 +287,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Failed to read config file"));
+            .contains("Failed to read file"));
     }
 
     #[test]
@@ -528,7 +524,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Role file path is required"));
+            .contains("Missing required configuration field: 'role_file'"));
     }
 
     #[test]

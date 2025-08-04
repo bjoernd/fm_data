@@ -1,4 +1,5 @@
 use crate::error::{FMDataError, Result};
+use crate::error_helpers::ErrorContext;
 use std::path::{Path, PathBuf};
 use tokio::fs as async_fs;
 use yup_oauth2::{
@@ -14,13 +15,9 @@ pub async fn get_secure_config_dir() -> Result<PathBuf> {
 
     // Create directory if it doesn't exist with secure permissions
     if !config_dir.exists() {
-        async_fs::create_dir_all(&config_dir).await.map_err(|e| {
-            FMDataError::auth(format!(
-                "Failed to create config directory '{}': {}",
-                config_dir.display(),
-                e
-            ))
-        })?;
+        async_fs::create_dir_all(&config_dir)
+            .await
+            .with_auth_context(&format!("creating config directory '{}'", config_dir.display()))?;
 
         // Set secure permissions on Unix systems
         #[cfg(unix)]

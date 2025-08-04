@@ -2,6 +2,7 @@ use super::categories::role_belongs_to_category;
 use super::types::{Player, Role, Team, Assignment, PlayerFilter, Footedness, VALID_ROLES, ABILITIES};
 use crate::constants::data_layout;
 use crate::error::{FMDataError, Result};
+use crate::error_helpers::validation_error;
 
 /// Parse player data from Google Sheets raw data into Player structs
 pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
@@ -73,12 +74,11 @@ pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
         ) {
             Ok(player) => players.push(player),
             Err(e) => {
-                return Err(FMDataError::selection(format!(
-                    "Failed to create player '{}' on row {}: {}",
-                    player_name,
-                    row_index + 1,
-                    e
-                )));
+                return Err(validation_error(
+                    "player", 
+                    &player_name, 
+                    &format!("creation failed on row {}: {}", row_index + 1, e)
+                ));
             }
         }
     }

@@ -1,5 +1,6 @@
 use crate::constants::ranges;
-use crate::error::{FMDataError, Result};
+use crate::error::Result;
+use crate::error_helpers::{ErrorContext, table_processing_error};
 use crate::validation::Validator;
 use std::path::Path;
 use table_extract::Table;
@@ -8,16 +9,16 @@ use tokio::fs as async_fs;
 pub async fn read_table(html_file: &str) -> Result<Table> {
     let html_content = async_fs::read_to_string(Path::new(html_file))
         .await
-        .map_err(|e| FMDataError::table(format!("Error reading HTML file '{html_file}': {e}")))?;
+        .with_file_context(html_file, "read")?;
 
     Table::find_first(&html_content)
-        .ok_or_else(|| FMDataError::table("No table found in the provided HTML document"))
+        .ok_or_else(|| table_processing_error(None, None, "No table found in the provided HTML document"))
 }
 
 pub fn validate_table_structure(table: &Table) -> Result<()> {
     let row_count = table.iter().count();
     if row_count == 0 {
-        return Err(FMDataError::table("Table is empty"));
+        return Err(table_processing_error(None, None, "Table is empty"));
     }
 
     // Convert table to vector for validation
@@ -127,7 +128,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Error reading HTML file"));
+            .contains("Failed to read file"));
     }
 
     #[tokio::test]

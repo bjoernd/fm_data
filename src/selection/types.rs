@@ -1,4 +1,5 @@
 use crate::error::{FMDataError, Result};
+use crate::error_helpers::{invalid_category, validation_error};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
@@ -30,7 +31,7 @@ impl PlayerCategory {
             "am" => Ok(PlayerCategory::AttackingMidfielder),
             "pm" => Ok(PlayerCategory::Playmaker),
             "str" => Ok(PlayerCategory::Striker),
-            _ => Err(FMDataError::selection(format!("Invalid category: {short}"))),
+            _ => Err(invalid_category(short)),
         }
     }
 
@@ -133,7 +134,7 @@ impl std::str::FromStr for Footedness {
             "R" => Ok(Footedness::Right),
             "L" => Ok(Footedness::Left),
             "RL" => Ok(Footedness::Both),
-            _ => Err(FMDataError::selection(format!("Invalid footedness: {s}"))),
+            _ => Err(validation_error("footedness", s, "must be R, L, or RL")),
         }
     }
 }

@@ -63,6 +63,7 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 - **`auth.rs`**: Google OAuth2 authentication handling
 - **`sheets_client.rs`**: Google Sheets API operations wrapper (read/write)
 - **`progress.rs`**: Progress tracking and user feedback using indicatif
+- **`error_helpers.rs`**: Error context helpers and standardized error construction patterns
 - **`selection/`**: Team selection functionality split into focused sub-modules:
   - **`types.rs`**: Core data structures (Player, Role, Team, Assignment, etc.)
   - **`categories.rs`**: Player position categories and role mappings

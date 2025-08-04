@@ -66,7 +66,7 @@ async fn test_error_handling_invalid_role_file() {
     assert!(result
         .unwrap_err()
         .to_string()
-        .contains("Failed to read role file"));
+        .contains("Failed to read file"));
 
     // Test with invalid roles
     let invalid_role_content = "InvalidRole1\nInvalidRole2\nGK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R";
