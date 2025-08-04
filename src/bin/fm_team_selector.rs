@@ -3,7 +3,7 @@ use fm_data::constants::ranges;
 use fm_data::error::Result;
 use fm_data::{
     find_optimal_assignments_with_filters, format_team_output, parse_player_data,
-    parse_role_file_content, AppRunner, CLIArgumentValidator, CommonCLIArgs, SelectorCLI,
+    parse_role_file_content, AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, SelectorCLI,
 };
 use log::{debug, error, info};
 
@@ -59,15 +59,17 @@ impl CLIArgumentValidator for CLIArguments {
 async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
-    // Use AppRunner for consolidated setup
-    let mut app_runner = AppRunner::new_complete(&cli, "fm_team_selector").await?;
-    let (spreadsheet, credfile, role_file_path) = app_runner
-        .setup_for_team_selector(
-            cli.common.spreadsheet,
-            cli.common.credfile,
-            cli.common.role_file,
-        )
+    // Use AppRunnerBuilder for consolidated setup
+    let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_team_selector")
+        .spreadsheet_id(cli.common.spreadsheet.clone())
+        .creds_file(cli.common.credfile.clone())
+        .role_file(cli.common.role_file.clone())
+        .build_team_selector()
         .await?;
+
+    let role_file_path = cli.common.role_file.unwrap_or_else(|| "roles.txt".to_string());
+    let spreadsheet = cli.common.spreadsheet.unwrap_or_else(|| "default_spreadsheet".to_string());
+    let credfile = cli.common.credfile.unwrap_or_else(|| "credentials.json".to_string());
 
     // Parse role file
     app_runner

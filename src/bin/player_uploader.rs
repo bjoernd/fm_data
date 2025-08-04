@@ -1,7 +1,7 @@
 use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    process_table_data, read_table, validate_data_size, validate_table_structure, AppRunner,
+    process_table_data, read_table, validate_data_size, validate_table_structure, AppRunnerBuilder,
     CLIArgumentValidator, CommonCLIArgs, UploaderCLI,
 };
 use log::{debug, info};
@@ -52,15 +52,15 @@ impl CLIArgumentValidator for CLIArguments {
 async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
-    // Use AppRunner for consolidated setup and authentication
-    let mut app_runner = AppRunner::new_complete(&cli, "fm_google_up").await?;
-    let (_spreadsheet, _credfile, input) = app_runner
-        .setup_for_player_uploader(
-            cli.common.spreadsheet,
-            cli.common.credfile,
-            cli.common.input,
-        )
+    // Use AppRunnerBuilder for consolidated setup and authentication
+    let app_runner = AppRunnerBuilder::from_cli(&cli, "fm_google_up")
+        .spreadsheet_id(cli.common.spreadsheet)
+        .creds_file(cli.common.credfile)
+        .input_file(cli.common.input.clone())
+        .build_uploader()
         .await?;
+
+    let input = cli.common.input.unwrap_or_else(|| "input.html".to_string());
 
     // Read table from HTML
     app_runner

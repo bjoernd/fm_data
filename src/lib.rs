@@ -1,3 +1,4 @@
+pub mod app_builder;
 pub mod app_runner;
 pub mod auth;
 pub mod cli;
@@ -11,6 +12,7 @@ pub mod table;
 pub mod test_helpers;
 pub mod validation;
 
+pub use app_builder::AppRunnerBuilder;
 pub use app_runner::{AppRunner, CLIArgumentValidator};
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use cli::{CommonArgs, CommonCLIArgs, SelectorCLI, UploaderCLI};

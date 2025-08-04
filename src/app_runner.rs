@@ -3,8 +3,7 @@ use crate::{
     create_authenticator_and_token, get_secure_config_dir, Config, ProgressCallback,
     ProgressTracker, SheetsManager,
 };
-use log::{debug, error, info, warn};
-use std::path::Path;
+use log::{debug, error, info};
 use std::time::Instant;
 
 /// Common CLI argument validation trait
@@ -24,71 +23,13 @@ pub struct AppRunner {
 }
 
 impl AppRunner {
-    /// Initialize the application with common setup steps
+    /// Initialize the application with common setup steps (deprecated - use AppRunnerBuilder)
+    #[deprecated(note = "Use AppRunnerBuilder::from_cli().build_basic() instead")]
     pub async fn new<T: CLIArgumentValidator>(cli: &T, binary_name: &str) -> Result<Self> {
-        let start_time = Instant::now();
-
-        // Validate CLI arguments early
-        if let Err(e) = cli.validate() {
-            error!("Invalid arguments: {}", e);
-            std::process::exit(1);
-        }
-
-        // Set up logging level based on verbose flag
-        Self::setup_logging(cli.is_verbose(), binary_name);
-
-        info!("Starting {}", binary_name);
-
-        // Create progress tracker
-        let show_progress = !cli.is_no_progress() && !cli.is_verbose();
-        let progress = ProgressTracker::new(100, show_progress);
-        let progress_ref: &dyn ProgressCallback = &progress;
-
-        progress_ref.update(0, 100, "Starting process...");
-
-        // Read config file
-        let config_path = Path::new(cli.config_path());
-        let config = Self::load_config(config_path, progress_ref).await?;
-
-        Ok(AppRunner {
-            config,
-            progress,
-            sheets_manager: None,
-            start_time,
-        })
+        use crate::AppRunnerBuilder;
+        AppRunnerBuilder::from_cli(cli, binary_name).build_basic().await
     }
 
-    /// Setup logging configuration
-    fn setup_logging(verbose: bool, binary_name: &str) {
-        if verbose {
-            // Set debug level only for our crate, info for others
-            std::env::set_var("RUST_LOG", format!("{binary_name}=debug,info"));
-        } else {
-            // Only show warnings and errors when not in verbose mode to avoid interfering with progress bar
-            std::env::set_var("RUST_LOG", "warn");
-        }
-
-        // Initialize logging after setting the environment variable
-        env_logger::init();
-    }
-
-    /// Load configuration with fallback to defaults
-    async fn load_config(config_path: &Path, progress: &dyn ProgressCallback) -> Result<Config> {
-        progress.update(5, 100, "Loading configuration...");
-
-        let config = match Config::from_file(config_path) {
-            Ok(cfg) => {
-                info!("Successfully loaded config from {}", config_path.display());
-                cfg
-            }
-            Err(e) => {
-                warn!("Failed to load config: {}. Using default values.", e);
-                Config::create_default()
-            }
-        };
-
-        Ok(config)
-    }
 
     /// Complete authentication setup with resolved paths and create sheets manager
     pub async fn complete_authentication(
@@ -226,72 +167,4 @@ impl AppRunner {
         );
     }
 
-    /// Create AppRunner with minimal setup for consolidated authentication
-    pub async fn new_complete<T: CLIArgumentValidator>(
-        cli: &T,
-        binary_name: &str,
-    ) -> Result<AppRunner> {
-        let start_time = Instant::now();
-
-        // Validate CLI arguments early
-        if let Err(e) = cli.validate() {
-            error!("Invalid arguments: {}", e);
-            std::process::exit(1);
-        }
-
-        // Set up logging level based on verbose flag
-        Self::setup_logging(cli.is_verbose(), binary_name);
-
-        info!("Starting {}", binary_name);
-
-        // Create progress tracker
-        let show_progress = !cli.is_no_progress() && !cli.is_verbose();
-        let progress = ProgressTracker::new(100, show_progress);
-        let progress_ref: &dyn ProgressCallback = &progress;
-
-        progress_ref.update(0, 100, "Starting process...");
-
-        // Read config file
-        let config_path = Path::new(cli.config_path());
-        let config = Self::load_config(config_path, progress_ref).await?;
-
-        Ok(AppRunner {
-            config,
-            progress,
-            sheets_manager: None,
-            start_time,
-        })
-    }
-
-    /// Create AppRunner with minimal setup for incremental refactoring (backward compatibility)
-    pub async fn new_minimal<T: CLIArgumentValidator>(
-        cli: &T,
-        binary_name: &str,
-    ) -> Result<(Config, ProgressTracker, Instant)> {
-        let start_time = Instant::now();
-
-        // Validate CLI arguments early
-        if let Err(e) = cli.validate() {
-            error!("Invalid arguments: {}", e);
-            std::process::exit(1);
-        }
-
-        // Set up logging level based on verbose flag
-        Self::setup_logging(cli.is_verbose(), binary_name);
-
-        info!("Starting {}", binary_name);
-
-        // Create progress tracker
-        let show_progress = !cli.is_no_progress() && !cli.is_verbose();
-        let progress = ProgressTracker::new(100, show_progress);
-        let progress_ref: &dyn ProgressCallback = &progress;
-
-        progress_ref.update(0, 100, "Starting process...");
-
-        // Read config file
-        let config_path = Path::new(cli.config_path());
-        let config = Self::load_config(config_path, progress_ref).await?;
-
-        Ok((config, progress, start_time))
-    }
 }
