@@ -133,7 +133,7 @@ cargo build --release
 
 ### Testing
 ```bash
-# Run comprehensive test suite (54 total tests: 45 unit + 9 integration)
+# Run comprehensive test suite (66 total tests: 49 unit + 17 integration)
 cargo test
 
 # Run tests with output
@@ -244,17 +244,17 @@ Error: Need at least 11 players but found only 8
 ### Team Selection Output
 ```bash
 fm_team_selector -r formation.txt
-CD(d) -> Van Dijk
-CD(s) -> Dias  
-CF(s) -> Haaland
-CM(a) -> De Bruyne
-CM(d) -> Rodri
-CM(s) -> Modric
-FB(d) L -> Robertson
-FB(d) R -> Alexander-Arnold
-GK -> Alisson
-W(s) L -> Mane
-W(s) R -> Salah
+CD(d) -> Van Dijk (score: 18.5)
+CD(s) -> Dias (score: 16.2)
+CF(s) -> Haaland (score: 19.1)
+CM(a) -> De Bruyne (score: 17.8)
+CM(d) -> Rodri (score: 16.9)
+CM(s) -> Modric (score: 17.3)
+FB(d) L -> Robertson (score: 15.7)
+FB(d) R -> Alexander-Arnold (score: 16.4)
+GK -> Alisson (score: 18.9)
+W(s) L -> Mane (score: 15.2)
+W(s) R -> Salah (score: 15.3)
 Total Score: 187.3
 ```
 

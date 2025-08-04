@@ -117,7 +117,7 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, inp
 - Uses greedy algorithm to assign players to roles for maximum total score
 - Supports duplicate roles (e.g., multiple goalkeepers)
 - Supports player filters to restrict players to specific position categories
-- Outputs clean team assignments in format "$ROLE -> $PLAYER_NAME"
+- Outputs clean team assignments in format "$ROLE -> $PLAYER_NAME (score: X.X)" with individual role scores for transparency
 
 ### Error Handling
 
@@ -398,7 +398,7 @@ cargo run --bin fm_team_selector -- -r examples/formation_legacy.txt --no-progre
 
 The codebase includes comprehensive unit and integration tests:
 
-### Unit Tests (130 tests)
+### Unit Tests (49 tests)
 - **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
@@ -409,7 +409,7 @@ The codebase includes comprehensive unit and integration tests:
 - **Role File Parser tests**: Sectioned format parsing, backward compatibility (12 new tests)
 - **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking (5 new tests)
 
-### Integration Tests (16 tests)
+### Integration Tests (17 tests)
 - **End-to-end workflow**: Role file → mock data → assignment → output
 - **Error handling**: Invalid roles, missing files, insufficient players
 - **Edge cases**: Exact player counts, large datasets, duplicate roles
@@ -431,7 +431,7 @@ The codebase includes comprehensive unit and integration tests:
 - Role file validation ensures exactly 11 valid Football Manager roles
 - Player filtering system with 9 positional categories covering all 96 roles
 - Sectioned role file format with backward compatibility for legacy files
-- All modules include comprehensive unit tests (146 tests total: 130 unit + 16 integration)
+- All modules include comprehensive unit tests (66 tests total: 49 unit + 17 integration)
 
 ## Code Quality
 
@@ -440,5 +440,5 @@ The codebase follows Rust best practices and coding standards:
 - **Clippy compliance**: All clippy lints are resolved, including modern format string usage
 - **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
 - **Error handling**: Comprehensive error context using `anyhow` throughout
-- **Testing**: Comprehensive test coverage with 146 tests (unit + integration) for all public APIs
+- **Testing**: Comprehensive test coverage with 66 tests (unit + integration) for all public APIs
 - **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance

@@ -404,7 +404,7 @@ fn create_mock_sheet_data_with_player_count(player_count: usize) -> Vec<Vec<Stri
         let mut row = Vec::new();
 
         // Column A: Player name
-        row.push(format!("Player {}", i));
+        row.push(format!("Player {i}"));
 
         // Column B: Age
         row.push(format!("{}", 20 + (i % 15))); // Ages 20-34
@@ -446,7 +446,7 @@ fn create_mock_sheet_data_with_good_goalkeepers() -> Vec<Vec<String>> {
         let mut row = Vec::new();
 
         // Column A: Player name
-        row.push(format!("Player {}", i));
+        row.push(format!("Player {i}"));
 
         // Column B: Age
         row.push(format!("{}", 20 + (i % 15)));
@@ -694,7 +694,7 @@ fn create_optimal_test_squad() -> Vec<Vec<String>> {
         let mut row = Vec::new();
 
         // Column A: Player name
-        row.push(format!("Specialist {}", i));
+        row.push(format!("Specialist {i}"));
 
         // Column B: Age
         row.push("25".to_string());
@@ -718,7 +718,7 @@ fn create_optimal_test_squad() -> Vec<Vec<String>> {
                 1 | 2 => vec![40, 41, 42],     // CB specialists (CD roles)
                 3 => vec![52, 53, 54],         // RB specialist (FB R roles)
                 4 => vec![55, 56, 57],         // LB specialist (FB L roles)
-                5 | 6 | 7 => vec![27, 28, 29], // CM specialists
+                5..=7 => vec![27, 28, 29], // CM specialists
                 8 => vec![0, 1],               // RW specialist (W R roles)
                 9 => vec![2, 3],               // LW specialist (W L roles)
                 10 => vec![78, 79, 80],        // ST specialist (CF roles)
@@ -1013,7 +1013,7 @@ Salah: wing"#;
     assert!(gk_assignment.is_some(), "Should have a GK assignment");
 
     // Verify that we have both filtered and unfiltered assignments
-    let has_assignments = assignment_lines.len() > 0;
+    let has_assignments = !assignment_lines.is_empty();
     assert!(has_assignments, "Should have at least some assignments");
 
     // Unfiltered players should be able to fill any remaining roles
@@ -1144,8 +1144,7 @@ Player3: unknown_category"#;
     assert!(
         error_message.contains("Invalid filter format")
             || error_message.contains("Expected 'PLAYER_NAME: CATEGORY_LIST'"),
-        "Error message should indicate invalid filter format: {}",
-        error_message
+        "Error message should indicate invalid filter format: {error_message}"
     );
 
     Ok(())
@@ -1196,8 +1195,7 @@ TestPlayer: cd"#;
         error_message.contains("Duplicate")
             || error_message.contains("duplicate")
             || error_message.contains("already defined"),
-        "Error message should indicate duplicate player: {}",
-        error_message
+        "Error message should indicate duplicate player: {error_message}"
     );
 
     Ok(())

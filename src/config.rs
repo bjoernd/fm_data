@@ -580,8 +580,7 @@ mod tests {
         assert_eq!(input, input_file.path().to_string_lossy().to_string());
         assert!(
             input.contains("tmp"),
-            "Expected temp file path, got: {}",
-            input
+            "Expected temp file path, got: {input}"
         );
 
         Ok(())
@@ -631,8 +630,7 @@ mod tests {
         );
         assert!(
             resolved_role_file.contains("tmp"),
-            "Expected temp file path, got: {}",
-            resolved_role_file
+            "Expected temp file path, got: {resolved_role_file}"
         );
 
         Ok(())

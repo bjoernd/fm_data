@@ -28,7 +28,7 @@ pub fn create_test_credentials_file() -> NamedTempFile {
 #[cfg(test)]
 pub fn create_test_html_file(content: &str) -> NamedTempFile {
     let mut temp_file = NamedTempFile::new().unwrap();
-    writeln!(temp_file, "{}", content).unwrap();
+    writeln!(temp_file, "{content}").unwrap();
     temp_file
 }
 
@@ -36,7 +36,7 @@ pub fn create_test_html_file(content: &str) -> NamedTempFile {
 pub fn create_test_role_file(roles: &[&str]) -> NamedTempFile {
     let mut temp_file = NamedTempFile::new().unwrap();
     for role in roles {
-        writeln!(temp_file, "{}", role).unwrap();
+        writeln!(temp_file, "{role}").unwrap();
     }
     temp_file
 }
@@ -70,6 +70,6 @@ pub fn create_test_player(name: &str, player_index: usize) -> Player {
 #[cfg(test)]
 pub fn create_test_config_file(content: &str) -> NamedTempFile {
     let mut temp_file = NamedTempFile::new().unwrap();
-    writeln!(temp_file, "{}", content).unwrap();
+    writeln!(temp_file, "{content}").unwrap();
     temp_file
 }

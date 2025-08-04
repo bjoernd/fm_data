@@ -126,7 +126,7 @@ fn parse_roles_section(lines: Vec<String>) -> Result<Vec<Role>> {
 
     for (line_num, line) in lines.iter().enumerate() {
         let role = Role::new(line)
-            .map_err(|e| role_file_format_error(line_num + 1, &format!("Invalid role: {}", e)))?;
+            .map_err(|e| role_file_format_error(line_num + 1, &format!("Invalid role: {e}")))?;
 
         roles.push(role);
     }
