@@ -12,6 +12,7 @@ pub mod sheets_client;
 pub mod table;
 pub mod test_helpers;
 pub mod validation;
+pub mod validators;
 
 pub use app_builder::AppRunnerBuilder;
 pub use app_runner::{AppRunner, CLIArgumentValidator};
@@ -28,3 +29,4 @@ pub use selection::{
 pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
 pub use validation::Validator;
+pub use validators::{AuthValidator, ConfigValidator, DataValidator, FileValidator, PlayerValidator, RoleValidator};

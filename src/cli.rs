@@ -1,6 +1,6 @@
 use crate::error::{FMDataError, Result};
+use crate::validators::ConfigValidator;
 use clap::Parser;
-use std::path::Path;
 
 pub struct CommonArgs {
     pub config_file: String,
@@ -36,12 +36,7 @@ pub trait CommonCLIArgs {
 pub fn validate_config_file(config_file: &str) -> Result<()> {
     // Validate config file path if it's not the default and doesn't exist
     if config_file != "config.json" {
-        let config_path = Path::new(config_file);
-        if !config_path.exists() {
-            return Err(FMDataError::config(format!(
-                "Config file '{config_file}' does not exist. Use --config to specify a valid config file or create '{config_file}'"
-            )));
-        }
+        ConfigValidator::validate_config_file(config_file)?;
     }
     Ok(())
 }

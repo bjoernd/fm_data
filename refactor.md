@@ -789,9 +789,27 @@ progress.set_message("Processing...");
 
 ---
 
-## 6. Organize Validation Logic by Domain (LOW PRIORITY)
+## 6. Organize Validation Logic by Domain (LOW PRIORITY) ✅ COMPLETED
 
 **Problem**: Validation logic scattered across multiple structs rather than organized by domain.
+
+**Status**: ✅ Completed
+- Created comprehensive domain-specific validators module (src/validators.rs)
+- Consolidated 6 validator structs: ConfigValidator, RoleValidator, PlayerValidator, FileValidator, DataValidator, AuthValidator
+- Migrated validation logic from scattered locations:
+  * File validation from validation.rs to FileValidator
+  * Google Sheets validation from validation.rs to ConfigValidator
+  * Data validation from validation.rs to DataValidator
+  * Role validation from selection/parser.rs to RoleValidator
+  * Player filter validation to PlayerValidator
+  * Credentials validation from auth.rs to AuthValidator
+- Updated 7 modules to use new domain validators (config.rs, cli.rs, auth.rs, sheets_client.rs, table.rs, selection/parser.rs)
+- Added validators module to lib.rs exports for public API access
+- Maintained backward compatibility by keeping wrapper functions
+- All 84 tests (67 unit + 17 integration) continue to pass
+- Zero clippy warnings maintained
+- Organized ~150+ lines of validation logic by domain for better maintainability
+- Improved separation of concerns and code organization
 
 ### Implementation Steps:
 

@@ -1,7 +1,7 @@
 use crate::constants::ranges;
 use crate::error::Result;
 use crate::error_helpers::{table_processing_error, ErrorContext};
-use crate::validation::Validator;
+use crate::validators::DataValidator;
 use std::path::Path;
 use table_extract::Table;
 use tokio::fs as async_fs;
@@ -28,7 +28,7 @@ pub fn validate_table_structure(table: &Table) -> Result<()> {
         .map(|row| row.iter().map(|cell| cell.to_string()).collect())
         .collect();
 
-    Validator::validate_row_consistency(&rows)?;
+    DataValidator::validate_row_consistency(&rows)?;
     Ok(())
 }
 
@@ -50,14 +50,14 @@ pub fn process_table_data(table: &Table) -> Result<Vec<Vec<String>>> {
     }
 
     // Validate the processed data
-    Validator::validate_non_empty_data(&matrix)?;
+    DataValidator::validate_non_empty_data(&matrix)?;
 
     Ok(matrix)
 }
 
 pub fn validate_data_size(row_count: usize) -> Result<()> {
     const MAX_DATA_ROWS: usize = ranges::MAX_DATA_ROWS;
-    Validator::validate_table_size(row_count, MAX_DATA_ROWS)?;
+    DataValidator::validate_table_size(row_count, MAX_DATA_ROWS)?;
     Ok(())
 }
 

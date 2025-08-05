@@ -1,7 +1,7 @@
 use crate::constants::defaults;
 use crate::error::Result;
 use crate::error_helpers::{config_missing_field, ErrorContext};
-use crate::validation::Validator;
+use crate::validators::{ConfigValidator, FileValidator};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -149,11 +149,11 @@ impl Config {
             Self::resolve_with_fallback(input, self.input.data_html.clone(), default_html);
 
         // Validate the resolved paths
-        Validator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        Validator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        Validator::validate_file_extension(&resolved_credfile, "json")?;
-        Validator::validate_file_exists(&resolved_input, "Input HTML")?;
-        Validator::validate_file_extension(&resolved_input, "html")?;
+        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        FileValidator::validate_file_extension(&resolved_credfile, "json")?;
+        FileValidator::validate_file_exists(&resolved_input, "Input HTML")?;
+        FileValidator::validate_file_extension(&resolved_input, "html")?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_input))
     }
@@ -206,11 +206,11 @@ impl Config {
             .ok_or_else(|| config_missing_field("role_file"))?;
 
         // Validate the resolved paths
-        Validator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        Validator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        Validator::validate_file_extension(&resolved_credfile, "json")?;
-        Validator::validate_file_exists(&resolved_role_file, "Role file")?;
-        Validator::validate_file_extension(&resolved_role_file, "txt")?;
+        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        FileValidator::validate_file_extension(&resolved_credfile, "json")?;
+        FileValidator::validate_file_exists(&resolved_role_file, "Role file")?;
+        FileValidator::validate_file_extension(&resolved_role_file, "txt")?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
     }

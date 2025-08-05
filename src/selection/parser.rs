@@ -1,6 +1,7 @@
 use super::types::{PlayerCategory, PlayerFilter, Role, RoleFileContent};
 use crate::error::{FMDataError, Result};
-use crate::error_helpers::{invalid_role, role_file_format_error, ErrorContext};
+use crate::error_helpers::{role_file_format_error, ErrorContext};
+use crate::validators::RoleValidator;
 use std::collections::HashSet;
 use tokio::fs;
 
@@ -204,10 +205,5 @@ fn parse_filters_section(lines: Vec<String>) -> Result<Vec<PlayerFilter>> {
 
 /// Validate that roles in a role file are valid
 pub fn validate_roles(roles: &[String]) -> Result<()> {
-    for role_name in roles {
-        if !Role::is_valid_role(role_name) {
-            return Err(invalid_role(role_name));
-        }
-    }
-    Ok(())
+    RoleValidator::validate_roles(roles)
 }

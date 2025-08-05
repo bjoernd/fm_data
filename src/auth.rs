@@ -1,5 +1,6 @@
 use crate::error::{FMDataError, Result};
 use crate::error_helpers::ErrorContext;
+use crate::validators::AuthValidator;
 use std::path::{Path, PathBuf};
 use tokio::fs as async_fs;
 use yup_oauth2::{
@@ -83,52 +84,7 @@ pub async fn check_file_permissions(file_path: &Path) -> Result<()> {
 
 /// Validate the structure and content of a Google OAuth credentials file
 pub fn validate_credentials_content(content: &str) -> Result<()> {
-    // Parse JSON to validate structure
-    let json: serde_json::Value = serde_json::from_str(content)
-        .map_err(|e| FMDataError::auth(format!("Invalid JSON in credentials file: {e}")))?;
-
-    // Check for required OAuth2 fields
-    let installed = json
-        .get("installed")
-        .or_else(|| json.get("web"))
-        .ok_or_else(|| {
-            FMDataError::auth("Credentials file must contain 'installed' or 'web' section")
-        })?;
-
-    let required_fields = ["client_id", "client_secret", "auth_uri", "token_uri"];
-    for field in &required_fields {
-        if installed.get(field).is_none() {
-            return Err(FMDataError::auth(format!(
-                "Missing required field '{field}' in credentials"
-            )));
-        }
-    }
-
-    // Validate URLs
-    let auth_uri = installed
-        .get("auth_uri")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| FMDataError::auth("auth_uri must be a string"))?;
-
-    let token_uri = installed
-        .get("token_uri")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| FMDataError::auth("token_uri must be a string"))?;
-
-    if !auth_uri.starts_with("https://") {
-        return Err(FMDataError::auth("auth_uri must use HTTPS"));
-    }
-
-    if !token_uri.starts_with("https://") {
-        return Err(FMDataError::auth("token_uri must use HTTPS"));
-    }
-
-    // Check if this looks like a Google OAuth endpoint
-    if !auth_uri.contains("accounts.google.com") || !token_uri.contains("oauth2.googleapis.com") {
-        log::warn!("Credentials file does not appear to be from Google - this may not work with Google Sheets API");
-    }
-
-    Ok(())
+    AuthValidator::validate_credentials_content(content)
 }
 
 /// Securely read and validate credentials file
