@@ -33,16 +33,19 @@ pub fn validate_table_structure(table: &Table) -> Result<()> {
 }
 
 pub fn process_table_data(table: &Table) -> Result<Vec<Vec<String>>> {
+    use crate::constants::player_data::FOOT_MAPPINGS;
+    
     let mut matrix = vec![];
     for row in table {
         let mut line = vec![];
         for cell in row {
-            let value = match cell.as_str() {
-                "Left" | "Left Only" => "l",
-                "Right" | "Right Only" => "r",
-                "Either" => "rl",
-                "-" => "0",
-                _ => cell,
+            let value = if let Some(mapping) = FOOT_MAPPINGS.iter().find(|(key, _)| *key == cell.as_str()) {
+                mapping.1
+            } else {
+                match cell.as_str() {
+                    "-" => "0",
+                    _ => cell,
+                }
             };
             line.push(String::from(value))
         }

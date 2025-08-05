@@ -52,7 +52,7 @@ impl AppRunner {
         let token_cache = if self.config.google.token_file.is_empty() {
             get_secure_config_dir()
                 .await?
-                .join("tokencache.json")
+                .join(crate::constants::config::TOKEN_CACHE_FILE)
                 .to_string_lossy()
                 .to_string()
         } else {

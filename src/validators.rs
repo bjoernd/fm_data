@@ -64,8 +64,10 @@ impl ConfigValidator {
 
     /// Validate configuration file structure and content
     pub fn validate_config_file(config_file: &str) -> Result<()> {
+        use crate::constants::FileExtension;
+        
         FileValidator::validate_file_exists(config_file, "Configuration")?;
-        FileValidator::validate_file_extension(config_file, "json")?;
+        FileValidator::validate_file_extension_typed(config_file, FileExtension::Json)?;
         Ok(())
     }
 }
@@ -95,7 +97,7 @@ impl RoleValidator {
 
     /// Validate role file format and content
     pub fn validate_role_file_format(roles: &[String]) -> Result<()> {
-        const REQUIRED_ROLE_COUNT: usize = 11;
+        use crate::constants::team::REQUIRED_ROLE_COUNT;
         
         if roles.len() != REQUIRED_ROLE_COUNT {
             return Err(FMDataError::selection(
@@ -183,6 +185,30 @@ impl FileValidator {
                     expected_ext
                 );
             }
+        }
+        Ok(())
+    }
+    
+    /// Validate file extension using type-safe enum (preferred method)
+    pub fn validate_file_extension_typed(path: &str, expected: crate::constants::FileExtension) -> Result<()> {
+        use crate::constants::FileExtension;
+        
+        let path_obj = Path::new(path);
+        if let Some(actual_ext) = FileExtension::from_path(path) {
+            if actual_ext != expected {
+                log::warn!(
+                    "File '{}' has .{} extension but expected .{}",
+                    path,
+                    actual_ext,
+                    expected
+                );
+            }
+        } else if path_obj.extension().is_some() {
+            log::warn!(
+                "File '{}' has an unrecognized extension, expected .{}",
+                path,
+                expected
+            );
         }
         Ok(())
     }
@@ -335,8 +361,10 @@ impl AuthValidator {
 
     /// Validate credentials file and its content
     pub fn validate_credentials_file(path: &str) -> Result<()> {
+        use crate::constants::FileExtension;
+        
         FileValidator::validate_file_exists(path, "Credentials")?;
-        FileValidator::validate_file_extension(path, "json")?;
+        FileValidator::validate_file_extension_typed(path, FileExtension::Json)?;
         
         // Read and validate content
         let content = std::fs::read_to_string(path)
@@ -403,9 +431,16 @@ mod tests {
 
     #[test]
     fn test_file_validator_file_extension() {
+        use crate::constants::FileExtension;
+        
         assert!(FileValidator::validate_file_extension("test.json", "json").is_ok());
         // Should not error for mismatched extensions, just warn
         assert!(FileValidator::validate_file_extension("test.txt", "json").is_ok());
+        
+        // Test typed version
+        assert!(FileValidator::validate_file_extension_typed("test.json", FileExtension::Json).is_ok());
+        assert!(FileValidator::validate_file_extension_typed("test.html", FileExtension::Html).is_ok());
+        assert!(FileValidator::validate_file_extension_typed("test.txt", FileExtension::Txt).is_ok());
     }
 
     // Data Validator Tests

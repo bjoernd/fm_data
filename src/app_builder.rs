@@ -147,7 +147,7 @@ impl AppRunnerBuilder {
         progress_ref.update(0, 100, "Starting process...");
 
         // Read config file
-        let config_path = Path::new(self.config_file.as_deref().unwrap_or("config.json"));
+        let config_path = Path::new(self.config_file.as_deref().unwrap_or(crate::constants::config::DEFAULT_CONFIG_FILE));
         let config = Self::load_config(config_path, progress_ref).await?;
 
         Ok(AppRunner {
@@ -175,7 +175,7 @@ impl AppRunnerBuilder {
         progress_ref.update(0, 100, "Starting process...");
 
         // Read config file
-        let config_path = Path::new(self.config_file.as_deref().unwrap_or("config.json"));
+        let config_path = Path::new(self.config_file.as_deref().unwrap_or(crate::constants::config::DEFAULT_CONFIG_FILE));
         let config = Self::load_config(config_path, progress_ref).await?;
 
         Ok((config, progress, start_time))

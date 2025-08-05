@@ -34,8 +34,10 @@ pub trait CommonCLIArgs {
 }
 
 pub fn validate_config_file(config_file: &str) -> Result<()> {
+    use crate::constants::config::DEFAULT_CONFIG_FILE;
+    
     // Validate config file path if it's not the default and doesn't exist
-    if config_file != "config.json" {
+    if config_file != DEFAULT_CONFIG_FILE {
         ConfigValidator::validate_config_file(config_file)?;
     }
     Ok(())
@@ -80,7 +82,7 @@ Can also be set via FM_INPUT_FILE environment variable."
     #[arg(
         short,
         long,
-        default_value = "config.json",
+        default_value = crate::constants::config::DEFAULT_CONFIG_FILE,
         help = "Path to configuration file",
         long_help = "Path to JSON configuration file containing default settings.
 If the file doesn't exist, default values will be used.
@@ -180,7 +182,7 @@ Can also be set via FM_CREDENTIALS_FILE environment variable."
     #[arg(
         short,
         long,
-        default_value = "config.json",
+        default_value = crate::constants::config::DEFAULT_CONFIG_FILE,
         help = "Path to configuration file",
         long_help = "Path to JSON configuration file containing default settings.
 If the file doesn't exist, default values will be used.

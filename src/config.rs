@@ -22,7 +22,7 @@ fn default_token_file() -> String {
     dirs::config_dir()
         .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
         .join("fm_data")
-        .join("tokencache.json")
+        .join(crate::constants::config::TOKEN_CACHE_FILE)
         .to_string_lossy()
         .to_string()
 }
@@ -151,9 +151,9 @@ impl Config {
         // Validate the resolved paths
         ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
         FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension(&resolved_credfile, "json")?;
+        FileValidator::validate_file_extension_typed(&resolved_credfile, crate::constants::FileExtension::Json)?;
         FileValidator::validate_file_exists(&resolved_input, "Input HTML")?;
-        FileValidator::validate_file_extension(&resolved_input, "html")?;
+        FileValidator::validate_file_extension_typed(&resolved_input, crate::constants::FileExtension::Html)?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_input))
     }
@@ -208,9 +208,9 @@ impl Config {
         // Validate the resolved paths
         ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
         FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension(&resolved_credfile, "json")?;
+        FileValidator::validate_file_extension_typed(&resolved_credfile, crate::constants::FileExtension::Json)?;
         FileValidator::validate_file_exists(&resolved_role_file, "Role file")?;
-        FileValidator::validate_file_extension(&resolved_role_file, "txt")?;
+        FileValidator::validate_file_extension_typed(&resolved_role_file, crate::constants::FileExtension::Txt)?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
     }

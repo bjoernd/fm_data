@@ -121,17 +121,19 @@ pub fn find_optimal_assignments_with_filters(
     roles: Vec<Role>,
     filters: &[PlayerFilter],
 ) -> Result<Team> {
-    if roles.len() != 11 {
+    use crate::constants::team::REQUIRED_ROLE_COUNT;
+    
+    if roles.len() != REQUIRED_ROLE_COUNT {
         return Err(FMDataError::selection(format!(
-            "Must have exactly 11 roles for team selection, got {}",
-            roles.len()
+            "Must have exactly {} roles for team selection, got {}",
+            REQUIRED_ROLE_COUNT, roles.len()
         )));
     }
 
-    if players.len() < 11 {
+    if players.len() < REQUIRED_ROLE_COUNT {
         return Err(FMDataError::selection(format!(
-            "Need at least 11 players for team selection, got {}",
-            players.len()
+            "Need at least {} players for team selection, got {}",
+            REQUIRED_ROLE_COUNT, players.len()
         )));
     }
 

@@ -290,10 +290,12 @@ pub struct Team {
 impl Team {
     /// Create a new team from assignments
     pub fn new(assignments: Vec<Assignment>) -> Result<Self> {
-        if assignments.len() != 11 {
+        use crate::constants::team::REQUIRED_ROLE_COUNT;
+        
+        if assignments.len() != REQUIRED_ROLE_COUNT {
             return Err(FMDataError::selection(format!(
-                "Team must have exactly 11 assignments, got {}",
-                assignments.len()
+                "Team must have exactly {} assignments, got {}",
+                REQUIRED_ROLE_COUNT, assignments.len()
             )));
         }
 

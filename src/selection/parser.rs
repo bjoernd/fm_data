@@ -116,10 +116,12 @@ fn parse_sectioned_role_file(lines: Vec<String>) -> Result<RoleFileContent> {
 
 /// Parse roles section - expects exactly 11 valid roles
 fn parse_roles_section(lines: Vec<String>) -> Result<Vec<Role>> {
-    if lines.len() != 11 {
+    use crate::constants::team::REQUIRED_ROLE_COUNT;
+    
+    if lines.len() != REQUIRED_ROLE_COUNT {
         return Err(FMDataError::selection(format!(
-            "Roles section must contain exactly 11 roles, found {}",
-            lines.len()
+            "Roles section must contain exactly {} roles, found {}",
+            REQUIRED_ROLE_COUNT, lines.len()
         )));
     }
 
