@@ -104,14 +104,14 @@ async fn main() -> Result<()> {
     sheets_manager
         .clear_range(
             &app_runner.config.google.team_sheet,
-            Some(app_runner.progress()),
+            app_runner.progress_reporter(),
         )
         .await?;
     sheets_manager
         .upload_data(
             &app_runner.config.google.team_sheet,
             matrix,
-            Some(app_runner.progress()),
+            app_runner.progress_reporter(),
         )
         .await?;
 

@@ -19,7 +19,7 @@ pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use cli::{CommonArgs, CommonCLIArgs, SelectorCLI, UploaderCLI};
 pub use config::Config;
 pub use error::{FMDataError, Result};
-pub use progress::{NoOpProgress, ProgressCallback, ProgressTracker};
+pub use progress::{NoOpProgress, NoOpProgressReporter, ProgressCallback, ProgressReporter, ProgressTracker, create_progress_reporter};
 pub use selection::{
     find_optimal_assignments, find_optimal_assignments_with_filters, format_team_output,
     parse_player_data, parse_role_file, parse_role_file_content, Assignment, Footedness, Player,

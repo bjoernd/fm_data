@@ -1,7 +1,7 @@
 use crate::error::{FMDataError, Result};
 use crate::{
     create_authenticator_and_token, get_secure_config_dir, Config, ProgressCallback,
-    ProgressTracker, SheetsManager,
+    ProgressReporter, ProgressTracker, SheetsManager,
 };
 use log::{debug, error, info};
 use std::time::Instant;
@@ -39,7 +39,7 @@ impl AppRunner {
         credfile: String,
         auth_progress_start: u64,
     ) -> Result<()> {
-        let progress: &dyn ProgressCallback = &self.progress;
+        let progress: &dyn ProgressReporter = &self.progress;
         progress.update(auth_progress_start, 100, "Setting up authentication...");
 
         // Ensure secure config directory exists
@@ -68,18 +68,23 @@ impl AppRunner {
         let sheets_manager = SheetsManager::new(secret, token, spreadsheet_id)?;
 
         sheets_manager
-            .verify_spreadsheet_access(Some(progress))
+            .verify_spreadsheet_access(progress)
             .await?;
         sheets_manager
-            .verify_sheet_exists(&self.config.google.team_sheet, Some(progress))
+            .verify_sheet_exists(&self.config.google.team_sheet, progress)
             .await?;
 
         self.sheets_manager = Some(sheets_manager);
         Ok(())
     }
 
-    /// Get progress callback reference
+    /// Get progress callback reference (legacy interface)
     pub fn progress(&self) -> &dyn ProgressCallback {
+        &self.progress
+    }
+
+    /// Get progress reporter reference (new interface)
+    pub fn progress_reporter(&self) -> &dyn ProgressReporter {
         &self.progress
     }
 
@@ -157,7 +162,7 @@ impl AppRunner {
 
     /// Finish the application with timing information
     pub fn finish(&self, message: &str) {
-        self.progress.finish(&format!(
+        ProgressCallback::finish(&self.progress, &format!(
             "{} completed in {} ms",
             message,
             self.start_time.elapsed().as_millis()

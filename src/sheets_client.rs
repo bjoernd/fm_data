@@ -1,6 +1,6 @@
 use crate::constants::ranges;
 use crate::error::{FMDataError, Result};
-use crate::progress::ProgressCallback;
+use crate::progress::ProgressReporter;
 use crate::validation::Validator;
 use log::{debug, error, info};
 use sheets::{
@@ -47,11 +47,9 @@ impl SheetsManager {
 
     pub async fn verify_spreadsheet_access(
         &self,
-        progress: Option<&dyn ProgressCallback>,
+        progress: &dyn ProgressReporter,
     ) -> Result<()> {
-        if let Some(p) = progress {
-            p.set_message("Verifying spreadsheet access...");
-        }
+        progress.set_message("Verifying spreadsheet access...");
 
         let sc = self
             .client
@@ -66,9 +64,7 @@ impl SheetsManager {
 
         info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
-        if let Some(p) = progress {
-            p.inc(1);
-        }
+        progress.inc(1);
 
         Ok(())
     }
@@ -76,11 +72,9 @@ impl SheetsManager {
     pub async fn verify_sheet_exists(
         &self,
         sheet_name: &str,
-        progress: Option<&dyn ProgressCallback>,
+        progress: &dyn ProgressReporter,
     ) -> Result<()> {
-        if let Some(p) = progress {
-            p.set_message(&format!("Verifying sheet '{sheet_name}' exists..."));
-        }
+        progress.set_message(&format!("Verifying sheet '{sheet_name}' exists..."));
 
         let sc = self
             .client
@@ -108,9 +102,7 @@ impl SheetsManager {
             )));
         }
 
-        if let Some(p) = progress {
-            p.inc(1);
-        }
+        progress.inc(1);
 
         Ok(())
     }
@@ -118,11 +110,9 @@ impl SheetsManager {
     pub async fn clear_range(
         &self,
         sheet_name: &str,
-        progress: Option<&dyn ProgressCallback>,
+        progress: &dyn ProgressReporter,
     ) -> Result<()> {
-        if let Some(p) = progress {
-            p.set_message("Clearing existing data...");
-        }
+        progress.set_message("Clearing existing data...");
 
         let clear_range = format!("{sheet_name}!{}", ranges::UPLOAD_RANGE);
         self.client
@@ -136,9 +126,7 @@ impl SheetsManager {
 
         info!("Cleared old data from {}", clear_range);
 
-        if let Some(p) = progress {
-            p.inc(1);
-        }
+        progress.inc(1);
 
         Ok(())
     }
@@ -147,7 +135,7 @@ impl SheetsManager {
         &self,
         sheet_name: &str,
         matrix: Vec<Vec<String>>,
-        progress: Option<&dyn ProgressCallback>,
+        progress: &dyn ProgressReporter,
     ) -> Result<()> {
         // Validate data before upload
         Validator::validate_non_empty_data(&matrix)?;
@@ -155,9 +143,7 @@ impl SheetsManager {
 
         let row_count = matrix.len();
 
-        if let Some(p) = progress {
-            p.set_message(&format!("Uploading {row_count} rows of data..."));
-        }
+        progress.set_message(&format!("Uploading {row_count} rows of data..."));
 
         let new_range = format!("{}!A2:AX{}", sheet_name, matrix.len() + 1);
         let update_body = ValueRange {
@@ -186,9 +172,7 @@ impl SheetsManager {
 
         info!("Updated data: {}", update.status);
 
-        if let Some(p) = progress {
-            p.inc(1);
-        }
+        progress.inc(1);
 
         Ok(())
     }
@@ -197,11 +181,9 @@ impl SheetsManager {
         &self,
         sheet_name: &str,
         range: &str,
-        progress: Option<&dyn ProgressCallback>,
+        progress: &dyn ProgressReporter,
     ) -> Result<Vec<Vec<String>>> {
-        if let Some(p) = progress {
-            p.set_message(&format!("Reading data from {sheet_name}..."));
-        }
+        progress.set_message(&format!("Reading data from {sheet_name}..."));
 
         let full_range = format!("{sheet_name}!{range}");
         debug!("Reading range: {}", full_range);
@@ -223,9 +205,7 @@ impl SheetsManager {
         let values = response.body.values;
         info!("Read {} rows from {}", values.len(), full_range);
 
-        if let Some(p) = progress {
-            p.inc(1);
-        }
+        progress.inc(1);
 
         Ok(values)
     }

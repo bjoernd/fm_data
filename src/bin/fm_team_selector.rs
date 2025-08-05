@@ -107,7 +107,7 @@ async fn main() -> Result<()> {
         .read_data(
             &app_runner.config.google.team_sheet,
             ranges::DOWNLOAD_RANGE,
-            Some(app_runner.progress()),
+            app_runner.progress_reporter(),
         )
         .await?;
 
