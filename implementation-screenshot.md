@@ -106,33 +106,44 @@ The `fm_image` tool will integrate with the existing fm_data architecture, reusi
 - All 84 tests pass and clippy passes with no warnings
 - Functions handle Tesseract initialization and configuration automatically
 
-### Step 4: Implement Player Data Structure and Parsing
+### Step 4: Implement Player Data Structure and Parsing ✅ COMPLETED
 **Goal**: Define data structures for extracted player information and parsing logic
 
 **Tasks**:
-1. Create `src/image_data.rs` module with:
+1. ✅ Create `src/image_data.rs` module with:
    - `ImagePlayer` struct containing all required attributes (name, age, footedness, all attributes)
    - `PlayerType` enum (Goalkeeper, FieldPlayer)
    - Footedness enum (`LeftFooted`, `RightFooted`, `BothFooted`)
-2. Implement parsing functions:
+2. ✅ Implement parsing functions:
    - Extract player name and age from OCR text
    - Detect player type (presence of "GOALKEEPING" section)
    - Parse attribute sections (TECHNICAL, MENTAL, PHYSICAL, GOALKEEPING)
    - Extract attribute name-value pairs from OCR text
-3. Add comprehensive error handling for missing required data
-4. Add module exports to `src/lib.rs`
+3. ✅ Add comprehensive error handling for missing required data
+4. ✅ Add module exports to `src/lib.rs`
 
 **Testing Requirements**:
-- Unit tests for data structure creation and validation
-- Unit tests for parsing functions with mock OCR text
-- Test error handling for missing required attributes
-- Test parser robustness with various text formatting
-- Run `cargo test` and `cargo clippy` successfully
+- ✅ Unit tests for data structure creation and validation
+- ✅ Unit tests for parsing functions with mock OCR text
+- ✅ Test error handling for missing required attributes
+- ✅ Test parser robustness with various text formatting
+- ✅ Run `cargo test` and `cargo clippy` successfully
 
 **Validation**:
-- All required attributes can be parsed from mock data
-- Proper error reporting for missing sections/attributes
-- Data structures align with output format requirements
+- ✅ All required attributes can be parsed from mock data
+- ✅ Proper error reporting for missing sections/attributes
+- ✅ Data structures align with output format requirements
+
+**Implementation Notes**:
+- Created `ImagePlayer` struct with complete attribute management system using HashMap
+- Implemented `PlayerType` and `Footedness` enums for proper type safety
+- Added comprehensive parsing functions for extracting player data from OCR text
+- Implemented smart age extraction that focuses on header area and avoids attribute values
+- Added section-based attribute parsing for TECHNICAL, MENTAL, PHYSICAL, and GOALKEEPING
+- Created 16 comprehensive unit tests covering all functionality and error cases
+- All 98 unit tests + 17 integration tests pass successfully
+- Clippy passes with no warnings after addressing manual range contains and format string issues
+- Uses proper `FMDataError::image` constructor for consistent error handling throughout the application
 
 ### Step 5: Implement Footedness Detection
 **Goal**: Extract player footedness from colored circle indicators in screenshots
