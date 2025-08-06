@@ -145,30 +145,41 @@ The `fm_image` tool will integrate with the existing fm_data architecture, reusi
 - Clippy passes with no warnings after addressing manual range contains and format string issues
 - Uses proper `FMDataError::image` constructor for consistent error handling throughout the application
 
-### Step 5: Implement Footedness Detection
+### Step 5: Implement Footedness Detection ✅ COMPLETED
 **Goal**: Extract player footedness from colored circle indicators in screenshots
 
 **Tasks**:
-1. Extend `src/image_processor.rs` with color detection:
+1. ✅ Extend `src/image_processor.rs` with color detection:
    - Locate "LEFT FOOT" and "RIGHT FOOT" text regions
    - Find circles between these regions using image processing
    - Detect green/yellow color tones in circles
    - Implement color classification logic
-2. Integrate footedness detection with player data parsing
-3. Add comprehensive error handling for unclear colors
-4. Add logging for debugging color detection process
+2. ✅ Integrate footedness detection with player data parsing
+3. ✅ Add comprehensive error handling for unclear colors
+4. ✅ Add logging for debugging color detection process
 
 **Testing Requirements**:
-- Unit tests with mock images containing different colored circles
-- Test both left-footed, right-footed, and both-footed scenarios
-- Test error handling when colors cannot be determined
-- Test robustness with different image qualities
-- Run `cargo test` and `cargo clippy` successfully
+- ✅ Unit tests with mock images containing different colored circles
+- ✅ Test both left-footed, right-footed, and both-footed scenarios
+- ✅ Test error handling when colors cannot be determined
+- ✅ Test robustness with different image qualities
+- ✅ Run `cargo test` and `cargo clippy` successfully
 
 **Validation**:
-- Color detection works accurately with test images
-- Proper error reporting when colors are unclear
-- Integration with player data structure is seamless
+- ✅ Color detection works accurately with test images
+- ✅ Proper error reporting when colors are unclear
+- ✅ Integration with player data structure is seamless
+
+**Implementation Notes**:
+- Added comprehensive footedness detection functionality in `image_processor.rs`
+- Implemented `detect_footedness()`, `locate_footedness_indicators()`, and `detect_circle_colors()` functions
+- Added color classification logic with pixel-level analysis for green/yellow/gray detection
+- Updated `parse_player_from_ocr()` in `image_data.rs` to integrate footedness detection with graceful fallback to BothFooted
+- Added 9 comprehensive unit tests covering all footedness scenarios and edge cases
+- All 107 unit tests + 17 integration tests pass successfully
+- Clippy passes with no warnings after fixing manual range contains issue
+- Footedness detection uses image analysis to locate text regions and analyze colored circles above them
+- Robust error handling with fallback behavior when detection fails or colors are unclear
 
 ### Step 6: Implement Output Formatting
 **Goal**: Format extracted player data into required tab-separated output

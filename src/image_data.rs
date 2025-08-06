@@ -1,6 +1,8 @@
 use crate::error::FMDataError;
+use crate::image_processor;
 use anyhow::{Context, Result};
 use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PlayerType {
@@ -49,11 +51,17 @@ impl ImagePlayer {
     }
 }
 
-pub fn parse_player_from_ocr(ocr_text: &str) -> Result<ImagePlayer> {
+pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> Result<ImagePlayer> {
     let name = extract_player_name(ocr_text)?;
     let age = extract_player_age(ocr_text)?;
     let player_type = detect_player_type(ocr_text);
-    let footedness = Footedness::BothFooted; // Will be set by color detection
+    
+    // Detect footedness from image
+    let footedness = image_processor::detect_footedness(&image_path)
+        .unwrap_or_else(|e| {
+            log::warn!("Failed to detect footedness from image: {}. Defaulting to BothFooted", e);
+            Footedness::BothFooted
+        });
     
     let mut player = ImagePlayer::new(name, age, player_type, footedness);
     
@@ -324,11 +332,13 @@ mod tests {
     #[test]
     fn test_parse_player_from_ocr_field_player() {
         let ocr_text = "Virgil van Dijk 32\nTECHNICAL\nCrossing 8\nDribbling 10\nMENTAL\nComposure 18\nVision 15\nPHYSICAL\nPace 12\nStrength 19\n";
-        let player = parse_player_from_ocr(ocr_text).unwrap();
+        // Use dummy path for test - footedness detection will fail gracefully and default to BothFooted
+        let player = parse_player_from_ocr(ocr_text, "/nonexistent/test.png").unwrap();
         
         assert_eq!(player.name, "Virgil van Dijk");
         assert_eq!(player.age, 32);
         assert_eq!(player.player_type, PlayerType::FieldPlayer);
+        assert_eq!(player.footedness, Footedness::BothFooted); // Default when detection fails
         assert_eq!(player.get_attribute("technical_crossing"), 8);
         assert_eq!(player.get_attribute("mental_composure"), 18);
         assert_eq!(player.get_attribute("physical_strength"), 19);
@@ -337,11 +347,13 @@ mod tests {
     #[test]
     fn test_parse_player_from_ocr_goalkeeper() {
         let ocr_text = "Alisson Becker 30\nTECHNICAL\nFirst Touch 15\nGOALKEEPING\nReflexes 18\nHandling 17\nMENTAL\nComposure 16\nPHYSICAL\nAgility 17\n";
-        let player = parse_player_from_ocr(ocr_text).unwrap();
+        // Use dummy path for test - footedness detection will fail gracefully and default to BothFooted
+        let player = parse_player_from_ocr(ocr_text, "/nonexistent/test.png").unwrap();
         
         assert_eq!(player.name, "Alisson Becker");
         assert_eq!(player.age, 30);
         assert_eq!(player.player_type, PlayerType::Goalkeeper);
+        assert_eq!(player.footedness, Footedness::BothFooted); // Default when detection fails
         assert_eq!(player.get_attribute("goalkeeping_reflexes"), 18);
         assert_eq!(player.get_attribute("goalkeeping_handling"), 17);
     }
