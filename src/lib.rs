@@ -17,7 +17,7 @@ pub mod validators;
 pub use app_builder::AppRunnerBuilder;
 pub use app_runner::{AppRunner, CLIArgumentValidator};
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
-pub use cli::{CommonArgs, CommonCLIArgs, SelectorCLI, UploaderCLI};
+pub use cli::{CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, UploaderCLI};
 pub use config::Config;
 pub use error::{FMDataError, Result};
 pub use progress::{NoOpProgress, NoOpProgressReporter, ProgressCallback, ProgressReporter, ProgressTracker, create_progress_reporter};

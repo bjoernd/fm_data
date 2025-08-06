@@ -63,7 +63,14 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 - **`auth.rs`**: Google OAuth2 authentication handling
 - **`sheets_client.rs`**: Google Sheets API operations wrapper (read/write)
 - **`progress.rs`**: Progress tracking and user feedback using indicatif
+- **`error.rs`**: Core error types and definitions for the application
 - **`error_helpers.rs`**: Error context helpers and standardized error construction patterns
+- **`app_builder.rs`**: Application builder pattern for creating configured app runners
+- **`app_runner.rs`**: Main application execution logic and CLI argument validation
+- **`constants.rs`**: Application-wide constants and configuration defaults
+- **`validation.rs`**: Core validation trait definitions and interfaces
+- **`validators.rs`**: Concrete validator implementations for different data types
+- **`test_helpers.rs`**: Shared test utilities and mock data generation
 - **`selection/`**: Team selection functionality split into focused sub-modules:
   - **`types.rs`**: Core data structures (Player, Role, Team, Assignment, etc.)
   - **`categories.rs`**: Player position categories and role mappings

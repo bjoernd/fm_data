@@ -16,6 +16,10 @@ path = "src/bin/player_uploader.rs"
 name = "fm_team_selector"
 path = "src/bin/fm_team_selector.rs"
 
+[[bin]]
+name = "fm_image"
+path = "src/bin/fm_image.rs"
+
 [dependencies]
 anyhow = "1.0"
 thiserror = "1.0"
@@ -34,6 +38,8 @@ serde_json = "^1.0"
 yup-oauth2 = "^11.0"
 
 sheets = "0.7.0"
+tesseract = "0.14"
+image = "0.25"
 
 [dev-dependencies]
 tempfile = "3.8"
