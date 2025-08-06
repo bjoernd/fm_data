@@ -20,6 +20,9 @@ pub enum FMDataError {
     #[error("Selection error: {message}")]
     Selection { message: String },
 
+    #[error("Image processing error: {message}")]
+    Image { message: String },
+
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
@@ -47,7 +50,8 @@ impl FMDataError {
         table => Table,
         sheets_api => SheetsApi,
         progress => Progress,
-        selection => Selection
+        selection => Selection,
+        image => Image
     );
 }
 

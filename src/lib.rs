@@ -6,6 +6,7 @@ pub mod config;
 pub mod constants;
 pub mod error;
 pub mod error_helpers;
+pub mod image_processor;
 pub mod progress;
 pub mod selection;
 pub mod sheets_client;
@@ -20,6 +21,7 @@ pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use cli::{CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, UploaderCLI};
 pub use config::Config;
 pub use error::{FMDataError, Result};
+pub use image_processor::{extract_text_from_image, load_image, preprocess_image};
 pub use progress::{NoOpProgress, NoOpProgressReporter, ProgressCallback, ProgressReporter, ProgressTracker, create_progress_reporter};
 pub use selection::{
     find_optimal_assignments, find_optimal_assignments_with_filters, format_team_output,

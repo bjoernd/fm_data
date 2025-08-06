@@ -72,30 +72,39 @@ The `fm_image` tool will integrate with the existing fm_data architecture, reusi
 - All tests pass (78 total tests in project) and clippy passes with no warnings
 - Binary properly integrates with existing `AppRunnerBuilder` and progress tracking patterns
 
-### Step 3: Create Image Processing Module
+### Step 3: Create Image Processing Module ✅ COMPLETED
 **Goal**: Implement core OCR functionality for extracting text from PNG screenshots
 
 **Tasks**:
-1. Create `src/image_processor.rs` module with:
+1. ✅ Create `src/image_processor.rs` module with:
    - Function to load PNG images using `image` crate
    - Tesseract OCR initialization and configuration
    - Text extraction from image regions
    - Basic image preprocessing (if needed for OCR accuracy)
-2. Add module exports to `src/lib.rs`
-3. Implement error handling for OCR failures and image loading issues
-4. Add logging for debugging OCR extraction process
+2. ✅ Add module exports to `src/lib.rs`
+3. ✅ Implement error handling for OCR failures and image loading issues
+4. ✅ Add logging for debugging OCR extraction process
 
 **Testing Requirements**:
-- Unit tests with mock/test PNG images
-- Test OCR text extraction accuracy
-- Test error handling for invalid images
-- Test error handling for OCR failures
-- Run `cargo test` and `cargo clippy` successfully
+- ✅ Unit tests with mock/test PNG images
+- ✅ Test OCR text extraction accuracy
+- ✅ Test error handling for invalid images
+- ✅ Test error handling for OCR failures
+- ✅ Run `cargo test` and `cargo clippy` successfully
 
 **Validation**:
-- OCR can extract basic text from test PNG images
-- Proper error messages for OCR and image loading failures
-- Module integrates with existing error handling patterns
+- ✅ OCR can extract basic text from test PNG images
+- ✅ Proper error messages for OCR and image loading failures
+- ✅ Module integrates with existing error handling patterns
+
+**Implementation Notes**:
+- Implemented function-based API instead of struct (simplified ownership handling)
+- Added `extract_text_from_image()`, `load_image()`, and `preprocess_image()` functions
+- Added comprehensive OCR configuration for Football Manager screenshots
+- Added Image error variant to `FMDataError` with proper constructor
+- Created 6 comprehensive unit tests covering all functionality and error cases
+- All 84 tests pass and clippy passes with no warnings
+- Functions handle Tesseract initialization and configuration automatically
 
 ### Step 4: Implement Player Data Structure and Parsing
 **Goal**: Define data structures for extracted player information and parsing logic
