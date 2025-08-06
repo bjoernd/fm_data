@@ -376,3 +376,168 @@ impl CommonCLIArgs for ImageCLI {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn create_test_png() -> NamedTempFile {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Write PNG magic bytes to create a valid PNG file
+        let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        temp_file.write_all(&png_signature).unwrap();
+        temp_file.flush().unwrap();
+        temp_file
+    }
+
+    fn create_test_config() -> NamedTempFile {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(b"{}").unwrap();
+        temp_file.flush().unwrap();
+        temp_file
+    }
+
+    #[test]
+    fn test_image_cli_common_args() {
+        let _temp_config = create_test_config();
+        let temp_png = create_test_png();
+
+        let cli = ImageCLI {
+            image_file: Some(temp_png.path().to_string_lossy().to_string()),
+            spreadsheet: Some("test_spreadsheet_id".to_string()),
+            credfile: Some("test_creds.json".to_string()),
+            config: "test_config.json".to_string(),
+            verbose: true,
+            no_progress: false,
+        };
+
+        let common_args = cli.get_common_args();
+        assert_eq!(common_args.config_file, "test_config.json");
+        assert_eq!(common_args.spreadsheet_id, Some("test_spreadsheet_id".to_string()));
+        assert_eq!(common_args.creds_file, Some("test_creds.json".to_string()));
+        assert_eq!(common_args.verbose, true);
+        assert_eq!(common_args.no_progress, false);
+    }
+
+    #[test]
+    fn test_image_cli_validate_missing_image_file() {
+        let cli = ImageCLI {
+            image_file: None,
+            spreadsheet: None,
+            credfile: None,
+            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+            verbose: false,
+            no_progress: false,
+        };
+
+        let result = cli.validate_common();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Image file is required"));
+    }
+
+    #[test]
+    fn test_image_cli_validate_nonexistent_image_file() {
+        let cli = ImageCLI {
+            image_file: Some("/nonexistent/path/image.png".to_string()),
+            spreadsheet: None,
+            credfile: None,
+            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+            verbose: false,
+            no_progress: false,
+        };
+
+        let result = cli.validate_common();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Image file does not exist"));
+    }
+
+    #[test]
+    fn test_image_cli_validate_invalid_png() {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        temp_file.write_all(b"not a png file").unwrap();
+        temp_file.flush().unwrap();
+
+        let cli = ImageCLI {
+            image_file: Some(temp_file.path().to_string_lossy().to_string()),
+            spreadsheet: None,
+            credfile: None,
+            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+            verbose: false,
+            no_progress: false,
+        };
+
+        let result = cli.validate_common();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not a valid PNG image"));
+    }
+
+    #[test]
+    fn test_image_cli_validate_valid_png() {
+        let temp_png = create_test_png();
+
+        let cli = ImageCLI {
+            image_file: Some(temp_png.path().to_string_lossy().to_string()),
+            spreadsheet: None,
+            credfile: None,
+            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+            verbose: false,
+            no_progress: false,
+        };
+
+        let result = cli.validate_common();
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_image_cli_validate_directory_instead_of_file() {
+        let temp_dir = tempfile::TempDir::new().unwrap();
+
+        let cli = ImageCLI {
+            image_file: Some(temp_dir.path().to_string_lossy().to_string()),
+            spreadsheet: None,
+            credfile: None,
+            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+            verbose: false,
+            no_progress: false,
+        };
+
+        let result = cli.validate_common();
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Image path is not a file"));
+    }
+
+    #[test]
+    fn test_image_cli_validate_unreadable_file() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            
+            let temp_png = create_test_png();
+            
+            // Remove read permissions
+            let mut perms = temp_png.path().metadata().unwrap().permissions();
+            perms.set_mode(0o000);
+            std::fs::set_permissions(temp_png.path(), perms).unwrap();
+
+            let cli = ImageCLI {
+                image_file: Some(temp_png.path().to_string_lossy().to_string()),
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            };
+
+            let result = cli.validate_common();
+            assert!(result.is_err());
+            assert!(result.unwrap_err().to_string().contains("Cannot read image file"));
+            
+            // Restore permissions for cleanup
+            let mut perms = temp_png.path().metadata().unwrap().permissions();
+            perms.set_mode(0o644);
+            std::fs::set_permissions(temp_png.path(), perms).unwrap();
+        }
+    }
+}
