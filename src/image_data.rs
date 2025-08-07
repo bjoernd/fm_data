@@ -103,10 +103,17 @@ fn extract_player_age(ocr_text: &str) -> Result<u8> {
     let lines: Vec<&str> = ocr_text.lines().collect();
     
     // Look for age in the first few lines (player name area), not in attribute sections
-    for line in lines.iter().take(3) {
+    for line in lines.iter().take(5) { // Check more lines for age patterns
         let trimmed = line.trim();
         if !trimmed.contains("TECHNICAL") && !trimmed.contains("MENTAL") 
             && !trimmed.contains("PHYSICAL") && !trimmed.contains("GOALKEEPING") {
+            
+            // First try to find "X years old" pattern
+            if let Some(age) = extract_age_from_years_old_pattern(trimmed) {
+                return Ok(age);
+            }
+            
+            // Fallback to looking for standalone numbers
             let words: Vec<&str> = trimmed.split_whitespace().collect();
             for word in words {
                 if let Ok(age) = word.parse::<u8>() {
@@ -119,6 +126,27 @@ fn extract_player_age(ocr_text: &str) -> Result<u8> {
     }
     
     Err(FMDataError::image("Unable to extract player age from OCR text").into())
+}
+
+/// Extract age from patterns like "25 years old", "30 year old", etc.
+fn extract_age_from_years_old_pattern(text: &str) -> Option<u8> {
+    let text_lower = text.to_lowercase();
+    
+    // Look for patterns like "25 years old", "30 year old"
+    let words: Vec<&str> = text_lower.split_whitespace().collect();
+    
+    for i in 0..words.len().saturating_sub(2) {
+        // Check for "X years old" or "X year old" patterns
+        if (words[i + 1] == "year" || words[i + 1] == "years") && words[i + 2] == "old" {
+            if let Ok(age) = words[i].parse::<u8>() {
+                if (15..=45).contains(&age) {
+                    return Some(age);
+                }
+            }
+        }
+    }
+    
+    None
 }
 
 fn detect_player_type(ocr_text: &str) -> PlayerType {
@@ -290,9 +318,48 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_player_age_years_old_pattern() {
+        let ocr_text = "Player Name\n25 years old\nTECHNICAL\nCrossing 15\n";
+        let result = extract_player_age(ocr_text).unwrap();
+        assert_eq!(result, 25);
+    }
+
+    #[test]
+    fn test_extract_player_age_year_old_pattern() {
+        let ocr_text = "Player Name\n21 year old\nTECHNICAL\nCrossing 15\n";
+        let result = extract_player_age(ocr_text).unwrap();
+        assert_eq!(result, 21);
+    }
+
+    #[test]
+    fn test_extract_player_age_mixed_case() {
+        let ocr_text = "Player Name\n30 YEARS OLD\nTECHNICAL\nCrossing 15\n";
+        let result = extract_player_age(ocr_text).unwrap();
+        assert_eq!(result, 30);
+    }
+
+    #[test]
     fn test_extract_player_age_invalid_range() {
         let ocr_text = "Player Name 100\nTECHNICAL\nCrossing 8\n";
         assert!(extract_player_age(ocr_text).is_err());
+    }
+
+    #[test]
+    fn test_extract_player_age_invalid_years_old_range() {
+        let ocr_text = "Player Name\n100 years old\nTECHNICAL\nCrossing 8\n";
+        assert!(extract_player_age(ocr_text).is_err());
+    }
+
+    #[test]
+    fn test_extract_age_from_years_old_pattern() {
+        assert_eq!(extract_age_from_years_old_pattern("25 years old"), Some(25));
+        assert_eq!(extract_age_from_years_old_pattern("30 year old"), Some(30));
+        assert_eq!(extract_age_from_years_old_pattern("19 YEARS OLD"), Some(19));
+        assert_eq!(extract_age_from_years_old_pattern("Player Name 22 years old Striker"), Some(22));
+        assert_eq!(extract_age_from_years_old_pattern("100 years old"), None); // Out of range
+        assert_eq!(extract_age_from_years_old_pattern("5 years old"), None); // Out of range
+        assert_eq!(extract_age_from_years_old_pattern("25 years"), None); // Missing "old"
+        assert_eq!(extract_age_from_years_old_pattern("years old 25"), None); // Wrong order
     }
 
     #[test]
@@ -331,7 +398,7 @@ mod tests {
 
     #[test]
     fn test_parse_player_from_ocr_field_player() {
-        let ocr_text = "Virgil van Dijk 32\nTECHNICAL\nCrossing 8\nDribbling 10\nMENTAL\nComposure 18\nVision 15\nPHYSICAL\nPace 12\nStrength 19\n";
+        let ocr_text = "Virgil van Dijk\n32 years old\nTECHNICAL\nCrossing 8\nDribbling 10\nMENTAL\nComposure 18\nVision 15\nPHYSICAL\nPace 12\nStrength 19\n";
         // Use dummy path for test - footedness detection will fail gracefully and default to BothFooted
         let player = parse_player_from_ocr(ocr_text, "/nonexistent/test.png").unwrap();
         
@@ -346,7 +413,7 @@ mod tests {
 
     #[test]
     fn test_parse_player_from_ocr_goalkeeper() {
-        let ocr_text = "Alisson Becker 30\nTECHNICAL\nFirst Touch 15\nGOALKEEPING\nReflexes 18\nHandling 17\nMENTAL\nComposure 16\nPHYSICAL\nAgility 17\n";
+        let ocr_text = "Alisson Becker\n30 years old\nTECHNICAL\nFirst Touch 15\nGOALKEEPING\nReflexes 18\nHandling 17\nMENTAL\nComposure 16\nPHYSICAL\nAgility 17\n";
         // Use dummy path for test - footedness detection will fail gracefully and default to BothFooted
         let player = parse_player_from_ocr(ocr_text, "/nonexistent/test.png").unwrap();
         
