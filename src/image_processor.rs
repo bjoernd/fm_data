@@ -7,21 +7,27 @@ use tesseract::Tesseract;
 
 /// Create a configured Tesseract OCR engine for Football Manager screenshots
 fn create_tesseract() -> Result<Tesseract> {
-    debug!("Initializing Tesseract OCR engine");
+    debug!("Initializing Tesseract OCR engine with digit-optimized settings");
 
     let tesseract = Tesseract::new(None, Some("eng"))
         .map_err(|e| FMDataError::image(format!("Failed to initialize Tesseract OCR: {e}")))?
+        // Character whitelist optimized for better digit recognition - include more digit variants
         .set_variable(
             "tessedit_char_whitelist",
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()-:.",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()",
         )
         .map_err(|e| FMDataError::image(format!("Failed to set OCR character whitelist: {e}")))?
-        .set_variable("tessedit_pageseg_mode", "6") // Uniform block of text
-        .map_err(|e| {
-            FMDataError::image(format!("Failed to set OCR page segmentation mode: {e}"))
-        })?;
+        // Page segmentation mode 6: Uniform block of text - back to what worked well
+        .set_variable("tessedit_pageseg_mode", "6")
+        .map_err(|e| FMDataError::image(format!("Failed to set OCR page segmentation mode: {e}")))?
+        // OCR Engine Mode 1: Classic + LSTM - better for mixed content with numbers
+        .set_variable("tessedit_ocr_engine_mode", "1")
+        .map_err(|e| FMDataError::image(format!("Failed to set OCR engine mode: {e}")))?
+        // Improve digit recognition - treat digits as important
+        .set_variable("classify_bln_numeric_mode", "1")
+        .map_err(|e| FMDataError::image(format!("Failed to set numeric mode: {e}")))?;
 
-    info!("Tesseract OCR engine initialized successfully");
+    info!("Tesseract OCR engine initialized with digit-optimized settings");
     Ok(tesseract)
 }
 
@@ -46,27 +52,43 @@ pub fn load_image<P: AsRef<Path>>(image_path: P) -> Result<DynamicImage> {
     Ok(image)
 }
 
-/// Extract text from the entire image using OCR
+/// Extract text from the entire image using OCR with preprocessing
 pub fn extract_text_from_image<P: AsRef<Path>>(image_path: P) -> Result<String> {
     let path = image_path.as_ref();
-    debug!("Setting image file for OCR processing: {}", path.display());
+    debug!(
+        "Starting OCR text extraction with preprocessing: {}",
+        path.display()
+    );
 
-    let mut tesseract = create_tesseract()?
-        .set_image(path.to_str().ok_or_else(|| {
-            FMDataError::image("Image path contains invalid UTF-8 characters".to_string())
-        })?)
-        .map_err(|e| FMDataError::image(format!("Failed to set image file for OCR: {e}")))?;
+    // Load and preprocess the image for better OCR
+    let image = load_image(path)?;
+    let processed_image = preprocess_image(image)?;
 
-    debug!("Running OCR text extraction");
+    // Save the preprocessed image temporarily for OCR
+    let temp_path = format!("{}_processed.png", path.to_str().unwrap_or("temp"));
+    processed_image
+        .save(&temp_path)
+        .map_err(|e| FMDataError::image(format!("Failed to save preprocessed image: {e}")))?;
+
+    debug!("Using preprocessed image for OCR: {}", temp_path);
+
+    let mut tesseract = create_tesseract()?.set_image(&temp_path).map_err(|e| {
+        FMDataError::image(format!("Failed to set preprocessed image for OCR: {e}"))
+    })?;
+
+    debug!("Running OCR text extraction on preprocessed image");
     let extracted_text = tesseract
         .get_text()
         .map_err(|e| FMDataError::image(format!("Failed to extract text from image: {e}")))?;
+
+    // Clean up temporary file
+    std::fs::remove_file(&temp_path).ok(); // Ignore errors for cleanup
 
     let text_length = extracted_text.len();
     let line_count = extracted_text.lines().count();
 
     info!(
-        "OCR extraction completed: {} characters, {} lines",
+        "OCR extraction completed: {} characters, {} lines (with preprocessing)",
         text_length, line_count
     );
 
@@ -90,13 +112,28 @@ pub fn preprocess_image(image: DynamicImage) -> Result<DynamicImage> {
     debug!("Preprocessing image for better OCR accuracy");
 
     // Convert to grayscale for better text recognition
-    let grayscale = image.to_luma8();
+    let mut grayscale = image.to_luma8();
     debug!("Converted image to grayscale");
+
+    // Apply contrast enhancement to improve text clarity
+    for pixel in grayscale.pixels_mut() {
+        let value = pixel.0[0];
+        // Increase contrast: make dark pixels darker, light pixels lighter
+        let enhanced = if value < 128 {
+            // Dark pixel - make darker
+            (value as f32 * 0.7) as u8
+        } else {
+            // Light pixel - make lighter
+            (255.0 - (255.0 - value as f32) * 0.7) as u8
+        };
+        pixel.0[0] = enhanced;
+    }
+    debug!("Applied contrast enhancement");
 
     // Convert back to dynamic image
     let processed = DynamicImage::ImageLuma8(grayscale);
 
-    info!("Image preprocessing completed");
+    info!("Image preprocessing completed with contrast enhancement");
     Ok(processed)
 }
 
@@ -320,8 +357,8 @@ fn classify_pixel_color(pixel: &Rgb<u8>) -> CircleColor {
         return CircleColor::Gray;
     }
 
-    // Green detection - high green, moderate red/blue
-    if g > 120 && g > r + 30 && g > b + 30 {
+    // Green detection - high green, moderate red/blue (prevent overflow)
+    if g > 120 && g as u16 > r as u16 + 30 && g as u16 > b as u16 + 30 {
         return CircleColor::Green;
     }
 

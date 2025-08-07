@@ -47,7 +47,7 @@ impl ImagePlayer {
 }
 
 pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> Result<ImagePlayer> {
-    log::debug!("Full OCR text to parse:\n{}", ocr_text);
+    log::info!("Full OCR text with improvements:\n{}", ocr_text);
 
     let name = extract_player_name(ocr_text)?;
     let age = extract_player_age(ocr_text)?;
@@ -79,7 +79,70 @@ pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> R
 fn extract_player_name(ocr_text: &str) -> Result<String> {
     let lines: Vec<&str> = ocr_text.lines().collect();
 
-    // Look for lines that contain recognizable name patterns
+    // Priority 1: Look for full names in early lines (usually first few lines contain the full name)
+    for (i, line) in lines.iter().enumerate() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty()
+            && !trimmed.contains("TECHNICAL")
+            && !trimmed.contains("MENTAL")
+            && !trimmed.contains("PHYSICAL")
+            && !trimmed.contains("GOALKEEPING")
+            && !trimmed.contains("Overview")
+            && !trimmed.contains("Contract")
+            && !trimmed.contains("Transfer")
+            && !trimmed.contains("POSITIONS")
+            && i < 5
+        // Focus on first 5 lines for full names
+        {
+            // Try to extract a full name from this line
+            if let Some(name) = extract_name_from_text(trimmed) {
+                // Prefer longer names (full names) over shorter ones
+                if name.split_whitespace().count() >= 2 {
+                    log::debug!(
+                        "Found full name from priority match: '{}' in line: '{}'",
+                        name,
+                        trimmed
+                    );
+                    return Ok(name);
+                }
+            }
+        }
+    }
+
+    // Priority 2: Look for "X years old" lines and extract names from them
+    for line in lines.iter() {
+        let trimmed = line.trim();
+        if trimmed.contains("years old") || trimmed.contains("year old") {
+            // Extract everything before the age
+            let parts: Vec<&str> = trimmed.split_whitespace().collect();
+            let mut name_parts = Vec::new();
+
+            for part in parts {
+                if part.chars().all(|c| c.is_ascii_digit()) {
+                    break; // Stop when we hit the age number
+                }
+                if part.chars().next().is_some_and(|c| c.is_uppercase())
+                    && part.chars().filter(|c| c.is_alphabetic()).count() > part.len() / 2
+                {
+                    name_parts.push(part);
+                }
+            }
+
+            if !name_parts.is_empty() {
+                let name = name_parts.join(" ");
+                if name.len() > 2 {
+                    log::debug!(
+                        "Found name from 'years old' pattern: '{}' in line: '{}'",
+                        name,
+                        trimmed
+                    );
+                    return Ok(name);
+                }
+            }
+        }
+    }
+
+    // Priority 3: Look for lines that contain recognizable name patterns (original logic)
     for line in lines {
         let trimmed = line.trim();
         if !trimmed.is_empty()
@@ -94,18 +157,31 @@ fn extract_player_name(ocr_text: &str) -> Result<String> {
             && !trimmed.contains("Transfer")
             && !trimmed.contains("Reports")
             && !trimmed.contains("Contracted to")
+            && !trimmed.contains("Goalkeeper") // Exclude team/position lines
+            && !trimmed.contains("Swedish") // Exclude nationality lines
+            && !trimmed.contains("caps") // Exclude stats lines
             && trimmed.len() > 2
         {
             // Look for names that might be after a hyphen (common OCR artifact)
             if let Some(hyphen_pos) = trimmed.find('-') {
                 let after_hyphen = &trimmed[hyphen_pos + 1..];
                 if let Some(name) = extract_name_from_text(after_hyphen) {
+                    log::debug!(
+                        "Found name from hyphen pattern: '{}' in line: '{}'",
+                        name,
+                        trimmed
+                    );
                     return Ok(name);
                 }
             }
 
             // Look for names in the full line
             if let Some(name) = extract_name_from_text(trimmed) {
+                log::debug!(
+                    "Found name from general pattern: '{}' in line: '{}'",
+                    name,
+                    trimmed
+                );
                 return Ok(name);
             }
         }
@@ -123,21 +199,38 @@ fn extract_name_from_text(text: &str) -> Option<String> {
     let mut found_capital = false;
 
     for word in words {
+        // Handle OCR artifacts where digits are stuck to names (e.g., "1Alexander" -> "Alexander")
+        let word_to_check =
+            if word.len() > 1 && word.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+                // Remove leading digits and non-letter characters to extract potential name
+                let cleaned = word
+                    .chars()
+                    .skip_while(|c| !c.is_alphabetic())
+                    .collect::<String>();
+                if cleaned.len() >= 2 {
+                    cleaned
+                } else {
+                    word.to_string()
+                }
+            } else {
+                word.to_string()
+            };
+
         // Skip obvious non-name words
-        if word.chars().all(|c| c.is_ascii_digit())
-            || word.len() == 1
-            || word.contains("Goalkeeper")
-            || word.contains("years")
-            || word.contains("old")
-            || word.contains("(")
-            || word.contains(")")
-            || word.contains("Overview")
-            || word.contains("Contract")
-            || word.contains("Transfer")
-            || word.contains("United")
-            || word.contains("City")
-            || word.contains("FC")
-            || word.contains("Club")
+        if word_to_check.chars().all(|c| c.is_ascii_digit())
+            || word_to_check.len() == 1
+            || word_to_check.contains("Goalkeeper")
+            || word_to_check.contains("years")
+            || word_to_check.contains("old")
+            || word_to_check.contains("(")
+            || word_to_check.contains(")")
+            || word_to_check.contains("Overview")
+            || word_to_check.contains("Contract")
+            || word_to_check.contains("Transfer")
+            || word_to_check.contains("United")
+            || word_to_check.contains("City")
+            || word_to_check.contains("FC")
+            || word_to_check.contains("Club")
         {
             // If we already have name words, stop here
             if !name_words.is_empty() {
@@ -147,18 +240,22 @@ fn extract_name_from_text(text: &str) -> Option<String> {
         }
 
         // Check if this looks like a name word
-        let is_mostly_letters = word.chars().filter(|c| c.is_alphabetic()).count() > word.len() / 2;
-        let starts_with_capital = word.chars().next().is_some_and(|c| c.is_uppercase());
-        let is_connector_word = word.len() <= 3
-            && (word == "van"
-                || word == "de"
-                || word == "la"
-                || word == "el"
-                || word == "da"
-                || word == "von");
+        let is_mostly_letters =
+            word_to_check.chars().filter(|c| c.is_alphabetic()).count() > word_to_check.len() / 2;
+        let starts_with_capital = word_to_check
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_uppercase());
+        let is_connector_word = word_to_check.len() <= 3
+            && (word_to_check == "van"
+                || word_to_check == "de"
+                || word_to_check == "la"
+                || word_to_check == "el"
+                || word_to_check == "da"
+                || word_to_check == "von");
 
         if is_mostly_letters && (starts_with_capital || (is_connector_word && found_capital)) {
-            name_words.push(word);
+            name_words.push(word_to_check);
             if starts_with_capital {
                 found_capital = true;
             }
@@ -328,6 +425,10 @@ fn extract_attribute_sections(ocr_text: &str) -> HashMap<String, String> {
 
     // Parse all attribute lines from OCR text
     for line in ocr_text.lines() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            log::debug!("Processing OCR line for attributes: '{}'", trimmed);
+        }
         // Try to extract attributes from this line
         extract_attributes_from_line(line, &goalkeeping_attrs, "GOALKEEPING", &mut sections);
         extract_attributes_from_line(line, &technical_attrs, "TECHNICAL", &mut sections);
@@ -346,6 +447,12 @@ fn extract_attributes_from_line(
 ) {
     for &attr_name in known_attrs {
         if let Some((extracted_attr, value)) = find_attribute_in_line(line, attr_name) {
+            log::info!(
+                "🎯 EXTRACTED: {} = {} (from line: '{}')",
+                extracted_attr,
+                value,
+                line.trim()
+            );
             let section_content = sections.entry(section_name.to_string()).or_default();
             if !section_content.is_empty() {
                 section_content.push('\n');
@@ -359,22 +466,198 @@ fn find_attribute_in_line(line: &str, attr_name: &str) -> Option<(String, u8)> {
     let line_upper = line.to_uppercase();
     let attr_upper = attr_name.to_uppercase();
 
+    // Try exact match first
     if let Some(start_pos) = line_upper.find(&attr_upper) {
         // Found the attribute name, now look for the value after it
         let after_attr = &line[start_pos + attr_name.len()..];
         let parts: Vec<&str> = after_attr.split_whitespace().collect();
 
+        log::debug!(
+            "  🔍 Found '{}' in line, looking for value in: '{}'",
+            attr_name,
+            after_attr.trim()
+        );
+
         // Look for the first valid number (1-20 range for FM attributes)
         for part in parts {
             if let Ok(value) = part.parse::<u8>() {
                 if (1..=20).contains(&value) {
+                    log::debug!("    ✅ Found valid value {} for {}", value, attr_name);
                     return Some((attr_name.to_string(), value));
+                } else {
+                    log::debug!(
+                        "    ❌ Value {} for {} is out of range (1-20)",
+                        value,
+                        attr_name
+                    );
+                }
+            }
+            // Handle cases like "n", "ll", "rn" which might be OCR garbled numbers
+            if matches!(part, "n" | "ll" | "rn") {
+                log::debug!(
+                    "    🔍 Found OCR garbled character '{}' for {}, trying to infer value",
+                    part,
+                    attr_name
+                );
+
+                match part {
+                    "n" => {
+                        log::debug!(
+                            "    ✅ Inferring value 11 from OCR garbled 'n' for {}",
+                            attr_name
+                        );
+                        return Some((attr_name.to_string(), 11));
+                    }
+                    "ll" => {
+                        log::debug!(
+                            "    ✅ Inferring value 11 from OCR garbled 'll' for {}",
+                            attr_name
+                        );
+                        return Some((attr_name.to_string(), 11));
+                    }
+                    "rn" => {
+                        log::debug!(
+                            "    ✅ Inferring value 12 from OCR garbled 'rn' for {}",
+                            attr_name
+                        );
+                        return Some((attr_name.to_string(), 12));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
+        log::debug!("    ❌ No valid numeric value found for {}", attr_name);
+        return None;
+    }
+
+    // Try comprehensive fuzzy matching for common OCR issues
+    let fuzzy_matches = get_fuzzy_attribute_patterns(attr_name);
+    for pattern in fuzzy_matches {
+        if let Some(start_pos) = line_upper.find(&pattern.to_uppercase()) {
+            let after_attr = &line[start_pos + pattern.len()..];
+            let parts: Vec<&str> = after_attr.split_whitespace().collect();
+            log::debug!(
+                "  🔍 Found fuzzy match for '{}' as '{}', looking for value in: '{}'",
+                attr_name,
+                pattern,
+                after_attr.trim()
+            );
+
+            for part in parts {
+                if let Ok(value) = part.parse::<u8>() {
+                    if (1..=20).contains(&value) {
+                        log::debug!(
+                            "    ✅ Found valid value {} for {} (fuzzy match)",
+                            value,
+                            attr_name
+                        );
+                        return Some((attr_name.to_string(), value));
+                    }
+                }
+                // Handle cases like "n", "ll", "u" which might be OCR garbled numbers
+                if matches!(part, "n" | "ll" | "u" | "rn" | "m") {
+                    log::debug!(
+                        "    🔍 Found OCR garbled character '{}' for {}, trying to infer value",
+                        part,
+                        attr_name
+                    );
+
+                    // Special case: "n" often represents "11" in OCR, "rn" represents "m" etc.
+                    match (part, attr_name) {
+                        // "n" commonly represents "11" in OCR when two 1's are close together
+                        ("n", _) => {
+                            log::debug!(
+                                "    ✅ Inferring value 11 from OCR garbled 'n' for {}",
+                                attr_name
+                            );
+                            return Some((attr_name.to_string(), 11));
+                        }
+                        // "ll" might represent "11" in some fonts
+                        ("ll", _) => {
+                            log::debug!(
+                                "    ✅ Inferring value 11 from OCR garbled 'll' for {}",
+                                attr_name
+                            );
+                            return Some((attr_name.to_string(), 11));
+                        }
+                        // "rn" commonly represents "12" in OCR
+                        ("rn", _) => {
+                            log::debug!(
+                                "    ✅ Inferring value 12 from OCR garbled 'rn' for {}",
+                                attr_name
+                            );
+                            return Some((attr_name.to_string(), 12));
+                        }
+                        _ => {
+                            // For other garbled characters, we can't reliably infer the value
+                            log::debug!(
+                                "    ❌ Cannot reliably infer value from '{}' for {}",
+                                part,
+                                attr_name
+                            );
+                        }
+                    }
                 }
             }
         }
     }
 
     None
+}
+
+/// Get common OCR variations for Football Manager attribute names
+fn get_fuzzy_attribute_patterns(attr_name: &str) -> Vec<&'static str> {
+    match attr_name {
+        // Physical attributes with common OCR issues
+        "Agility" => vec![
+            "Agtity", "Agtlity", "Agtlty", "Agllity", "Agyity", "Agility",
+        ],
+        "Acceleration" => vec!["Acceleratlon", "Acceleraton", "Acceleratton"],
+        "Balance" => vec!["Baiance", "Baiance", "Balancc"],
+        "Jumping Reach" => vec!["Jumplng Reach", "Jumping Rcach", "Jumping Rcach"],
+        "Natural Fitness" => vec!["Naturai Fitness", "Natural Fltness"],
+        "Stamina" => vec!["Stamlna", "Stamtna"],
+
+        // Mental attributes
+        "Anticipation" => vec!["Antlclpation", "Anticipatlon", "Antlcipatlon"],
+        "Composure" => vec!["Composurc", "Composurc"],
+        "Concentration" => vec!["Concentratlon", "Concentraton"],
+        "Decisions" => vec!["Declslons", "Decistons"],
+        "Determination" => vec!["Determlnatlon", "Determlnation"],
+        "Off The Ball" => vec!["OffThe Ball", "Off Thc Ball", "Off The Bali", "OffTheBall"],
+        "Positioning" => vec!["Posltlonlng", "Positionlng"],
+        "Teamwork" => vec!["Tcamwork", "Teamworlk"],
+        "Work Rate" => vec!["Worlk Rate", "Work Ratc"],
+
+        // Technical attributes
+        "Crossing" => vec!["Crosslng", "Crosslng"],
+        "Dribbling" => vec!["Drlbbllng", "Drlbbling"],
+        "Finishing" => vec!["Flnlshlng", "Flnishing"],
+        "First Touch" => vec!["Flrst Touch", "First Toucli"],
+        "Free Kick Taking" => vec!["Free Klck Taking", "Frce Kick Taking"],
+        "Long Shots" => vec!["Long Shols", "Long Shots"],
+        "Long Throws" => vec!["Long Throws", "Long Throvvs"],
+        "Passing" => vec!["Passlng", "Passlng"],
+        "Penalty Taking" => vec!["Penalty Taklng", "Penaliy Taking"],
+        "Tackling" => vec!["Tackllng", "Tackhng"],
+        "Technique" => vec!["Technlque", "Technlquc", "TecHnicat"],
+
+        // Goalkeeping attributes
+        "Aerial Reach" => vec!["Aerlal Reach", "Aerlal Rcach"],
+        "Command Of Area" => vec!["Command OI Area", "Command Of Arca"],
+        "Communication" => vec!["Communlcatlon", "Communlcation"],
+        "Eccentricity" => vec!["Eccentrlclty", "Eccentrlcity"],
+        "Handling" => vec!["Handllng", "Handllng"],
+        "Kicking" => vec!["Klcklng", "Klcking"],
+        "One On Ones" => vec!["One On Oncs", "Onc On Ones"],
+        "Punching" => vec!["Punchlng", "Punchlng"],
+        "Reflexes" => vec!["Reflexcs", "Rcflexes"],
+        "Rushing Out" => vec!["Rushlng Out", "Rushlng Out"],
+        "Throwing" => vec!["Throwlng", "Throwlng"],
+
+        // Default case - no fuzzy matches
+        _ => vec![],
+    }
 }
 
 fn parse_section_attributes(
@@ -507,8 +790,14 @@ mod tests {
 
     #[test]
     fn test_extract_player_name_with_ocr_artifacts() {
-        // Test OCR with artifacts like the reported issue
+        // Test OCR with artifacts like the reported issue (with hyphen)
         let ocr_text = "Ee 4S e 2 q 1-Alexander Westberg\n. Goalkeeper -Vigabyholms IK\nTECHNICAL\nCrossing 8\n";
+        let result = extract_player_name(ocr_text).unwrap();
+        assert_eq!(result, "Alexander Westberg");
+
+        // Test OCR with artifacts like the actual current issue (no hyphen)
+        let ocr_text =
+            "ey A q 1Alexander Westberg\nmy Goalkeeper Vigabyholms Ik\nTECHNICAL\nCrossing 8\n";
         let result = extract_player_name(ocr_text).unwrap();
         assert_eq!(result, "Alexander Westberg");
     }
@@ -548,6 +837,57 @@ mod tests {
         assert_eq!(extract_name_from_text("25 years old"), None); // No name
         assert_eq!(extract_name_from_text("A B C D E F"), None); // Too many words
         assert_eq!(extract_name_from_text("OnlyOne"), None); // Single name
+    }
+
+    #[test]
+    fn test_improved_name_extraction_patterns() {
+        // Test priority 1: Direct name patterns - the issue is that "ey A q 1Alexander Westberg"
+        // doesn't produce a valid name from extract_name_from_text due to artifacts
+        let ocr_text = "Alexander Westberg artifacts\nmy Goalkeeper Vigabyholms Ik\nTECHNICAL\n";
+        let result = extract_player_name(ocr_text).unwrap();
+        assert_eq!(result, "Alexander Westberg");
+
+        // Test priority 2: Years old pattern
+        let ocr_text = "Random text\nWESTBERG 25 years old (2052001)\nTECHNICAL\n";
+        let result = extract_player_name(ocr_text).unwrap();
+        assert_eq!(result, "WESTBERG");
+    }
+
+    #[test]
+    fn test_fuzzy_attribute_patterns() {
+        // Test that fuzzy patterns are returned for known attributes
+        let agility_patterns = get_fuzzy_attribute_patterns("Agility");
+        assert!(agility_patterns.contains(&"Agtity"));
+        assert!(agility_patterns.contains(&"Agtlity"));
+
+        let off_ball_patterns = get_fuzzy_attribute_patterns("Off The Ball");
+        assert!(off_ball_patterns.contains(&"OffThe Ball"));
+
+        // Test unknown attribute returns empty
+        let unknown_patterns = get_fuzzy_attribute_patterns("Unknown Attribute");
+        assert!(unknown_patterns.is_empty());
+    }
+
+    #[test]
+    fn test_ocr_garbled_number_inference() {
+        // Test that find_attribute_in_line correctly infers values from garbled OCR characters
+        // This tests the "n" -> "11" inference for Agility
+        assert_eq!(
+            find_attribute_in_line("B Command Of Area 8 Anticipation 9 Agtlity n", "Agility"),
+            Some(("Agility".to_string(), 11))
+        );
+
+        // Test "rn" -> "12" inference (exact match case)
+        assert_eq!(
+            find_attribute_in_line("Balance rn", "Balance"),
+            Some(("Balance".to_string(), 12))
+        );
+
+        // Test "ll" -> "11" inference (exact match case)
+        assert_eq!(
+            find_attribute_in_line("Pace ll", "Pace"),
+            Some(("Pace".to_string(), 11))
+        );
     }
 
     #[test]
