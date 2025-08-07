@@ -65,7 +65,7 @@ impl ConfigValidator {
     /// Validate configuration file structure and content
     pub fn validate_config_file(config_file: &str) -> Result<()> {
         use crate::constants::FileExtension;
-        
+
         FileValidator::validate_file_exists(config_file, "Configuration")?;
         FileValidator::validate_file_extension_typed(config_file, FileExtension::Json)?;
         Ok(())
@@ -73,7 +73,7 @@ impl ConfigValidator {
 }
 
 // ==============================================================================
-// Role Validator - Consolidates role-related validation  
+// Role Validator - Consolidates role-related validation
 // ==============================================================================
 
 pub struct RoleValidator;
@@ -98,11 +98,13 @@ impl RoleValidator {
     /// Validate role file format and content
     pub fn validate_role_file_format(roles: &[String]) -> Result<()> {
         use crate::constants::team::REQUIRED_ROLE_COUNT;
-        
+
         if roles.len() != REQUIRED_ROLE_COUNT {
-            return Err(FMDataError::selection(
-                format!("Role file must contain exactly {} roles, found {}", REQUIRED_ROLE_COUNT, roles.len())
-            ));
+            return Err(FMDataError::selection(format!(
+                "Role file must contain exactly {} roles, found {}",
+                REQUIRED_ROLE_COUNT,
+                roles.len()
+            )));
         }
 
         Self::validate_roles(roles)?;
@@ -120,13 +122,13 @@ impl PlayerValidator {
     /// Validate player filter categories are valid
     pub fn validate_filter_categories(filters: &HashMap<String, Vec<String>>) -> Result<()> {
         use crate::selection::categories::is_valid_category;
-        
+
         for (player_name, categories) in filters {
             for category in categories {
                 if !is_valid_category(category) {
-                    return Err(FMDataError::selection(
-                        format!("Invalid category '{category}' for player '{player_name}'")
-                    ));
+                    return Err(FMDataError::selection(format!(
+                        "Invalid category '{category}' for player '{player_name}'"
+                    )));
                 }
             }
         }
@@ -143,12 +145,12 @@ impl PlayerValidator {
         let expected_columns = data[0].len();
         for (index, row) in data.iter().enumerate() {
             if row.len() != expected_columns {
-                return Err(FMDataError::selection(
-                    format!(
-                        "Inconsistent row length: row {} has {} columns, expected {}",
-                        index, row.len(), expected_columns
-                    )
-                ));
+                return Err(FMDataError::selection(format!(
+                    "Inconsistent row length: row {} has {} columns, expected {}",
+                    index,
+                    row.len(),
+                    expected_columns
+                )));
             }
         }
 
@@ -188,11 +190,14 @@ impl FileValidator {
         }
         Ok(())
     }
-    
+
     /// Validate file extension using type-safe enum (preferred method)
-    pub fn validate_file_extension_typed(path: &str, expected: crate::constants::FileExtension) -> Result<()> {
+    pub fn validate_file_extension_typed(
+        path: &str,
+        expected: crate::constants::FileExtension,
+    ) -> Result<()> {
         use crate::constants::FileExtension;
-        
+
         let path_obj = Path::new(path);
         if let Some(actual_ext) = FileExtension::from_path(path) {
             if actual_ext != expected {
@@ -309,7 +314,7 @@ impl DataValidator {
 
 pub struct AuthValidator;
 
-impl AuthValidator {  
+impl AuthValidator {
     /// Validate Google OAuth credentials file structure and content
     pub fn validate_credentials_content(content: &str) -> Result<()> {
         // Parse JSON to validate structure
@@ -362,14 +367,14 @@ impl AuthValidator {
     /// Validate credentials file and its content
     pub fn validate_credentials_file(path: &str) -> Result<()> {
         use crate::constants::FileExtension;
-        
+
         FileValidator::validate_file_exists(path, "Credentials")?;
         FileValidator::validate_file_extension_typed(path, FileExtension::Json)?;
-        
+
         // Read and validate content
         let content = std::fs::read_to_string(path)
             .map_err(|e| FMDataError::config(format!("Failed to read credentials file: {e}")))?;
-        
+
         Self::validate_credentials_content(&content)?;
         Ok(())
     }
@@ -414,7 +419,7 @@ mod tests {
     fn test_role_validator_roles() {
         let valid_roles = vec!["GK".to_string(), "CD(d)".to_string()];
         assert!(RoleValidator::validate_roles(&valid_roles).is_ok());
-        
+
         let invalid_roles = vec!["GK".to_string(), "InvalidRole".to_string()];
         assert!(RoleValidator::validate_roles(&invalid_roles).is_err());
     }
@@ -432,15 +437,21 @@ mod tests {
     #[test]
     fn test_file_validator_file_extension() {
         use crate::constants::FileExtension;
-        
+
         assert!(FileValidator::validate_file_extension("test.json", "json").is_ok());
         // Should not error for mismatched extensions, just warn
         assert!(FileValidator::validate_file_extension("test.txt", "json").is_ok());
-        
+
         // Test typed version
-        assert!(FileValidator::validate_file_extension_typed("test.json", FileExtension::Json).is_ok());
-        assert!(FileValidator::validate_file_extension_typed("test.html", FileExtension::Html).is_ok());
-        assert!(FileValidator::validate_file_extension_typed("test.txt", FileExtension::Txt).is_ok());
+        assert!(
+            FileValidator::validate_file_extension_typed("test.json", FileExtension::Json).is_ok()
+        );
+        assert!(
+            FileValidator::validate_file_extension_typed("test.html", FileExtension::Html).is_ok()
+        );
+        assert!(
+            FileValidator::validate_file_extension_typed("test.txt", FileExtension::Txt).is_ok()
+        );
     }
 
     // Data Validator Tests
@@ -478,11 +489,14 @@ mod tests {
         assert!(DataValidator::validate_non_empty_data(&all_empty_data).is_err());
     }
 
-    // Player Validator Tests  
+    // Player Validator Tests
     #[test]
     fn test_player_validator_filter_categories() {
         let mut valid_filters = HashMap::new();
-        valid_filters.insert("Player1".to_string(), vec!["goal".to_string(), "cd".to_string()]);
+        valid_filters.insert(
+            "Player1".to_string(),
+            vec!["goal".to_string(), "cd".to_string()],
+        );
         assert!(PlayerValidator::validate_filter_categories(&valid_filters).is_ok());
 
         let mut invalid_filters = HashMap::new();

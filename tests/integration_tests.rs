@@ -714,15 +714,15 @@ fn create_optimal_test_squad() -> Vec<Vec<String>> {
         for j in 0..96 {
             // Each player specializes in a few specific roles
             let specialized_roles = match i {
-                0 => vec![95],                 // GK specialist
-                1 | 2 => vec![40, 41, 42],     // CB specialists (CD roles)
-                3 => vec![52, 53, 54],         // RB specialist (FB R roles)
-                4 => vec![55, 56, 57],         // LB specialist (FB L roles)
+                0 => vec![95],             // GK specialist
+                1 | 2 => vec![40, 41, 42], // CB specialists (CD roles)
+                3 => vec![52, 53, 54],     // RB specialist (FB R roles)
+                4 => vec![55, 56, 57],     // LB specialist (FB L roles)
                 5..=7 => vec![27, 28, 29], // CM specialists
-                8 => vec![0, 1],               // RW specialist (W R roles)
-                9 => vec![2, 3],               // LW specialist (W L roles)
-                10 => vec![78, 79, 80],        // ST specialist (CF roles)
-                _ => vec![],                   // Average players
+                8 => vec![0, 1],           // RW specialist (W R roles)
+                9 => vec![2, 3],           // LW specialist (W L roles)
+                10 => vec![78, 79, 80],    // ST specialist (CF roles)
+                _ => vec![],               // Average players
             };
 
             if specialized_roles.contains(&j) {

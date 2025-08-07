@@ -4,22 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Rust-based Football Manager data analysis toolkit with two main binaries:
+This is a Rust-based Football Manager data analysis toolkit with three main binaries:
 
 1. **`fm_google_up`** - Extracts player data from HTML exports and uploads them to Google Sheets
 2. **`fm_team_selector`** - Analyzes player data from Google Sheets to find optimal team assignments
+3. **`fm_image`** - Extracts player data from Football Manager PNG screenshots using OCR
 
-Both tools share common authentication, configuration, and Google Sheets integration infrastructure.
+All tools share common authentication, configuration, and Google Sheets integration infrastructure.
 
 ## Build Commands
 
 ```bash
-# Build the project (both binaries)
+# Build the project (all binaries)
 cargo build --release
 
 # Build specific binary
 cargo build --release --bin fm_google_up
 cargo build --release --bin fm_team_selector
+cargo build --release --bin fm_image
 
 # Run the data uploader with verbose logging
 cargo run --bin fm_google_up -- -v
@@ -27,13 +29,18 @@ cargo run --bin fm_google_up -- -v
 # Run the team selector with role file
 cargo run --bin fm_team_selector -- -r test_roles.txt -v
 
+# Run the image processor with screenshot
+cargo run --bin fm_image -- -i player_screenshot.png -v
+
 # Run with custom config
 cargo run --bin fm_google_up -- -c custom_config.json
 cargo run --bin fm_team_selector -- -r roles.txt -c custom_config.json
+cargo run --bin fm_image -- -i screenshot.png -c custom_config.json
 
 # Run with progress bar disabled (useful for scripting)
 cargo run --bin fm_google_up -- --no-progress
 cargo run --bin fm_team_selector -- -r roles.txt --no-progress
+cargo run --bin fm_image -- -i screenshot.png --no-progress
 
 # Run tests (comprehensive unit and integration test suites)
 cargo test
@@ -71,6 +78,9 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 - **`validation.rs`**: Core validation trait definitions and interfaces
 - **`validators.rs`**: Concrete validator implementations for different data types
 - **`test_helpers.rs`**: Shared test utilities and mock data generation
+- **`image_processor.rs`**: OCR text extraction and image preprocessing for FM screenshots
+- **`image_data.rs`**: Player data structures and parsing for OCR-extracted text
+- **`image_output.rs`**: Formatting OCR-extracted player data for output
 - **`selection/`**: Team selection functionality split into focused sub-modules:
   - **`types.rs`**: Core data structures (Player, Role, Team, Assignment, etc.)
   - **`categories.rs`**: Player position categories and role mappings
@@ -82,6 +92,7 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 
 - **Data Uploader**: `src/bin/player_uploader.rs` - Extracts HTML data and uploads to Google Sheets
 - **Team Selector**: `src/bin/fm_team_selector.rs` - Downloads player data and finds optimal team assignments
+- **Image Processor**: `src/bin/fm_image.rs` - Extracts player data from PNG screenshots using OCR
 - **Library**: `src/lib.rs` - Core functionality exposed as reusable modules
 - **Integration Tests**: `tests/integration_tests.rs` - End-to-end testing with mock data
 
@@ -95,6 +106,8 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 - `anyhow`: Error handling
 - `tokio`: Async runtime
 - `indicatif`: Progress bars and spinners for CLI feedback
+- `tesseract`: OCR text extraction from images
+- `image`: Image loading and processing
 
 ### Configuration System
 
@@ -105,7 +118,7 @@ The application uses a hierarchical configuration system:
 
 **Flexible Configuration**: The config file supports partial configurations using serde defaults. Missing fields are automatically filled with appropriate default values, allowing users to create minimal config files containing only the settings they want to override.
 
-Configuration includes Google API credentials, spreadsheet IDs, sheet names, input HTML file paths, and role file paths for team selection.
+Configuration includes Google API credentials, spreadsheet IDs, sheet names, input HTML file paths, role file paths for team selection, and PNG image paths for OCR processing.
 
 ### Data Processing
 
@@ -125,6 +138,15 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, inp
 - Supports duplicate roles (e.g., multiple goalkeepers)
 - Supports player filters to restrict players to specific position categories
 - Outputs clean team assignments in format "$ROLE -> $PLAYER_NAME (score: X.X)" with individual role scores for transparency
+
+#### Image Processor (`fm_image`)
+- Processes PNG screenshots of Football Manager player attributes pages
+- Uses Tesseract OCR to extract text from images with configured character whitelist
+- Parses technical, mental, physical, and goalkeeping attributes automatically
+- Detects player footedness through color analysis of foot icons
+- Handles age extraction in "X years old" format from FM screenshots
+- Outputs tab-separated player data compatible with spreadsheet import
+- Supports verbose mode for OCR debugging and processing details
 
 ### Error Handling
 
@@ -401,20 +423,119 @@ cargo run --bin fm_team_selector -- -r examples/formation_legacy.txt --no-progre
 4. **Whitespace**: Leading/trailing spaces are automatically trimmed
 5. **Case Sensitivity**: Category names are case-insensitive (`GOAL` = `goal` = `Goal`)
 
+## Image Processor Usage
+
+### Screenshot Requirements
+
+The `fm_image` tool processes PNG screenshots of Football Manager player attributes pages:
+
+- **Format**: PNG images only (validated by CLI and image processor)
+- **Content**: Player attributes page showing technical, mental, physical, and optionally goalkeeping attributes
+- **Visibility**: All relevant attributes should be visible and clearly readable
+- **Resolution**: Higher resolution images provide better OCR accuracy
+
+### OCR Processing
+
+The tool uses Tesseract OCR with optimized settings:
+
+- **Character whitelist**: Limited to alphanumeric characters and common punctuation for better accuracy
+- **Page segmentation**: Configured for uniform text blocks typical in FM screenshots
+- **Language**: English language model for consistent text recognition
+
+### Player Data Extraction
+
+The image processor extracts the following data:
+
+- **Player name**: Extracted from the screenshot header
+- **Age**: Parsed in "X years old" format
+- **Footedness**: Detected through color analysis of foot icons (left/right/both feet)
+- **Attributes**: Technical, mental, physical skills (1-20 scale)
+- **Goalkeeping**: Goalkeeper-specific attributes when present
+- **Player type**: Automatically determined (outfield player vs goalkeeper)
+
+### Usage Examples
+
+```bash
+# Basic screenshot processing
+cargo run --bin fm_image -- -i player_screenshot.png
+
+# With verbose OCR debugging
+cargo run --bin fm_image -- -i screenshot.png -v
+
+# Using configuration file
+cargo run --bin fm_image -- -i screenshot.png -c image_config.json
+
+# Scripting mode (no progress bar)
+cargo run --bin fm_image -- -i screenshot.png --no-progress
+
+# Processing multiple screenshots (example workflow)
+for file in screenshots/*.png; do
+  cargo run --bin fm_image -- -i "$file" --no-progress >> players_data.tsv
+done
+```
+
+### Configuration Example
+
+```json
+{
+  "input": {
+    "image_file": "player_screenshot.png"
+  },
+  "output": {
+    "format": "tsv"
+  }
+}
+```
+
+### Output Format
+
+The tool outputs tab-separated values (TSV) format with the following columns:
+
+1. Player name
+2. Age
+3. Footedness (Left, Right, Both)
+4. Player type (Outfield, Goalkeeper)
+5. Technical attributes (15 values)
+6. Mental attributes (14 values)  
+7. Physical attributes (5 values)
+8. Goalkeeping attributes (7 values, when applicable)
+
+This format is compatible with spreadsheet applications and can be imported directly into Google Sheets for further analysis.
+
+### Troubleshooting OCR Issues
+
+**Low OCR accuracy**:
+- Ensure screenshot is high resolution and clearly readable
+- Verify all attribute text is visible and not obscured
+- Use verbose mode (`-v`) to see OCR debugging information
+
+**Missing or incorrect attributes**:
+- Check that screenshot shows the complete attributes page
+- Ensure good contrast between text and background
+- Verify the image is in PNG format
+
+**Footedness detection errors**:
+- Ensure foot icons are visible in the screenshot
+- Check that icons have sufficient color contrast
+- Foot color analysis works best with default FM skin colors
+
 ## Testing
 
 The codebase includes comprehensive unit and integration tests:
 
-### Unit Tests (49 tests)
+### Unit Tests (118 tests)
 - **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
 - **Sheets tests**: Data structure validation, range formatting
 - **Progress tests**: Progress tracker creation, message handling, no-op behavior
 - **Selection tests**: Role validation, player parsing, assignment algorithm, output formatting
-- **Player Category tests**: Category parsing, role mappings, filter validation (16 new tests)
-- **Role File Parser tests**: Sectioned format parsing, backward compatibility (12 new tests)
-- **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking (5 new tests)
+- **Player Category tests**: Category parsing, role mappings, filter validation (16 tests)
+- **Role File Parser tests**: Sectioned format parsing, backward compatibility (12 tests)
+- **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking (5 tests)
+- **Image Processing tests**: OCR text extraction, footedness detection, player parsing (69 new tests)
+- **Image Data tests**: Player data structure validation, attribute parsing, type detection
+- **Image Output tests**: TSV formatting, data serialization, output validation
 
 ### Integration Tests (17 tests)
 - **End-to-end workflow**: Role file → mock data → assignment → output
@@ -428,17 +549,18 @@ The codebase includes comprehensive unit and integration tests:
 
 ## Development Notes
 
-- The crate name is `FMData` (contains both `fm_google_up` and `fm_team_selector` binaries)
+- The crate name is `FMData` (contains `fm_google_up`, `fm_team_selector`, and `fm_image` binaries)
 - Logging uses `env_logger` with configurable verbosity levels
 - OAuth tokens are cached to disk in `tokencache.json`
-- Both tools validate credentials and input files before processing
+- All tools validate credentials and input files before processing
 - Data range validation:
   - Uploader: A2:AX58 (57 data rows max)
   - Team Selector: A2:EQ58 (reads player data including 96 role ratings)
+  - Image Processor: PNG format validation and OCR text extraction
 - Role file validation ensures exactly 11 valid Football Manager roles
 - Player filtering system with 9 positional categories covering all 96 roles
 - Sectioned role file format with backward compatibility for legacy files
-- All modules include comprehensive unit tests (66 tests total: 49 unit + 17 integration)
+- All modules include comprehensive unit tests (135 tests total: 118 unit + 17 integration)
 
 ## Code Quality
 
@@ -447,5 +569,5 @@ The codebase follows Rust best practices and coding standards:
 - **Clippy compliance**: All clippy lints are resolved, including modern format string usage
 - **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
 - **Error handling**: Comprehensive error context using `anyhow` throughout
-- **Testing**: Comprehensive test coverage with 66 tests (unit + integration) for all public APIs
+- **Testing**: Comprehensive test coverage with 135 tests (unit + integration) for all public APIs
 - **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance

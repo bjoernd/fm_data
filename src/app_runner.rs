@@ -67,9 +67,7 @@ impl AppRunner {
         progress.update(auth_progress_start + 20, 100, "Creating sheets manager...");
         let sheets_manager = SheetsManager::new(secret, token, spreadsheet_id)?;
 
-        sheets_manager
-            .verify_spreadsheet_access(progress)
-            .await?;
+        sheets_manager.verify_spreadsheet_access(progress).await?;
         sheets_manager
             .verify_sheet_exists(&self.config.google.team_sheet, progress)
             .await?;
@@ -162,11 +160,14 @@ impl AppRunner {
 
     /// Finish the application with timing information
     pub fn finish(&self, message: &str) {
-        ProgressCallback::finish(&self.progress, &format!(
-            "{} completed in {} ms",
-            message,
-            self.start_time.elapsed().as_millis()
-        ));
+        ProgressCallback::finish(
+            &self.progress,
+            &format!(
+                "{} completed in {} ms",
+                message,
+                self.start_time.elapsed().as_millis()
+            ),
+        );
         info!(
             "Program finished in {} ms",
             self.start_time.elapsed().as_millis()

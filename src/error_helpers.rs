@@ -27,25 +27,19 @@ where
 {
     fn with_file_context(self, file_path: &str, operation: &str) -> Result<T, FMDataError> {
         self.map_err(|e| {
-            FMDataError::config(format!(
-                "Failed to {operation} file '{file_path}': {e}"
-            ))
+            FMDataError::config(format!("Failed to {operation} file '{file_path}': {e}"))
         })
     }
 
     fn with_config_context(self, field_name: &str) -> Result<T, FMDataError> {
         self.map_err(|e| {
-            FMDataError::config(format!(
-                "Configuration error in field '{field_name}': {e}"
-            ))
+            FMDataError::config(format!("Configuration error in field '{field_name}': {e}"))
         })
     }
 
     fn with_sheets_context(self, operation: &str) -> Result<T, FMDataError> {
         self.map_err(|e| {
-            FMDataError::sheets_api(format!(
-                "Google Sheets {operation} operation failed: {e}"
-            ))
+            FMDataError::sheets_api(format!("Google Sheets {operation} operation failed: {e}"))
         })
     }
 

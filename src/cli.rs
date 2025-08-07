@@ -35,7 +35,7 @@ pub trait CommonCLIArgs {
 
 pub fn validate_config_file(config_file: &str) -> Result<()> {
     use crate::constants::config::DEFAULT_CONFIG_FILE;
-    
+
     // Validate config file path if it's not the default and doesn't exist
     if config_file != DEFAULT_CONFIG_FILE {
         ConfigValidator::validate_config_file(config_file)?;
@@ -334,27 +334,25 @@ impl CommonCLIArgs for ImageCLI {
         if let Some(ref image_path) = self.image_file {
             use std::fs;
             use std::path::Path;
-            
+
             let path = Path::new(image_path);
             if !path.exists() {
-                return Err(FMDataError::config(
-                    format!("Image file does not exist: {image_path}")
-                ));
+                return Err(FMDataError::config(format!(
+                    "Image file does not exist: {image_path}"
+                )));
             }
-            
+
             if !path.is_file() {
-                return Err(FMDataError::config(
-                    format!("Image path is not a file: {image_path}")
-                ));
+                return Err(FMDataError::config(format!(
+                    "Image path is not a file: {image_path}"
+                )));
             }
-            
+
             // Check if the file is readable
             fs::File::open(path).map_err(|e| {
-                FMDataError::config(
-                    format!("Cannot read image file {image_path}: {e}")
-                )
+                FMDataError::config(format!("Cannot read image file {image_path}: {e}"))
             })?;
-            
+
             // Basic PNG file validation (check magic bytes)
             let mut file = fs::File::open(path).unwrap();
             let mut png_header = [0u8; 8];
@@ -362,14 +360,14 @@ impl CommonCLIArgs for ImageCLI {
             if file.read_exact(&mut png_header).is_ok() {
                 let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
                 if png_header != png_signature {
-                    return Err(FMDataError::config(
-                        format!("File is not a valid PNG image: {image_path}")
-                    ));
+                    return Err(FMDataError::config(format!(
+                        "File is not a valid PNG image: {image_path}"
+                    )));
                 }
             } else {
-                return Err(FMDataError::config(
-                    format!("Unable to read PNG header from: {image_path}")
-                ));
+                return Err(FMDataError::config(format!(
+                    "Unable to read PNG header from: {image_path}"
+                )));
             }
         }
 
@@ -415,10 +413,13 @@ mod tests {
 
         let common_args = cli.get_common_args();
         assert_eq!(common_args.config_file, "test_config.json");
-        assert_eq!(common_args.spreadsheet_id, Some("test_spreadsheet_id".to_string()));
+        assert_eq!(
+            common_args.spreadsheet_id,
+            Some("test_spreadsheet_id".to_string())
+        );
         assert_eq!(common_args.creds_file, Some("test_creds.json".to_string()));
-        assert_eq!(common_args.verbose, true);
-        assert_eq!(common_args.no_progress, false);
+        assert!(common_args.verbose);
+        assert!(!common_args.no_progress);
     }
 
     #[test]
@@ -434,7 +435,10 @@ mod tests {
 
         let result = cli.validate_common();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Image file is required"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Image file is required"));
     }
 
     #[test]
@@ -450,7 +454,10 @@ mod tests {
 
         let result = cli.validate_common();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Image file does not exist"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Image file does not exist"));
     }
 
     #[test]
@@ -470,7 +477,10 @@ mod tests {
 
         let result = cli.validate_common();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("not a valid PNG image"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("not a valid PNG image"));
     }
 
     #[test]
@@ -505,7 +515,10 @@ mod tests {
 
         let result = cli.validate_common();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Image path is not a file"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Image path is not a file"));
     }
 
     #[test]
@@ -513,9 +526,9 @@ mod tests {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            
+
             let temp_png = create_test_png();
-            
+
             // Remove read permissions
             let mut perms = temp_png.path().metadata().unwrap().permissions();
             perms.set_mode(0o000);
@@ -532,8 +545,11 @@ mod tests {
 
             let result = cli.validate_common();
             assert!(result.is_err());
-            assert!(result.unwrap_err().to_string().contains("Cannot read image file"));
-            
+            assert!(result
+                .unwrap_err()
+                .to_string()
+                .contains("Cannot read image file"));
+
             // Restore permissions for cleanup
             let mut perms = temp_png.path().metadata().unwrap().permissions();
             perms.set_mode(0o644);

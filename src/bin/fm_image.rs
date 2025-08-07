@@ -1,8 +1,8 @@
 use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI, 
-    extract_text_from_image, load_image, parse_player_from_ocr, format_player_data
+    extract_text_from_image, format_player_data, load_image, parse_player_from_ocr,
+    AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI,
 };
 use log::{debug, info};
 
@@ -64,17 +64,21 @@ async fn main() -> Result<()> {
 
     // Get the image file path from CLI
     let image_file_path = cli.common.image_file.as_ref().unwrap();
-    
-    info!("Processing Football Manager screenshot: {}", image_file_path);
+
+    info!(
+        "Processing Football Manager screenshot: {}",
+        image_file_path
+    );
 
     // Step 1: Load and validate PNG image file
     app_runner
         .progress()
         .update(10, 100, "Loading PNG screenshot...");
 
-    let _image = load_image(image_file_path)
-        .map_err(|e| FMDataError::image(format!("Failed to load PNG image '{image_file_path}': {e}")))?;
-    
+    let _image = load_image(image_file_path).map_err(|e| {
+        FMDataError::image(format!("Failed to load PNG image '{image_file_path}': {e}"))
+    })?;
+
     debug!("PNG image loaded successfully from: {}", image_file_path);
     info!("Image file validated: {}", image_file_path);
 
@@ -83,8 +87,11 @@ async fn main() -> Result<()> {
         .progress()
         .update(30, 100, "Extracting text with OCR...");
 
-    let ocr_text = extract_text_from_image(image_file_path)
-        .map_err(|e| FMDataError::image(format!("OCR text extraction failed for '{image_file_path}': {e}")))?;
+    let ocr_text = extract_text_from_image(image_file_path).map_err(|e| {
+        FMDataError::image(format!(
+            "OCR text extraction failed for '{image_file_path}': {e}"
+        ))
+    })?;
 
     debug!("OCR extracted {} characters of text", ocr_text.len());
     info!("OCR text extraction completed");
@@ -98,11 +105,14 @@ async fn main() -> Result<()> {
         .progress()
         .update(60, 100, "Parsing player data and detecting footedness...");
 
-    let player = parse_player_from_ocr(&ocr_text, image_file_path)
-        .map_err(|e| FMDataError::image(format!("Failed to parse player data from OCR text: {e}")))?;
+    let player = parse_player_from_ocr(&ocr_text, image_file_path).map_err(|e| {
+        FMDataError::image(format!("Failed to parse player data from OCR text: {e}"))
+    })?;
 
-    info!("Parsed player: {} (age: {}, type: {:?}, footedness: {:?})", 
-          player.name, player.age, player.player_type, player.footedness);
+    info!(
+        "Parsed player: {} (age: {}, type: {:?}, footedness: {:?})",
+        player.name, player.age, player.player_type, player.footedness
+    );
     debug!("Player has {} attributes", player.attributes.len());
 
     // Step 4: Format output data
@@ -111,8 +121,11 @@ async fn main() -> Result<()> {
         .update(90, 100, "Formatting output data...");
 
     let formatted_output = format_player_data(&player);
-    
-    debug!("Formatted output has {} fields", formatted_output.split('\t').count());
+
+    debug!(
+        "Formatted output has {} fields",
+        formatted_output.split('\t').count()
+    );
     info!("Output formatting completed");
 
     app_runner.finish("Image processing");

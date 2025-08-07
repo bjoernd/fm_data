@@ -122,18 +122,20 @@ pub fn find_optimal_assignments_with_filters(
     filters: &[PlayerFilter],
 ) -> Result<Team> {
     use crate::constants::team::REQUIRED_ROLE_COUNT;
-    
+
     if roles.len() != REQUIRED_ROLE_COUNT {
         return Err(FMDataError::selection(format!(
             "Must have exactly {} roles for team selection, got {}",
-            REQUIRED_ROLE_COUNT, roles.len()
+            REQUIRED_ROLE_COUNT,
+            roles.len()
         )));
     }
 
     if players.len() < REQUIRED_ROLE_COUNT {
         return Err(FMDataError::selection(format!(
             "Need at least {} players for team selection, got {}",
-            REQUIRED_ROLE_COUNT, players.len()
+            REQUIRED_ROLE_COUNT,
+            players.len()
         )));
     }
 

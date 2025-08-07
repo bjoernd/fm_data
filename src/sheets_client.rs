@@ -45,10 +45,7 @@ impl SheetsManager {
         })
     }
 
-    pub async fn verify_spreadsheet_access(
-        &self,
-        progress: &dyn ProgressReporter,
-    ) -> Result<()> {
+    pub async fn verify_spreadsheet_access(&self, progress: &dyn ProgressReporter) -> Result<()> {
         progress.set_message("Verifying spreadsheet access...");
 
         let sc = self

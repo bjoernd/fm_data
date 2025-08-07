@@ -35,7 +35,7 @@ pub mod data_layout {
 pub mod config {
     /// Default configuration file name
     pub const DEFAULT_CONFIG_FILE: &str = "config.json";
-    
+
     /// Default OAuth token cache file name
     pub const TOKEN_CACHE_FILE: &str = "tokencache.json";
 }
@@ -50,10 +50,10 @@ pub mod team {
 pub mod file_extensions {
     /// JSON file extension
     pub const JSON: &str = "json";
-    
+
     /// HTML file extension
     pub const HTML: &str = "html";
-    
+
     /// Text file extension
     pub const TXT: &str = "txt";
 }
@@ -75,7 +75,7 @@ impl FileExtension {
             FileExtension::Txt => file_extensions::TXT,
         }
     }
-    
+
     /// Get file extension from a file path
     pub fn from_path(path: &str) -> Option<Self> {
         std::path::Path::new(path)
@@ -87,7 +87,7 @@ impl FileExtension {
 
 impl std::str::FromStr for FileExtension {
     type Err = String;
-    
+
     fn from_str(ext: &str) -> Result<Self, Self::Err> {
         match ext.to_lowercase().as_str() {
             "json" => Ok(FileExtension::Json),
@@ -118,13 +118,13 @@ mod tests {
     #[test]
     fn test_file_extension_from_str() {
         use std::str::FromStr;
-        
+
         assert_eq!(FileExtension::from_str("json"), Ok(FileExtension::Json));
         assert_eq!(FileExtension::from_str("JSON"), Ok(FileExtension::Json));
         assert_eq!(FileExtension::from_str("html"), Ok(FileExtension::Html));
         assert_eq!(FileExtension::from_str("txt"), Ok(FileExtension::Txt));
         assert!(FileExtension::from_str("unknown").is_err());
-        
+
         // Test with parse method
         assert_eq!("json".parse::<FileExtension>(), Ok(FileExtension::Json));
         assert_eq!("HTML".parse::<FileExtension>(), Ok(FileExtension::Html));
@@ -133,9 +133,18 @@ mod tests {
 
     #[test]
     fn test_file_extension_from_path() {
-        assert_eq!(FileExtension::from_path("test.json"), Some(FileExtension::Json));
-        assert_eq!(FileExtension::from_path("path/to/file.html"), Some(FileExtension::Html));
-        assert_eq!(FileExtension::from_path("config.txt"), Some(FileExtension::Txt));
+        assert_eq!(
+            FileExtension::from_path("test.json"),
+            Some(FileExtension::Json)
+        );
+        assert_eq!(
+            FileExtension::from_path("path/to/file.html"),
+            Some(FileExtension::Html)
+        );
+        assert_eq!(
+            FileExtension::from_path("config.txt"),
+            Some(FileExtension::Txt)
+        );
         assert_eq!(FileExtension::from_path("no_extension"), None);
         assert_eq!(FileExtension::from_path("unknown.xyz"), None);
     }
@@ -152,12 +161,12 @@ mod tests {
 pub mod player_data {
     /// Valid footedness values from Football Manager
     pub const VALID_FOOT_VALUES: &[&str] = &["Left", "Right", "Either", "Left Only", "Right Only"];
-    
+
     /// Footedness value mappings for data transformation
     pub const FOOT_MAPPINGS: &[(&str, &str)] = &[
         ("Left", "l"),
         ("Left Only", "l"),
-        ("Right", "r"), 
+        ("Right", "r"),
         ("Right Only", "r"),
         ("Either", "rl"),
     ];

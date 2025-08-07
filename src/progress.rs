@@ -39,7 +39,10 @@ impl ProgressTracker {
             ProgressBar::hidden()
         };
 
-        Self { bar, enabled: show_progress }
+        Self {
+            bar,
+            enabled: show_progress,
+        }
     }
 
     pub fn new_spinner(show_progress: bool, message: &str) -> Self {
@@ -57,7 +60,10 @@ impl ProgressTracker {
             ProgressBar::hidden()
         };
 
-        Self { bar, enabled: show_progress }
+        Self {
+            bar,
+            enabled: show_progress,
+        }
     }
 }
 
@@ -65,24 +71,24 @@ impl ProgressReporter for ProgressTracker {
     fn set_message(&self, message: &str) {
         self.bar.set_message(message.to_string());
     }
-    
+
     fn set_progress(&self, current: u64, total: u64) {
         self.bar.set_length(total);
         self.bar.set_position(current);
     }
-    
+
     fn finish(&self, message: &str) {
         self.bar.finish_with_message(message.to_string());
     }
-    
+
     fn inc(&self, delta: u64) {
         self.bar.inc(delta);
     }
-    
+
     fn is_enabled(&self) -> bool {
         self.enabled
     }
-    
+
     fn update(&self, current: u64, total: u64, message: &str) {
         self.bar.set_length(total);
         self.bar.set_position(current);
@@ -127,14 +133,13 @@ impl ProgressReporter for NoOpProgressReporter {
     fn set_progress(&self, _current: u64, _total: u64) {}
     fn finish(&self, _message: &str) {}
     fn inc(&self, _delta: u64) {}
-    fn is_enabled(&self) -> bool { false }
+    fn is_enabled(&self) -> bool {
+        false
+    }
     fn update(&self, _current: u64, _total: u64, _message: &str) {}
 }
 
-pub fn create_progress_reporter(
-    enabled: bool, 
-    verbose: bool
-) -> Box<dyn ProgressReporter> {
+pub fn create_progress_reporter(enabled: bool, verbose: bool) -> Box<dyn ProgressReporter> {
     if enabled && !verbose {
         Box::new(ProgressTracker::new(100, true))
     } else {

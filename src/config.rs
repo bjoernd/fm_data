@@ -151,9 +151,15 @@ impl Config {
         // Validate the resolved paths
         ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
         FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension_typed(&resolved_credfile, crate::constants::FileExtension::Json)?;
+        FileValidator::validate_file_extension_typed(
+            &resolved_credfile,
+            crate::constants::FileExtension::Json,
+        )?;
         FileValidator::validate_file_exists(&resolved_input, "Input HTML")?;
-        FileValidator::validate_file_extension_typed(&resolved_input, crate::constants::FileExtension::Html)?;
+        FileValidator::validate_file_extension_typed(
+            &resolved_input,
+            crate::constants::FileExtension::Html,
+        )?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_input))
     }
@@ -208,9 +214,15 @@ impl Config {
         // Validate the resolved paths
         ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
         FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension_typed(&resolved_credfile, crate::constants::FileExtension::Json)?;
+        FileValidator::validate_file_extension_typed(
+            &resolved_credfile,
+            crate::constants::FileExtension::Json,
+        )?;
         FileValidator::validate_file_exists(&resolved_role_file, "Role file")?;
-        FileValidator::validate_file_extension_typed(&resolved_role_file, crate::constants::FileExtension::Txt)?;
+        FileValidator::validate_file_extension_typed(
+            &resolved_role_file,
+            crate::constants::FileExtension::Txt,
+        )?;
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
     }
