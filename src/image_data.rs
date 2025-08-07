@@ -79,7 +79,7 @@ pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> R
 fn extract_player_name(ocr_text: &str) -> Result<String> {
     let lines: Vec<&str> = ocr_text.lines().collect();
 
-    // Look for the first substantial line that isn't a section header
+    // Look for lines that contain recognizable name patterns
     for line in lines {
         let trimmed = line.trim();
         if !trimmed.is_empty()
@@ -89,22 +89,91 @@ fn extract_player_name(ocr_text: &str) -> Result<String> {
             && !trimmed.contains("GOALKEEPING")
             && !trimmed.contains("LEFT FOOT")
             && !trimmed.contains("RIGHT FOOT")
+            && !trimmed.contains("Overview")
+            && !trimmed.contains("Contract")
+            && !trimmed.contains("Transfer")
+            && !trimmed.contains("Reports")
+            && !trimmed.contains("Contracted to")
             && trimmed.len() > 2
         {
-            // Try to extract just the name part (before age if present)
-            let name_part = trimmed
-                .split_whitespace()
-                .take_while(|word| !word.chars().all(|c| c.is_ascii_digit()))
-                .collect::<Vec<_>>()
-                .join(" ");
+            // Look for names that might be after a hyphen (common OCR artifact)
+            if let Some(hyphen_pos) = trimmed.find('-') {
+                let after_hyphen = &trimmed[hyphen_pos + 1..];
+                if let Some(name) = extract_name_from_text(after_hyphen) {
+                    return Ok(name);
+                }
+            }
 
-            if !name_part.is_empty() {
-                return Ok(name_part);
+            // Look for names in the full line
+            if let Some(name) = extract_name_from_text(trimmed) {
+                return Ok(name);
             }
         }
     }
 
     Err(FMDataError::image("Unable to extract player name from OCR text").into())
+}
+
+/// Extract a plausible player name from a piece of text
+fn extract_name_from_text(text: &str) -> Option<String> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+
+    // Look for sequences of words that could be a name
+    let mut name_words = Vec::new();
+    let mut found_capital = false;
+
+    for word in words {
+        // Skip obvious non-name words
+        if word.chars().all(|c| c.is_ascii_digit())
+            || word.len() == 1
+            || word.contains("Goalkeeper")
+            || word.contains("years")
+            || word.contains("old")
+            || word.contains("(")
+            || word.contains(")")
+            || word.contains("Overview")
+            || word.contains("Contract")
+            || word.contains("Transfer")
+            || word.contains("United")
+            || word.contains("City")
+            || word.contains("FC")
+            || word.contains("Club")
+        {
+            // If we already have name words, stop here
+            if !name_words.is_empty() {
+                break;
+            }
+            continue;
+        }
+
+        // Check if this looks like a name word
+        let is_mostly_letters = word.chars().filter(|c| c.is_alphabetic()).count() > word.len() / 2;
+        let starts_with_capital = word.chars().next().is_some_and(|c| c.is_uppercase());
+        let is_connector_word = word.len() <= 3
+            && (word == "van"
+                || word == "de"
+                || word == "la"
+                || word == "el"
+                || word == "da"
+                || word == "von");
+
+        if is_mostly_letters && (starts_with_capital || (is_connector_word && found_capital)) {
+            name_words.push(word);
+            if starts_with_capital {
+                found_capital = true;
+            }
+        } else if !name_words.is_empty() && found_capital {
+            // Stop when we hit non-name-like words after finding some name words
+            break;
+        }
+    }
+
+    if name_words.len() >= 2 && name_words.len() <= 4 && found_capital {
+        // Reasonable name length (first + last, or first + middle + last) and at least one capital
+        Some(name_words.join(" "))
+    } else {
+        None
+    }
 }
 
 fn extract_player_age(ocr_text: &str) -> Result<u8> {
@@ -434,6 +503,51 @@ mod tests {
         let ocr_text = "Mohamed Salah 31\nTECHNICAL\nCrossing 15\n";
         let result = extract_player_name(ocr_text).unwrap();
         assert_eq!(result, "Mohamed Salah");
+    }
+
+    #[test]
+    fn test_extract_player_name_with_ocr_artifacts() {
+        // Test OCR with artifacts like the reported issue
+        let ocr_text = "Ee 4S e 2 q 1-Alexander Westberg\n. Goalkeeper -Vigabyholms IK\nTECHNICAL\nCrossing 8\n";
+        let result = extract_player_name(ocr_text).unwrap();
+        assert_eq!(result, "Alexander Westberg");
+    }
+
+    #[test]
+    fn test_extract_player_name_after_hyphen() {
+        let ocr_text = "gibberish-John Smith\nGoalkeeper\nTECHNICAL\nCrossing 8\n";
+        let result = extract_player_name(ocr_text).unwrap();
+        assert_eq!(result, "John Smith");
+    }
+
+    #[test]
+    fn test_extract_player_name_with_extra_text() {
+        let ocr_text = "random text-David de Gea\nGoalkeeper Position\nTECHNICAL\nCrossing 8\n";
+        let result = extract_player_name(ocr_text).unwrap();
+        assert_eq!(result, "David de Gea");
+    }
+
+    #[test]
+    fn test_extract_name_from_text() {
+        assert_eq!(
+            extract_name_from_text("Alexander Westberg"),
+            Some("Alexander Westberg".to_string())
+        );
+        assert_eq!(
+            extract_name_from_text("Virgil van Dijk 32"),
+            Some("Virgil van Dijk".to_string())
+        );
+        assert_eq!(
+            extract_name_from_text("John Smith Goalkeeper"),
+            Some("John Smith".to_string())
+        );
+        assert_eq!(
+            extract_name_from_text("Mohamed Salah 31 years old"),
+            Some("Mohamed Salah".to_string())
+        );
+        assert_eq!(extract_name_from_text("25 years old"), None); // No name
+        assert_eq!(extract_name_from_text("A B C D E F"), None); // Too many words
+        assert_eq!(extract_name_from_text("OnlyOne"), None); // Single name
     }
 
     #[test]
