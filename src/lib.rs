@@ -7,6 +7,7 @@ pub mod constants;
 pub mod error;
 pub mod error_helpers;
 pub mod image_data;
+pub mod image_output;
 pub mod image_processor;
 pub mod progress;
 pub mod selection;
@@ -23,6 +24,7 @@ pub use cli::{CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, UploaderCLI};
 pub use config::Config;
 pub use error::{FMDataError, Result};
 pub use image_data::{ImagePlayer, PlayerType, Footedness as ImageFootedness, parse_player_from_ocr};
+pub use image_output::format_player_data;
 pub use image_processor::{extract_text_from_image, load_image, preprocess_image};
 pub use progress::{NoOpProgress, NoOpProgressReporter, ProgressCallback, ProgressReporter, ProgressTracker, create_progress_reporter};
 pub use selection::{
