@@ -1,0 +1,15 @@
+TECHNICAL	MENTAL	PHYSICAL
+Corners	Aggression	Acceleration
+Crossing	Anticipation	Agility
+Dribbling	Bravery	Balance
+Finishing	Composure	Jumping Reach
+First Touch	Concentration	Natural Fitness
+Free Kick Taking	Decisions	Pace
+Heading	Determination	Stamina
+Long Shots	Flair	Strength
+Long Throws	Leadership
+Marking	Off the Ball
+Passing	Positioning
+Penalty Taking	Teamwork
+Tackling	Vision
+Technique	Work Rate

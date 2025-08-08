@@ -1,0 +1,16 @@
+GOALKEEPING	MENTAL	PHYSICAL
+Aerial Reach	Aggression	Acceleration
+Command Of Area	Anticipation	Agility
+Communication	Bravery	Balance
+Eccentricity	Composure	Jumping Reach
+First Touch	Concentration	Natural Fitness
+Handling	Decisions	Pace
+Kicking	Determination	Stamina
+One On Ones	Flair	Strength
+Passing	Leadership
+Punching (Tendency)	Off the Ball
+Reflexes	Positioning
+Rushing Out (Tendency)	Teamwork
+Throwing	Vision
+Work Rate
+
