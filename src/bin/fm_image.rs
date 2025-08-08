@@ -1,8 +1,8 @@
 use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::{
-    extract_text_from_image, format_player_data, load_image, parse_player_from_ocr,
-    AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI,
+    extract_text_from_image, format_player_data, format_player_data_verbose, load_image,
+    parse_player_from_ocr, AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI,
 };
 use log::{debug, info};
 
@@ -130,7 +130,13 @@ async fn main() -> Result<()> {
 
     app_runner.finish("Image processing");
 
-    // Output the formatted player data to stdout
+    // Output the player data to stdout - use verbose format if verbose mode is enabled
+    if cli.is_verbose() {
+        println!("\nDetailed Player Data:");
+        println!("{}", format_player_data_verbose(&player));
+        println!("\nTab-separated output:");
+    }
+
     println!("{formatted_output}");
 
     Ok(())

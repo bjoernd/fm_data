@@ -26,7 +26,7 @@ pub use error::{FMDataError, Result};
 pub use image_data::{
     parse_player_from_ocr, Footedness as ImageFootedness, ImagePlayer, PlayerType,
 };
-pub use image_output::format_player_data;
+pub use image_output::{format_player_data, format_player_data_verbose};
 pub use image_processor::{extract_text_from_image, load_image, preprocess_image};
 pub use progress::{
     create_progress_reporter, NoOpProgress, NoOpProgressReporter, ProgressCallback,

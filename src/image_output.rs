@@ -1,4 +1,4 @@
-use crate::image_data::{Footedness, ImagePlayer};
+use crate::image_data::{Footedness, ImagePlayer, PlayerType};
 use log::debug;
 
 /// Format an ImagePlayer into tab-separated output with the exact attribute order
@@ -92,6 +92,149 @@ pub fn format_player_data(player: &ImagePlayer) -> String {
     let result = output.join("\t");
     debug!("Formatted player data: {} fields", output.len());
     result
+}
+
+/// Format player data in detailed KEY -> VALUE format for verbose output
+pub fn format_player_data_verbose(player: &ImagePlayer) -> String {
+    let mut output = Vec::new();
+
+    // Basic player information
+    output.push(format!("Name -> {}", player.name));
+    output.push(format!("Age -> {}", player.age));
+    output.push(format!("Type -> {:?}", player.player_type));
+    output.push(format!(
+        "Footedness -> {}",
+        format_footedness_verbose(&player.footedness)
+    ));
+
+    // Group attributes by category
+    output.push("".to_string()); // Empty line for separation
+    output.push("TECHNICAL ATTRIBUTES:".to_string());
+    add_attribute_group(&mut output, player, "technical");
+
+    output.push("".to_string());
+    output.push("MENTAL ATTRIBUTES:".to_string());
+    add_attribute_group(&mut output, player, "mental");
+
+    output.push("".to_string());
+    output.push("PHYSICAL ATTRIBUTES:".to_string());
+    add_attribute_group(&mut output, player, "physical");
+
+    // Only show goalkeeping attributes if player is a goalkeeper or has any GK attributes > 0
+    let has_gk_attrs = player
+        .attributes
+        .iter()
+        .any(|(k, &v)| k.starts_with("goalkeeping_") && v > 0);
+
+    if matches!(player.player_type, PlayerType::Goalkeeper) || has_gk_attrs {
+        output.push("".to_string());
+        output.push("GOALKEEPING ATTRIBUTES:".to_string());
+        add_attribute_group(&mut output, player, "goalkeeping");
+    }
+
+    output.join("\n")
+}
+
+/// Get the complete list of expected attributes for each category
+fn get_expected_attributes(category: &str) -> Vec<&'static str> {
+    match category {
+        "technical" => vec![
+            "technical_corners",
+            "technical_crossing",
+            "technical_dribbling",
+            "technical_finishing",
+            "technical_first_touch",
+            "technical_free_kick_taking",
+            "technical_heading",
+            "technical_long_shots",
+            "technical_long_throws",
+            "technical_marking",
+            "technical_passing",
+            "technical_penalty_taking",
+            "technical_tackling",
+            "technical_technique",
+        ],
+        "mental" => vec![
+            "mental_aggression",
+            "mental_anticipation",
+            "mental_bravery",
+            "mental_composure",
+            "mental_concentration",
+            "mental_decisions",
+            "mental_determination",
+            "mental_flair",
+            "mental_leadership",
+            "mental_off_the_ball",
+            "mental_positioning",
+            "mental_teamwork",
+            "mental_vision",
+            "mental_work_rate",
+        ],
+        "physical" => vec![
+            "physical_acceleration",
+            "physical_agility",
+            "physical_balance",
+            "physical_jumping_reach",
+            "physical_natural_fitness",
+            "physical_pace",
+            "physical_stamina",
+            "physical_strength",
+        ],
+        "goalkeeping" => vec![
+            "goalkeeping_aerial_reach",
+            "goalkeeping_command_of_area",
+            "goalkeeping_communication",
+            "goalkeeping_eccentricity",
+            "goalkeeping_handling",
+            "goalkeeping_kicking",
+            "goalkeeping_one_on_ones",
+            "goalkeeping_punching_tendency",
+            "goalkeeping_reflexes",
+            "goalkeeping_rushing_out_tendency",
+            "goalkeeping_throwing",
+        ],
+        _ => vec![],
+    }
+}
+
+/// Add all attributes from a specific category to the output, including missing ones marked as 0
+fn add_attribute_group(output: &mut Vec<String>, player: &ImagePlayer, category: &str) {
+    let expected_attributes = get_expected_attributes(category);
+
+    for attr_name in expected_attributes {
+        let value = player.get_attribute(attr_name);
+        let is_missing = !player.attributes.contains_key(attr_name);
+
+        let display_name = attr_name
+            .strip_prefix(&format!("{category}_"))
+            .unwrap_or(attr_name)
+            .replace('_', " ")
+            .split(' ')
+            .map(|word| {
+                let mut chars = word.chars();
+                match chars.next() {
+                    None => String::new(),
+                    Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                }
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        if is_missing {
+            output.push(format!("  {display_name} -> {value} (not found)"));
+        } else {
+            output.push(format!("  {display_name} -> {value}"));
+        }
+    }
+}
+
+/// Format footedness enum into verbose string representation
+fn format_footedness_verbose(footedness: &Footedness) -> String {
+    match footedness {
+        Footedness::LeftFooted => "Left Footed".to_string(),
+        Footedness::RightFooted => "Right Footed".to_string(),
+        Footedness::BothFooted => "Both Footed".to_string(),
+    }
 }
 
 /// Format footedness enum into the required string representation
