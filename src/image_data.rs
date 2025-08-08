@@ -400,28 +400,67 @@ fn find_attribute_value_in_line(line: &str, attr_name: &str) -> Option<u8> {
     let line_lower = line.to_lowercase();
     let attr_lower = attr_name.to_lowercase();
 
-    // Find the position of the attribute name
+    // First try exact match
     if let Some(attr_pos) = line_lower.find(&attr_lower) {
-        // Get the text after the attribute name
-        let after_attr = &line[attr_pos + attr_name.len()..];
-        let words: Vec<&str> = after_attr.split_whitespace().collect();
+        return extract_value_after_position(line, attr_pos, attr_name.len(), attr_name);
+    }
 
-        // Look for the first valid number after the attribute name
-        for word in words {
-            // Try to extract and validate attribute value
-            if let Some(validated_value) = extract_and_validate_attribute_value(word, attr_name) {
-                return Some(validated_value);
-            }
+    // Handle common OCR attribute name typos
+    let corrected_patterns = match attr_name {
+        "Rushing Out (Tendency)" => vec!["rushing out (tendeney)"],
+        "Punching (Tendency)" => vec!["punching (tendeney)"],
+        "Agility" => vec!["agtity", "agtlty"],
+        "Dribbling" => vec!["dribbting"],
+        "Off the Ball" => vec!["offthe ball", "offtheball"],
+        "Tackling" => vec!["tackting"],
+        "Positioning" => vec!["postioning", "posttioning"],
+        _ => vec![],
+    };
+
+    for pattern in corrected_patterns {
+        if let Some(attr_pos) = line_lower.find(pattern) {
+            log::debug!(
+                "Found OCR attribute name correction: '{}' -> '{}'",
+                pattern,
+                attr_name
+            );
+            return extract_value_after_position(line, attr_pos, pattern.len(), attr_name);
         }
     }
 
     None
 }
 
+fn extract_value_after_position(
+    line: &str,
+    attr_pos: usize,
+    attr_len: usize,
+    attr_name: &str,
+) -> Option<u8> {
+    // Get the text after the attribute name
+    let after_attr = &line[attr_pos + attr_len..];
+    let words: Vec<&str> = after_attr.split_whitespace().collect();
+
+    // Look for the first valid number after the attribute name
+    for word in words {
+        // Try to extract and validate attribute value
+        if let Some(validated_value) = extract_and_validate_attribute_value(word, attr_name) {
+            return Some(validated_value);
+        }
+    }
+    None
+}
+
 /// Extract and validate attribute values, ensuring they fall within the valid 1-20 range.
 /// Handles OCR errors and provides corrections when possible.
 fn extract_and_validate_attribute_value(word: &str, attr_name: &str) -> Option<u8> {
-    // First, try direct parsing
+    // Handle specific OCR corrections first before normal parsing
+    if word == "40" {
+        log::debug!("Found {} = {} (OCR garbled '40' -> 10)", attr_name, 10);
+        return Some(10);
+    }
+
+    // Then try direct parsing
     if let Ok(num) = word.parse::<u8>() {
         if (1..=20).contains(&num) {
             log::debug!("Found {} = {} (valid range)", attr_name, num);
@@ -444,10 +483,16 @@ fn extract_and_validate_attribute_value(word: &str, attr_name: &str) -> Option<u
         "rn)" => Some((12, "OCR garbled 'rn)' -> 12")),
         "n)" => Some((11, "OCR garbled 'n)' -> 11")),
         "rl" => Some((12, "OCR garbled 'rl' -> 12")),
+        "rT" => Some((11, "OCR garbled 'rT' -> 11")),
         "ri" => Some((11, "OCR garbled 'ri' -> 11")),
         "nn" => Some((11, "OCR garbled 'nn' -> 11")),
         "l" => Some((1, "OCR garbled 'l' -> 1")),
         "I" => Some((1, "OCR garbled 'I' -> 1")),
+        "TT" => Some((11, "OCR garbled 'nn' -> 11")),
+        "T" => Some((7, "OCR garbled 'T' -> 7")),
+        "S" => Some((7, "OCR garbled 'S' -> 8")),
+        "a" => Some((9, "OCR garbled 'Oo' -> 9")),
+        "Oo" => Some((9, "OCR garbled 'Oo' -> 9")),
         "O" => Some((0, "OCR garbled 'O' -> invalid, ignoring")),
         "o" => Some((0, "OCR garbled 'o' -> invalid, ignoring")),
         _ => None,
@@ -764,6 +809,9 @@ mod tests {
         assert_eq!(extract_and_validate_attribute_value("nn", "Test"), Some(11));
         assert_eq!(extract_and_validate_attribute_value("l", "Test"), Some(1));
         assert_eq!(extract_and_validate_attribute_value("I", "Test"), Some(1));
+        assert_eq!(extract_and_validate_attribute_value("T", "Test"), Some(7));
+        assert_eq!(extract_and_validate_attribute_value("Oo", "Test"), Some(9));
+        assert_eq!(extract_and_validate_attribute_value("40", "Test"), Some(10));
     }
 
     #[test]
@@ -844,6 +892,46 @@ mod tests {
         assert_eq!(
             find_attribute_value_in_line("Dribbling 7x Composure", "Dribbling"),
             Some(7)
+        );
+
+        // Attribute name OCR corrections
+        assert_eq!(
+            find_attribute_value_in_line(
+                "Rushing Out (Tendeney) 10 Teamwork",
+                "Rushing Out (Tendency)"
+            ),
+            Some(10)
+        );
+        assert_eq!(
+            find_attribute_value_in_line(
+                "Punching (Tendeney) 15 Off the Ball",
+                "Punching (Tendency)"
+            ),
+            Some(15)
+        );
+
+        // Combined attribute name + value OCR corrections
+        assert_eq!(
+            find_attribute_value_in_line("Agtity n Balance", "Agility"),
+            Some(11)
+        );
+
+        // Value OCR corrections
+        assert_eq!(
+            find_attribute_value_in_line("Leadership T Off the Ball", "Leadership"),
+            Some(7)
+        );
+
+        // Attribute name spacing corrections
+        assert_eq!(
+            find_attribute_value_in_line("OffThe Ball 15 Positioning", "Off the Ball"),
+            Some(15)
+        );
+
+        // Combined attribute name typo + value OCR corrections
+        assert_eq!(
+            find_attribute_value_in_line("Postioning Oo Teamwork", "Positioning"),
+            Some(9)
         );
     }
 }
