@@ -1,12 +1,13 @@
 # FM Data Toolkit
 
-A comprehensive CLI toolkit for Football Manager data analysis with two main tools:
+A comprehensive CLI toolkit for Football Manager data analysis with three main tools:
 
 1. **`fm_google_up`** - Uploads player data from HTML exports to Google Sheets
-2. **`fm_team_selector`** - Analyzes player data to find optimal team assignments
+2. **`fm_team_selector`** - Analyzes player data to find optimal team assignments  
+3. **`fm_image`** - Extracts player data from FM screenshots using advanced OCR
 
 ## Overview
-This toolkit provides end-to-end Football Manager data analysis capabilities, from data extraction and storage to intelligent team selection using optimization algorithms.
+This toolkit provides end-to-end Football Manager data analysis capabilities, from data extraction and storage to intelligent team selection using optimization algorithms. Extract player data from HTML exports or PNG screenshots, upload to Google Sheets, and use advanced algorithms to find optimal team formations.
 
 ## 🚀 Quick Start
 
@@ -32,6 +33,20 @@ fm_team_selector -c config.json -r my_formation.txt
 
 # Verbose output for debugging
 fm_team_selector -v -r formation.txt
+```
+
+### Image Processing (`fm_image`)
+```bash
+# Extract player data from screenshot
+fm_image -i player_screenshot.png
+
+# Verbose output with OCR debugging
+fm_image -v -i screenshot.png
+
+# Process multiple screenshots
+for file in screenshots/*.png; do
+  fm_image -i "$file" --no-progress >> players_data.tsv
+done
 ```
 
 ### Command-Line Options
@@ -64,6 +79,31 @@ Options:
   -h, --help                       Print help
   -V, --version                    Print version
 ```
+
+#### `fm_image` Options
+```
+fm_image [OPTIONS]
+
+Options:
+  -i, --image <IMAGE>              Path to PNG screenshot of FM player attributes
+  -c, --config <CONFIG>            Path to config file [default: config.json]
+  -v, --verbose                    Enable verbose logging and OCR debugging
+      --no-progress                Disable progress bar (useful for scripting)
+  -h, --help                       Print help
+  -V, --version                    Print version
+```
+
+## ✨ Key Features
+
+### Advanced OCR Error Correction
+The `fm_image` tool includes a comprehensive OCR error correction system:
+
+- **Attribute Name Corrections**: Handles common typos like "Postioning" → "Positioning"
+- **Value Corrections**: Fixes misread numbers like "40" → 10, "T" → 7, "Oo" → 9
+- **Spacing Issues**: Corrects "OffThe Ball" → "Off the Ball"
+- **Character Confusion**: Handles "n" → 11, "rn" → 12, "ll" → 11
+
+This system significantly improves OCR accuracy without manual intervention.
 
 ## ⚙️ Configuration
 

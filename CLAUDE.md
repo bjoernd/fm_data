@@ -150,6 +150,7 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, inp
 - Processes PNG screenshots of Football Manager player attributes pages
 - Uses Tesseract OCR to extract text from images with configured character whitelist
 - Parses technical, mental, physical, and goalkeeping attributes automatically
+- **Advanced OCR Error Correction**: Comprehensive system for handling common OCR misreads
 - Detects player footedness through color analysis of foot icons
 - Handles age extraction in "X years old" format from FM screenshots
 - Outputs tab-separated player data compatible with spreadsheet import
@@ -443,11 +444,28 @@ The `fm_image` tool processes PNG screenshots of Football Manager player attribu
 
 ### OCR Processing
 
-The tool uses Tesseract OCR with optimized settings:
+The tool uses Tesseract OCR with optimized settings and comprehensive error correction:
 
 - **Character whitelist**: Limited to alphanumeric characters and common punctuation for better accuracy
 - **Page segmentation**: Configured for uniform text blocks typical in FM screenshots
 - **Language**: English language model for consistent text recognition
+- **Advanced Error Correction**: Multi-layered system handling both attribute names and values
+
+#### OCR Error Correction System
+
+The image processor includes comprehensive correction for common OCR misreads:
+
+**Attribute Name Corrections:**
+- Spacing issues: "OffThe Ball" → "Off the Ball"
+- Character typos: "Postioning" → "Positioning", "Agtity" → "Agility"
+- Complex typos: "Tendeney" → "Tendency"
+
+**Attribute Value Corrections:**
+- Number misreads: "40" → 10, "T" → 7, "Oo" → 9
+- Character confusion: "n" → 11, "rn" → 12, "ll" → 11
+- Invalid range handling: Out-of-range values (>20) are corrected or rejected
+
+This system significantly improves OCR accuracy for Football Manager screenshots without requiring manual intervention.
 
 ### Player Data Extraction
 
@@ -467,7 +485,7 @@ The tool uses hardcoded layouts that match the fixed structure of FM screenshots
 
 - **Layout files**: `layout-field.txt` and `layout-gk.txt` define expected attribute positions
 - **Position-based extraction**: Numbers are matched to attributes by their column position
-- **OCR error handling**: Still handles garbled characters ("n" → 11, "rn" → 12)
+- **Advanced OCR correction**: Comprehensive handling of attribute name typos and value misreads
 - **Reliability**: Eliminates guesswork by leveraging known FM attribute layout
 
 ### Usage Examples
@@ -527,15 +545,16 @@ This format is compatible with spreadsheet applications and can be imported dire
 - Use verbose mode (`-v`) to see OCR debugging information
 
 **Missing or incorrect attributes**:
+- Most common OCR errors are automatically corrected (see OCR Error Correction System above)
 - Check that screenshot shows the complete attributes page in the standard FM layout
 - Ensure the attribute section headers (TECHNICAL/GOALKEEPING, MENTAL, PHYSICAL) are visible
 - Verify the image is in PNG format
-- Use verbose mode (`-v`) to see structured parsing debug information
+- Use verbose mode (`-v`) to see structured parsing and correction debug information
 
 **Layout parsing issues**:
 - The tool expects FM attributes in a 15-row × 3-column layout
 - Each row should contain 3 attributes with their values (e.g., "Corners 7 Aggression 8 Acceleration 11")
-- OCR garbled number inference still handles characters like "n" → "11", "rn" → "12"
+- Advanced OCR correction handles attribute name typos and value misreads automatically
 - Player name should be clearly visible in the first line of the screenshot
 
 **Footedness detection errors**:
