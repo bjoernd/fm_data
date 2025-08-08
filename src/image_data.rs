@@ -335,104 +335,143 @@ fn parse_structured_attributes(
 
     log::debug!("Found attribute section starting at line {}", start_idx);
 
-    // Parse each attribute line according to the layout
+    // Instead of rigid line-by-line parsing, search through all relevant lines for each attribute
+    let search_lines = &lines[start_idx..];
+
+    // Parse each expected attribute by searching through all lines
     for (layout_idx, expected_attrs) in layout.iter().enumerate().skip(1) {
-        // Skip header row
-        let line_idx = start_idx + layout_idx;
-
-        if line_idx >= lines.len() {
-            log::debug!("Reached end of OCR lines at layout row {}", layout_idx);
-            break;
-        }
-
-        let line = lines[line_idx].trim();
-        if line.is_empty() {
-            continue;
-        }
-
         log::debug!(
-            "Parsing line {}: '{}' with expected attrs: {:?}",
-            line_idx,
-            line,
+            "=== Processing layout row {}: {:?} ===",
+            layout_idx,
             expected_attrs
         );
 
-        // Extract values from this line using the expected attribute positions
-        parse_line_with_expected_attributes(player, line, expected_attrs, layout_idx)?;
+        for &attr_name in expected_attrs.iter() {
+            if attr_name.is_empty() {
+                continue;
+            }
+
+            // Search through all lines in the attribute section for this attribute
+            let mut found = false;
+            for (search_idx, line) in search_lines.iter().enumerate() {
+                let line = line.trim();
+                if line.is_empty() {
+                    continue;
+                }
+
+                if let Some(value) = find_attribute_value_in_line(line, attr_name) {
+                    // Determine the correct section prefix for this attribute
+                    let section_prefix = get_correct_section_prefix(attr_name, &player.player_type);
+                    let full_attr_name = format!(
+                        "{}_{}",
+                        section_prefix,
+                        attr_name
+                            .to_lowercase()
+                            .replace(" ", "_")
+                            .replace("(", "")
+                            .replace(")", "")
+                    );
+
+                    player.add_attribute(full_attr_name.clone(), value);
+
+                    log::debug!(
+                        "Found and added attribute: {} = {} (from line {}: '{}')",
+                        full_attr_name,
+                        value,
+                        start_idx + search_idx,
+                        line
+                    );
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                log::debug!("Attribute '{}' not found in any line", attr_name);
+            }
+        }
     }
 
     Ok(())
 }
 
-fn parse_line_with_expected_attributes(
-    player: &mut ImagePlayer,
-    line: &str,
-    expected_attrs: &[&str],
-    layout_row: usize,
-) -> Result<()> {
-    // Extract all numbers from the line
-    let numbers: Vec<u8> = line
-        .split_whitespace()
-        .filter_map(|word| {
+fn find_attribute_value_in_line(line: &str, attr_name: &str) -> Option<u8> {
+    // Look for the attribute name in the line, case-insensitive
+    let line_lower = line.to_lowercase();
+    let attr_lower = attr_name.to_lowercase();
+
+    // Find the position of the attribute name
+    if let Some(attr_pos) = line_lower.find(&attr_lower) {
+        // Get the text after the attribute name
+        let after_attr = &line[attr_pos + attr_name.len()..];
+        let words: Vec<&str> = after_attr.split_whitespace().collect();
+
+        // Look for the first valid number after the attribute name
+        for word in words {
             // Try direct parsing first
             if let Ok(num) = word.parse::<u8>() {
                 if (1..=20).contains(&num) {
+                    log::debug!("Found {} = {} in line", attr_name, num);
                     return Some(num);
                 }
             }
             // Handle OCR garbled numbers
             match word {
-                "n" | "ll" => Some(11),
-                "rn" => Some(12),
-                _ => None,
+                "n" | "ll" => {
+                    log::debug!("Found {} = 11 (OCR garbled) in line", attr_name);
+                    return Some(11);
+                }
+                "rn" => {
+                    log::debug!("Found {} = 12 (OCR garbled) in line", attr_name);
+                    return Some(12);
+                }
+                _ => {}
             }
-        })
-        .collect();
-
-    log::debug!(
-        "Extracted {} numbers from line: {:?}",
-        numbers.len(),
-        numbers
-    );
-
-    // Match numbers to expected attributes
-    for (attr_idx, &attr_name) in expected_attrs.iter().enumerate() {
-        if !attr_name.is_empty() && attr_idx < numbers.len() {
-            let value = numbers[attr_idx];
-            let section_prefix = get_section_prefix_for_column(attr_idx, &player.player_type);
-            let full_attr_name = format!(
-                "{}_{}",
-                section_prefix,
-                attr_name
-                    .to_lowercase()
-                    .replace(" ", "_")
-                    .replace("(", "")
-                    .replace(")", "")
-            );
-
-            player.add_attribute(full_attr_name.clone(), value);
-            log::debug!(
-                "Added attribute: {} = {} (row {}, col {})",
-                full_attr_name,
-                value,
-                layout_row,
-                attr_idx
-            );
         }
     }
 
-    Ok(())
+    None
 }
 
-fn get_section_prefix_for_column(column_idx: usize, player_type: &PlayerType) -> &'static str {
-    match column_idx {
-        0 => match player_type {
-            PlayerType::Goalkeeper => "goalkeeping",
-            PlayerType::FieldPlayer => "technical",
-        },
-        1 => "mental",
-        2 => "physical",
-        _ => "unknown",
+fn get_correct_section_prefix(attr_name: &str, player_type: &PlayerType) -> &'static str {
+    // For goalkeepers, some technical attributes appear in the goalkeeping column
+    // but should still be stored as technical attributes
+    match player_type {
+        PlayerType::Goalkeeper => {
+            match attr_name {
+                "Passing" | "First Touch" => "technical", // These are technical attributes even for GKs
+                "Aerial Reach"
+                | "Command Of Area"
+                | "Communication"
+                | "Eccentricity"
+                | "Handling"
+                | "Kicking"
+                | "One On Ones"
+                | "Punching (Tendency)"
+                | "Reflexes"
+                | "Rushing Out (Tendency)"
+                | "Throwing" => "goalkeeping",
+                "Aggression" | "Anticipation" | "Bravery" | "Composure" | "Concentration"
+                | "Decisions" | "Determination" | "Flair" | "Leadership" | "Off the Ball"
+                | "Positioning" | "Teamwork" | "Vision" | "Work Rate" => "mental",
+                "Acceleration" | "Agility" | "Balance" | "Jumping Reach" | "Natural Fitness"
+                | "Pace" | "Stamina" | "Strength" => "physical",
+                _ => "technical", // Default fallback
+            }
+        }
+        PlayerType::FieldPlayer => {
+            match attr_name {
+                "Corners" | "Crossing" | "Dribbling" | "Finishing" | "First Touch"
+                | "Free Kick Taking" | "Heading" | "Long Shots" | "Long Throws" | "Marking"
+                | "Passing" | "Penalty Taking" | "Tackling" | "Technique" => "technical",
+                "Aggression" | "Anticipation" | "Bravery" | "Composure" | "Concentration"
+                | "Decisions" | "Determination" | "Flair" | "Leadership" | "Off the Ball"
+                | "Positioning" | "Teamwork" | "Vision" | "Work Rate" => "mental",
+                "Acceleration" | "Agility" | "Balance" | "Jumping Reach" | "Natural Fitness"
+                | "Pace" | "Stamina" | "Strength" => "physical",
+                _ => "technical", // Default fallback
+            }
+        }
     }
 }
 
