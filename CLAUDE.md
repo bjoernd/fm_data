@@ -101,6 +101,7 @@ The codebase is now organized into a library (`src/lib.rs`) with separate module
 - **Image Processor**: `src/bin/fm_image.rs` - Extracts player data from PNG screenshots using OCR
 - **Library**: `src/lib.rs` - Core functionality exposed as reusable modules
 - **Integration Tests**: `tests/integration_tests.rs` - End-to-end testing with mock data
+- **Layout Files**: `layout-field.txt` and `layout-gk.txt` - Define structured attribute layouts for parsing
 
 ### Key Dependencies
 
@@ -450,14 +451,24 @@ The tool uses Tesseract OCR with optimized settings:
 
 ### Player Data Extraction
 
-The image processor extracts the following data:
+The image processor uses **structured layout-based parsing** to extract data reliably:
 
-- **Player name**: Extracted from the screenshot header
-- **Age**: Parsed in "X years old" format
+- **Player name**: Always extracted from the first line of OCR text
+- **Age**: Parsed using "X years old" pattern (more reliable than standalone numbers)
+- **Player type**: Detected by presence of "GOALKEEPING" text (goalkeeper vs field player)
 - **Footedness**: Detected through color analysis of foot icons (left/right/both feet)
-- **Attributes**: Technical, mental, physical skills (1-20 scale)
-- **Goalkeeping**: Goalkeeper-specific attributes when present
-- **Player type**: Automatically determined (outfield player vs goalkeeper)
+- **Attributes**: Extracted using deterministic layouts based on player type
+  - **Field players**: 15 rows × 3 columns (Technical, Mental, Physical)
+  - **Goalkeepers**: 15 rows × 3 columns (Goalkeeping, Mental, Physical)
+
+### Structured Attribute Parsing
+
+The tool uses hardcoded layouts that match the fixed structure of FM screenshots:
+
+- **Layout files**: `layout-field.txt` and `layout-gk.txt` define expected attribute positions
+- **Position-based extraction**: Numbers are matched to attributes by their column position
+- **OCR error handling**: Still handles garbled characters ("n" → 11, "rn" → 12)
+- **Reliability**: Eliminates guesswork by leveraging known FM attribute layout
 
 ### Usage Examples
 
@@ -516,26 +527,31 @@ This format is compatible with spreadsheet applications and can be imported dire
 - Use verbose mode (`-v`) to see OCR debugging information
 
 **Missing or incorrect attributes**:
-- Check that screenshot shows the complete attributes page
-- Ensure good contrast between text and background
+- Check that screenshot shows the complete attributes page in the standard FM layout
+- Ensure the attribute section headers (TECHNICAL/GOALKEEPING, MENTAL, PHYSICAL) are visible
 - Verify the image is in PNG format
-- Use verbose mode (`-v`) to see OCR attribute matching debug information
+- Use verbose mode (`-v`) to see structured parsing debug information
 
-**Fuzzy attribute matching**:
-- The tool uses hardcoded patterns to handle common OCR errors (e.g., "Agtlty" → "Agility")
-- OCR garbled number inference handles characters like "n" → "11", "rn" → "12"
-- Check `get_fuzzy_attribute_patterns()` in `src/image_data.rs` for supported variations
+**Layout parsing issues**:
+- The tool expects FM attributes in a 15-row × 3-column layout
+- Each row should contain 3 attributes with their values (e.g., "Corners 7 Aggression 8 Acceleration 11")
+- OCR garbled number inference still handles characters like "n" → "11", "rn" → "12"
+- Player name should be clearly visible in the first line of the screenshot
 
 **Footedness detection errors**:
 - Ensure foot icons are visible in the screenshot
 - Check that icons have sufficient color contrast
 - Foot color analysis works best with default FM skin colors
 
+**Age parsing issues**:
+- Age must appear in "X years old" format in the OCR text
+- The tool no longer relies on standalone numbers for age detection (more reliable)
+
 ## Testing
 
 The codebase includes comprehensive unit and integration tests:
 
-### Unit Tests (118 tests)
+### Unit Tests (111 tests)
 - **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
@@ -545,8 +561,8 @@ The codebase includes comprehensive unit and integration tests:
 - **Player Category tests**: Category parsing, role mappings, filter validation (16 tests)
 - **Role File Parser tests**: Sectioned format parsing, backward compatibility (12 tests)
 - **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking (5 tests)
-- **Image Processing tests**: OCR text extraction, footedness detection, player parsing (69 new tests)
-- **Image Data tests**: Player data structure validation, attribute parsing, type detection
+- **Image Processing tests**: OCR text extraction, footedness detection, structured parsing
+- **Image Data tests**: Player data structure validation, layout-based attribute parsing, type detection
 - **Image Output tests**: TSV formatting, data serialization, output validation
 
 ### Integration Tests (17 tests)
@@ -572,7 +588,8 @@ The codebase includes comprehensive unit and integration tests:
 - Role file validation ensures exactly 11 valid Football Manager roles
 - Player filtering system with 9 positional categories covering all 96 roles
 - Sectioned role file format with backward compatibility for legacy files
-- All modules include comprehensive unit tests (135 tests total: 118 unit + 17 integration)
+- All modules include comprehensive unit tests (128 tests total: 111 unit + 17 integration)
+- Structured attribute parsing with hardcoded FM layouts for reliability
 
 ## Code Quality
 
@@ -581,5 +598,5 @@ The codebase follows Rust best practices and coding standards:
 - **Clippy compliance**: All clippy lints are resolved, including modern format string usage
 - **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
 - **Error handling**: Comprehensive error context using `anyhow` throughout
-- **Testing**: Comprehensive test coverage with 135 tests (unit + integration) for all public APIs
+- **Testing**: Comprehensive test coverage with 128 tests (unit + integration) for all public APIs
 - **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance
