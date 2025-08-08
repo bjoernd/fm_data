@@ -355,6 +355,7 @@ mod tests {
         assert_eq!(fields[32], "14"); // agility (position 32 = 31+1)
 
         // Verify all goalkeeping attributes are 0 (positions 39-49)
+        #[allow(clippy::needless_range_loop)]
         for i in 39..50 {
             assert_eq!(
                 fields[i], "0",
@@ -420,6 +421,7 @@ mod tests {
         assert_eq!(fields[4], "10"); // crossing
 
         // All other attributes should be 0
+        #[allow(clippy::needless_range_loop)]
         for i in 3..50 {
             if i != 4 {
                 // Skip the crossing attribute we set

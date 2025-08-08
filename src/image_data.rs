@@ -408,29 +408,95 @@ fn find_attribute_value_in_line(line: &str, attr_name: &str) -> Option<u8> {
 
         // Look for the first valid number after the attribute name
         for word in words {
-            // Try direct parsing first
-            if let Ok(num) = word.parse::<u8>() {
-                if (1..=20).contains(&num) {
-                    log::debug!("Found {} = {} in line", attr_name, num);
-                    return Some(num);
-                }
-            }
-            // Handle OCR garbled numbers
-            match word {
-                "n" | "ll" => {
-                    log::debug!("Found {} = 11 (OCR garbled) in line", attr_name);
-                    return Some(11);
-                }
-                "rn" => {
-                    log::debug!("Found {} = 12 (OCR garbled) in line", attr_name);
-                    return Some(12);
-                }
-                _ => {}
+            // Try to extract and validate attribute value
+            if let Some(validated_value) = extract_and_validate_attribute_value(word, attr_name) {
+                return Some(validated_value);
             }
         }
     }
 
     None
+}
+
+/// Extract and validate attribute values, ensuring they fall within the valid 1-20 range.
+/// Handles OCR errors and provides corrections when possible.
+fn extract_and_validate_attribute_value(word: &str, attr_name: &str) -> Option<u8> {
+    // First, try direct parsing
+    if let Ok(num) = word.parse::<u8>() {
+        if (1..=20).contains(&num) {
+            log::debug!("Found {} = {} (valid range)", attr_name, num);
+            return Some(num);
+        } else {
+            log::warn!(
+                "Found {} = {} (out of valid range 1-20, ignoring)",
+                attr_name,
+                num
+            );
+            return None;
+        }
+    }
+
+    // Handle common OCR garbled patterns
+    let corrected_value = match word {
+        // Common OCR misreads for specific numbers
+        "n" | "ll" => Some((11, "OCR garbled 'n'/'ll' -> 11")),
+        "rn" => Some((12, "OCR garbled 'rn' -> 12")),
+        "rn)" => Some((12, "OCR garbled 'rn)' -> 12")),
+        "n)" => Some((11, "OCR garbled 'n)' -> 11")),
+        "rl" => Some((12, "OCR garbled 'rl' -> 12")),
+        "ri" => Some((11, "OCR garbled 'ri' -> 11")),
+        "nn" => Some((11, "OCR garbled 'nn' -> 11")),
+        "l" => Some((1, "OCR garbled 'l' -> 1")),
+        "I" => Some((1, "OCR garbled 'I' -> 1")),
+        "O" => Some((0, "OCR garbled 'O' -> invalid, ignoring")),
+        "o" => Some((0, "OCR garbled 'o' -> invalid, ignoring")),
+        _ => None,
+    };
+
+    if let Some((value, explanation)) = corrected_value {
+        if (1..=20).contains(&value) {
+            log::debug!("Found {} = {} ({})", attr_name, value, explanation);
+            Some(value)
+        } else {
+            log::warn!(
+                "Found {} = {} ({}, out of valid range 1-20, ignoring)",
+                attr_name,
+                value,
+                explanation
+            );
+            None
+        }
+    } else {
+        // Try to handle partial OCR corruption - look for digits within the word
+        let digits: String = word.chars().filter(|c| c.is_ascii_digit()).collect();
+        if !digits.is_empty() {
+            if let Ok(num) = digits.parse::<u8>() {
+                if (1..=20).contains(&num) {
+                    log::debug!(
+                        "Found {} = {} (extracted digits from '{}')",
+                        attr_name,
+                        num,
+                        word
+                    );
+                    return Some(num);
+                } else {
+                    log::warn!(
+                        "Found {} = {} (extracted from '{}', out of valid range 1-20, ignoring)",
+                        attr_name,
+                        num,
+                        word
+                    );
+                }
+            }
+        }
+
+        log::debug!(
+            "Could not extract valid attribute value from '{}' for {}",
+            word,
+            attr_name
+        );
+        None
+    }
 }
 
 fn get_correct_section_prefix(attr_name: &str, player_type: &PlayerType) -> &'static str {
@@ -664,5 +730,120 @@ mod tests {
         // Missing goalkeeping attributes
 
         assert!(validate_required_attributes(&player).is_err());
+    }
+
+    #[test]
+    fn test_extract_and_validate_attribute_value_valid_range() {
+        assert_eq!(extract_and_validate_attribute_value("1", "Test"), Some(1));
+        assert_eq!(extract_and_validate_attribute_value("10", "Test"), Some(10));
+        assert_eq!(extract_and_validate_attribute_value("20", "Test"), Some(20));
+        assert_eq!(extract_and_validate_attribute_value("15", "Test"), Some(15));
+    }
+
+    #[test]
+    fn test_extract_and_validate_attribute_value_invalid_range() {
+        assert_eq!(extract_and_validate_attribute_value("0", "Test"), None);
+        assert_eq!(extract_and_validate_attribute_value("21", "Test"), None);
+        assert_eq!(extract_and_validate_attribute_value("100", "Test"), None);
+        assert_eq!(extract_and_validate_attribute_value("255", "Test"), None);
+    }
+
+    #[test]
+    fn test_extract_and_validate_attribute_value_ocr_corrections() {
+        // Common OCR garbled patterns
+        assert_eq!(extract_and_validate_attribute_value("n", "Test"), Some(11));
+        assert_eq!(extract_and_validate_attribute_value("ll", "Test"), Some(11));
+        assert_eq!(extract_and_validate_attribute_value("rn", "Test"), Some(12));
+        assert_eq!(
+            extract_and_validate_attribute_value("rn)", "Test"),
+            Some(12)
+        );
+        assert_eq!(extract_and_validate_attribute_value("n)", "Test"), Some(11));
+        assert_eq!(extract_and_validate_attribute_value("rl", "Test"), Some(12));
+        assert_eq!(extract_and_validate_attribute_value("ri", "Test"), Some(11));
+        assert_eq!(extract_and_validate_attribute_value("nn", "Test"), Some(11));
+        assert_eq!(extract_and_validate_attribute_value("l", "Test"), Some(1));
+        assert_eq!(extract_and_validate_attribute_value("I", "Test"), Some(1));
+    }
+
+    #[test]
+    fn test_extract_and_validate_attribute_value_ocr_invalid() {
+        // OCR patterns that map to invalid values should be rejected
+        assert_eq!(extract_and_validate_attribute_value("O", "Test"), None);
+        assert_eq!(extract_and_validate_attribute_value("o", "Test"), None);
+    }
+
+    #[test]
+    fn test_extract_and_validate_attribute_value_digit_extraction() {
+        // Extract digits from corrupted words
+        assert_eq!(
+            extract_and_validate_attribute_value("15x", "Test"),
+            Some(15)
+        );
+        assert_eq!(
+            extract_and_validate_attribute_value("abc8def", "Test"),
+            Some(8)
+        );
+        assert_eq!(
+            extract_and_validate_attribute_value("~12!", "Test"),
+            Some(12)
+        );
+        assert_eq!(extract_and_validate_attribute_value("(5)", "Test"), Some(5));
+    }
+
+    #[test]
+    fn test_extract_and_validate_attribute_value_invalid_extractions() {
+        // Invalid digit extractions
+        assert_eq!(extract_and_validate_attribute_value("25x", "Test"), None); // Out of range
+        assert_eq!(extract_and_validate_attribute_value("abc", "Test"), None); // No digits
+        assert_eq!(extract_and_validate_attribute_value("", "Test"), None); // Empty
+        assert_eq!(extract_and_validate_attribute_value("xyz", "Test"), None); // No digits
+    }
+
+    #[test]
+    fn test_find_attribute_value_in_line_with_validation() {
+        // Valid cases
+        assert_eq!(
+            find_attribute_value_in_line("Crossing 15 Mental", "Crossing"),
+            Some(15)
+        );
+        assert_eq!(
+            find_attribute_value_in_line("Pace 8 Strength", "Pace"),
+            Some(8)
+        );
+        assert_eq!(
+            find_attribute_value_in_line("Corners rn Aggression", "Corners"),
+            Some(12)
+        ); // OCR correction
+
+        // Invalid range cases
+        assert_eq!(
+            find_attribute_value_in_line("Crossing 0 Mental", "Crossing"),
+            None
+        );
+        assert_eq!(
+            find_attribute_value_in_line("Pace 25 Strength", "Pace"),
+            None
+        );
+        assert_eq!(
+            find_attribute_value_in_line("Speed 100 Power", "Speed"),
+            None
+        );
+
+        // OCR corrections
+        assert_eq!(
+            find_attribute_value_in_line("Finishing n Defense", "Finishing"),
+            Some(11)
+        );
+        assert_eq!(
+            find_attribute_value_in_line("Tackling ll Vision", "Tackling"),
+            Some(11)
+        );
+
+        // Digit extraction from corrupted text
+        assert_eq!(
+            find_attribute_value_in_line("Dribbling 7x Composure", "Dribbling"),
+            Some(7)
+        );
     }
 }
