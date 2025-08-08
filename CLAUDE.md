@@ -51,6 +51,12 @@ cargo test -- --nocapture
 # Run only integration tests
 cargo test --test integration_tests
 
+# Run single test by name
+cargo test test_name
+
+# Run tests in specific module
+cargo test image_data::tests
+
 # Run clippy for code quality checks
 cargo clippy
 
@@ -513,6 +519,12 @@ This format is compatible with spreadsheet applications and can be imported dire
 - Check that screenshot shows the complete attributes page
 - Ensure good contrast between text and background
 - Verify the image is in PNG format
+- Use verbose mode (`-v`) to see OCR attribute matching debug information
+
+**Fuzzy attribute matching**:
+- The tool uses hardcoded patterns to handle common OCR errors (e.g., "Agtlty" → "Agility")
+- OCR garbled number inference handles characters like "n" → "11", "rn" → "12"
+- Check `get_fuzzy_attribute_patterns()` in `src/image_data.rs` for supported variations
 
 **Footedness detection errors**:
 - Ensure foot icons are visible in the screenshot
