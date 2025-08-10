@@ -37,8 +37,17 @@ fm_team_selector -v -r formation.txt
 
 ### Image Processing (`fm_image`)
 ```bash
-# Extract player data from screenshot
+# Extract player data from screenshot (file mode)
 fm_image -i player_screenshot.png
+
+# Extract from clipboard (copy image with Cmd+C first)
+fm_image
+
+# Upload to Google Sheets (file mode)
+fm_image -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json
+
+# Upload to Google Sheets (clipboard mode)
+fm_image -s YOUR_SPREADSHEET_ID --credfile credentials.json
 
 # Verbose output with OCR debugging
 fm_image -v -i screenshot.png
@@ -71,11 +80,12 @@ Options:
 fm_team_selector [OPTIONS]
 
 Options:
-  -r, --roles <ROLES>              Path to role file (11 Football Manager roles)
+  -r, --roles <ROLES>              Path to role file (11 roles + optional player filters)
   -s, --spreadsheet <SPREADSHEET>  Google Spreadsheet ID
       --credfile <CREDFILE>        Path to Google OAuth credentials file
   -c, --config <CONFIG>            Path to config file [default: config.json]
   -v, --verbose                    Enable verbose logging
+      --no-progress                Disable progress bar (useful for scripting)
   -h, --help                       Print help
   -V, --version                    Print version
 ```
@@ -85,7 +95,10 @@ Options:
 fm_image [OPTIONS]
 
 Options:
-  -i, --image <IMAGE>              Path to PNG screenshot of FM player attributes
+  -i, --image <IMAGE>              Path to PNG screenshot (optional - uses clipboard if not provided)
+  -s, --spreadsheet <SPREADSHEET>  Google Spreadsheet ID for upload
+      --credfile <CREDFILE>        Path to Google OAuth credentials file
+      --sheet <SHEET>              Google Sheets worksheet name [default: Scouting]
   -c, --config <CONFIG>            Path to config file [default: config.json]
   -v, --verbose                    Enable verbose logging and OCR debugging
       --no-progress                Disable progress bar (useful for scripting)
@@ -104,14 +117,48 @@ Recently refactored for improved performance and maintainability:
 - **15-25% Code Reduction**: Eliminated duplication across modules
 
 ### Advanced OCR Error Correction
-The `fm_image` tool includes a table-driven OCR error correction system:
+The `fm_image` tool includes a comprehensive OCR error correction system:
 
-- **Attribute Name Corrections**: 50+ patterns handle typos like "Postioning" → "Positioning"
+- **Attribute Name Corrections**: 100+ patterns handle complex typos like "Postioning" → "Positioning"
 - **Value Corrections**: Fixes misread numbers like "40" → 10, "T" → 7, "Oo" → 9
-- **Intelligent Fallbacks**: Graceful handling of detection failures with reasonable defaults
-- **Performance Optimized**: O(1) structured attribute access
+- **Layout-Based Parsing**: Structured attribute extraction using hardcoded Football Manager layouts
+- **Performance Optimized**: 21x faster attribute access through structured AttributeSet
+- **Google Sheets Integration**: Automatic player matching and row assignment
+- **Clipboard Support**: Direct image processing from macOS clipboard (Cmd+C)
 
 This system significantly improves OCR accuracy without manual intervention.
+
+### Player Filter System
+The `fm_team_selector` tool supports advanced player filtering to restrict certain players to specific position categories:
+
+- **9 Position Categories**: `goal`, `cd`, `wb`, `dm`, `cm`, `wing`, `am`, `pm`, `str`
+- **Sectioned Role Files**: Enhanced format with `[roles]` and `[filters]` sections
+- **Backward Compatibility**: Legacy format (11 roles only) still fully supported
+- **Flexible Filtering**: Players can be assigned to multiple categories
+- **96 Role Coverage**: All Football Manager roles mapped to logical position categories
+
+**Example sectioned role file:**
+```
+[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+Alisson: goal
+Van Dijk: cd, wb
+Robertson: wb
+Salah: wing, am
+Henderson: cm, dm
+```
 
 ## ⚙️ Configuration
 
@@ -132,11 +179,13 @@ The config file supports **partial configurations** - you only need to specify t
         "token_file" : "/path/to/token.json",
         "spreadsheet_name" : "your-spreadsheet-id",
         "team_sheet" : "Squad",
+        "scouting_sheet" : "Scouting",
         "team_perf_sheet" : "Stats_Team",
         "league_perf_sheet" : "Stats_Division"
     },
     "input" : {
         "data_html" : "/path/to/attributes.html",
+        "image_file" : "/path/to/player_screenshot.png",
         "league_perf_html" : "/path/to/league-perf.html",
         "team_perf_html" : "/path/to/team-perf.html",
         "role_file" : "/path/to/formation.txt"
@@ -154,6 +203,20 @@ The config file supports **partial configurations** - you only need to specify t
     },
     "input" : {
         "role_file" : "my_formation.txt"
+    }
+}
+```
+
+**Image processor config example:**
+```json
+{
+    "google" : {
+        "creds_file" : "/path/to/credentials.json",
+        "spreadsheet_name" : "your-spreadsheet-id",
+        "scouting_sheet" : "Scouting"
+    },
+    "input" : {
+        "image_file" : "player_screenshot.png"
     }
 }
 ```
@@ -185,7 +248,7 @@ cargo build --release --no-default-features --bin fm_team_selector
 
 ### Testing
 ```bash
-# Run comprehensive test suite (180 total tests: 163 unit + 17 integration)
+# Run comprehensive test suite (198 total tests: 174 unit + 24 integration)
 cargo test
 
 # Run tests with output
@@ -232,11 +295,35 @@ fi
 
 ### Team Selection Workflows
 ```bash
-# Create a formation file
+# Create a legacy formation file (backward compatible)
 echo -e "GK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R\nW(s) L\nCF(s)" > 4-3-3.txt
 
-# Find optimal team for the formation
+# Create advanced formation file with player filters
+cat > advanced_formation.txt << EOF
+[roles]
+GK
+CD(d)
+CD(s)
+FB(d) R
+FB(d) L
+CM(d)
+CM(s)
+CM(a)
+W(s) R
+W(s) L
+CF(s)
+
+[filters]
+# Restrict players to specific position categories
+Alisson: goal
+Van Dijk: cd
+Robertson: wb
+Salah: wing, am
+EOF
+
+# Find optimal team (works with both formats)
 fm_team_selector -r 4-3-3.txt
+fm_team_selector -r advanced_formation.txt
 
 # Pipeline: upload data then select team
 fm_google_up -i player_data.html && fm_team_selector -r formation.txt
@@ -275,8 +362,17 @@ Error: Data has 65 rows but maximum allowed is 57 rows
 ```bash
 Error: Invalid role on line 3: "invalidrole"
 ```
-- Check that all roles are valid Football Manager roles (see [ROLE_FILE_FORMAT.md](layout_specs/ROLE_FILE_FORMAT.md))
+- Check that all roles are valid Football Manager roles (96 roles supported)
 - Verify exact spelling and capitalization (e.g., "GK" not "gk")
+- For sectioned format, ensure `[roles]` section contains exactly 11 roles
+
+**Player Filter Errors**
+```bash
+Error: Invalid category 'CATEGORY' for player 'PLAYER_NAME'
+```
+- Use valid category names: `goal`, `cd`, `wb`, `dm`, `cm`, `wing`, `am`, `pm`, `str`
+- Check for typos in category names (case-insensitive)
+- Ensure `[filters]` section uses correct format: `PlayerName: category1, category2`
 
 **Insufficient Players**
 ```bash
@@ -287,10 +383,10 @@ Error: Need at least 11 players but found only 8
 
 ### Getting Help
 
-- Use `fm_google_up --help` or `fm_team_selector --help` for command-line options
+- Use `fm_google_up --help`, `fm_team_selector --help`, or `fm_image --help` for command-line options
 - Enable verbose logging with `-v` for detailed error information
-- Check the [CLAUDE.md](CLAUDE.md) file for development guidance
-- See [ROLE_FILE_FORMAT.md](layout_specs/ROLE_FILE_FORMAT.md) for role file documentation
+- Check the [CLAUDE.md](CLAUDE.md) file for comprehensive development guidance
+- All tools support configuration files and progress bar control (`--no-progress`)
 
 ## 📈 Usage Examples
 
