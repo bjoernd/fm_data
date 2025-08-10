@@ -234,7 +234,10 @@ fn default_attribute_value_corrections() -> HashMap<String, u8> {
     corrections.insert("a".to_string(), 9);
     corrections.insert("oo".to_string(), 9);
     corrections.insert("40".to_string(), 10); // Special case: OCR often reads "10" as "40"
+    corrections.insert("41".to_string(), 11); // Special case: OCR often reads "11" as "41"
     corrections.insert("42".to_string(), 12); // Special case: OCR often reads "12" as "42"
+    corrections.insert("43".to_string(), 13); // Special case: OCR often reads "13" as "43"
+    corrections.insert("44".to_string(), 14); // Special case: OCR often reads "14" as "44"
 
     // Invalid values that should be ignored (mapped to 0, which will be filtered out)
     corrections.insert("o".to_string(), 0);

@@ -123,7 +123,8 @@ fn extract_player_name(ocr_text: &str) -> Result<String> {
         }
     }
 
-    Err(FMDataError::image("Unable to extract player name from OCR text").into())
+    log::warn!("Unable to extract player name from OCR text");
+    return Ok("N. N.".to_string());
 }
 
 /// Extract a plausible player name from a piece of text
