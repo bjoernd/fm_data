@@ -275,7 +275,7 @@ Error: Data has 65 rows but maximum allowed is 57 rows
 ```bash
 Error: Invalid role on line 3: "invalidrole"
 ```
-- Check that all roles are valid Football Manager roles (see [ROLE_FILE_FORMAT.md](ROLE_FILE_FORMAT.md))
+- Check that all roles are valid Football Manager roles (see [ROLE_FILE_FORMAT.md](layout_specs/ROLE_FILE_FORMAT.md))
 - Verify exact spelling and capitalization (e.g., "GK" not "gk")
 
 **Insufficient Players**
@@ -290,7 +290,7 @@ Error: Need at least 11 players but found only 8
 - Use `fm_google_up --help` or `fm_team_selector --help` for command-line options
 - Enable verbose logging with `-v` for detailed error information
 - Check the [CLAUDE.md](CLAUDE.md) file for development guidance
-- See [ROLE_FILE_FORMAT.md](ROLE_FILE_FORMAT.md) for role file documentation
+- See [ROLE_FILE_FORMAT.md](layout_specs/ROLE_FILE_FORMAT.md) for role file documentation
 
 ## 📈 Usage Examples
 
