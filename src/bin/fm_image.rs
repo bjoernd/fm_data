@@ -2,11 +2,13 @@ use clap::Parser;
 use fm_data::error::{FMDataError, Result};
 use fm_data::error_messages::{ErrorBuilder, ErrorCode};
 use fm_data::{
-    format_player_data, format_player_data_verbose, load_image, parse_player_from_ocr, AppRunner,
-    AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI, ImageProcessor,
+    clipboard::ClipboardManager, format_player_data, format_player_data_verbose, load_image,
+    parse_player_from_ocr, AppRunner, AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs,
+    ImageCLI, ImageProcessor,
 };
 use log::{debug, error, info};
 use std::collections::HashMap;
+use tempfile::NamedTempFile;
 
 #[derive(Parser, Debug)]
 #[command(
@@ -19,12 +21,22 @@ The screenshot should show a player's attributes page with all technical, mental
 and (optionally) goalkeeping attributes visible. The tool uses Tesseract OCR to extract 
 text from the image and parse it into structured player data.
 
+INPUT MODES:
+    1. File mode: Provide a PNG file path with -i flag
+    2. Clipboard mode: Copy image (Cmd+C) and run without -i flag
+
 Examples:
-    # Basic usage with screenshot file
+    # File mode: Basic usage with screenshot file
     fm_image -i player_screenshot.png
+    
+    # Clipboard mode: Copy image first, then run
+    fm_image
     
     # With configuration file
     fm_image -i screenshot.png -c my_config.json
+    
+    # Clipboard mode with Google Sheets upload
+    fm_image -s SPREADSHEET_ID --credfile creds.json
     
     # Verbose mode for debugging OCR processing
     fm_image -i screenshot.png -v
@@ -57,20 +69,53 @@ impl CLIArgumentValidator for CLIArguments {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let cli = CLIArguments::parse();
+    let mut cli = CLIArguments::parse();
+
+    // Detect clipboard mode and automatically disable progress bar
+    let is_clipboard_mode = cli.common.image_file.is_none();
+    if is_clipboard_mode {
+        // Automatically disable progress bar in clipboard mode for better UX
+        cli.common.common.no_progress = true;
+    }
 
     // Use AppRunnerBuilder for consolidated setup (without authentication)
     let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_image")
         .build_basic()
         .await?;
 
-    // Resolve paths for both image processing and potential Google Sheets upload
-    let (spreadsheet_id, credfile_path, image_file_path, sheet_name) = app_runner
+    if is_clipboard_mode {
+        info!("Clipboard mode detected: progress bar disabled for interactive experience");
+    }
+
+    // Handle image source: either file path or clipboard
+    let (image_file_path, _temp_file): (String, Option<NamedTempFile>) =
+        if let Some(image_file) = cli.common.image_file.clone() {
+            // File mode: use provided image file path
+            (image_file, None)
+        } else {
+            // Clipboard mode: wait for user to paste image
+            info!("No image file provided, entering clipboard mode...");
+            let mut clipboard_manager = ClipboardManager::new().map_err(|e| {
+                error!("Failed to initialize clipboard manager: {}", e);
+                e
+            })?;
+
+            let temp_file = clipboard_manager.wait_for_image_paste().map_err(|e| {
+                error!("Failed to get image from clipboard: {}", e);
+                e
+            })?;
+
+            let path = temp_file.path().to_string_lossy().to_string();
+            (path, Some(temp_file))
+        };
+
+    // Resolve paths for potential Google Sheets upload
+    let (spreadsheet_id, credfile_path, _, sheet_name) = app_runner
         .config
         .resolve_image_paths(
             cli.common.common.spreadsheet.clone(),
             cli.common.common.credfile.clone(),
-            cli.common.image_file.clone(),
+            Some(image_file_path.clone()),
             Some(cli.common.sheet.clone()),
         )
         .map_err(|e| {

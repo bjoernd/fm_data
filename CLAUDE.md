@@ -33,11 +33,17 @@ cargo run --bin fm_google_up -- -v
 # Run the team selector with role file
 cargo run --bin fm_team_selector -- -r tests/test_roles.txt -v
 
-# Run the image processor with screenshot
+# Run the image processor with screenshot file
 cargo run --bin fm_image -- -i player_screenshot.png -v
 
-# Run the image processor with Google Sheets upload
+# Run the image processor with clipboard paste (copy image with Cmd+C first)
+cargo run --bin fm_image -- -v
+
+# Run the image processor with Google Sheets upload (file mode)
 cargo run --bin fm_image -- -i player_screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json -v
+
+# Run the image processor with Google Sheets upload (clipboard mode)
+cargo run --bin fm_image -- -s YOUR_SPREADSHEET_ID --credfile credentials.json -v
 
 # Run with custom config
 cargo run --bin fm_google_up -- -c custom_config.json
@@ -465,9 +471,30 @@ cargo run --bin fm_team_selector -- -r examples/formation_legacy.txt --no-progre
 
 ## Image Processor Usage
 
+The `fm_image` tool supports two input modes for processing Football Manager player attributes:
+
+### Input Modes
+
+#### 1. File Mode
+Provide a PNG file path with the `-i` flag:
+```bash
+fm_image -i player_screenshot.png
+```
+
+#### 2. Clipboard Mode (NEW)
+Copy an image with Cmd+C and run without the `-i` flag:
+```bash
+# Copy image to clipboard first, then run:
+fm_image
+```
+
+The tool will wait for you to press Enter and then read the image directly from your macOS clipboard.
+
+**Note**: Progress bar is automatically disabled in clipboard mode for better interactive experience.
+
 ### Screenshot Requirements
 
-The `fm_image` tool processes PNG screenshots of Football Manager player attributes pages:
+Both input modes require PNG images of Football Manager player attributes pages:
 
 - **Format**: PNG images only (validated by CLI and image processor)
 - **Content**: Player attributes page showing technical, mental, physical, and optionally goalkeeping attributes
@@ -522,6 +549,7 @@ The tool uses hardcoded layouts that match the fixed structure of FM screenshots
 
 ### Usage Examples
 
+#### File Mode Examples
 ```bash
 # Basic screenshot processing (stdout output only)
 cargo run --bin fm_image -- -i player_screenshot.png
@@ -535,15 +563,36 @@ cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile 
 # Upload to custom sheet name
 cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json --sheet "PlayerScouts"
 
-# Stdout output + Google Sheets upload with verbose logging
-cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json -v
-
 # Using configuration file (can include Google Sheets settings)
 cargo run --bin fm_image -- -i screenshot.png -c image_config.json
 
 # Scripting mode (no progress bar)
 cargo run --bin fm_image -- -i screenshot.png --no-progress
+```
 
+#### Clipboard Mode Examples (NEW)
+```bash
+# Basic clipboard processing (copy image with Cmd+C first, then run)
+cargo run --bin fm_image -- 
+
+# Clipboard with verbose OCR debugging
+cargo run --bin fm_image -- -v
+
+# Clipboard with Google Sheets upload
+cargo run --bin fm_image -- -s YOUR_SPREADSHEET_ID --credfile credentials.json
+
+# Clipboard with custom sheet name
+cargo run --bin fm_image -- -s YOUR_SPREADSHEET_ID --credfile credentials.json --sheet "PlayerScouts"
+
+# Clipboard with configuration file
+cargo run --bin fm_image -- -c image_config.json
+
+# Clipboard scripting mode (no progress bar)
+cargo run --bin fm_image -- --no-progress
+```
+
+#### Batch Processing Examples
+```bash
 # Batch processing with Google Sheets upload
 for file in screenshots/*.png; do
   cargo run --bin fm_image -- -i "$file" -s YOUR_SPREADSHEET_ID --credfile credentials.json --no-progress

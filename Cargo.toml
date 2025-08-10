@@ -49,6 +49,7 @@ sheets = "0.7.0"
 # Image processing dependencies (optional for fm_image)
 tesseract = { version = "0.14", optional = true }
 image = { version = "0.25", optional = true }
+arboard = { version = "3.4", optional = true }
 tempfile = "3.8"
 
 [dev-dependencies]
@@ -58,7 +59,7 @@ criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = ["image-processing"]
-image-processing = ["dep:tesseract", "dep:image"]
+image-processing = ["dep:tesseract", "dep:image", "dep:arboard"]
 
 [[bench]]
 name = "attribute_processing"

@@ -244,9 +244,11 @@ pub struct ImageCLI {
         short,
         long,
         env = "FM_IMAGE_FILE",
-        help = "Path to Football Manager PNG screenshot file (required)",
+        help = "Path to Football Manager PNG screenshot file (optional - if not provided, will read from clipboard)",
         long_help = "Path to a PNG screenshot file exported from Football Manager containing player data.
 The screenshot should show a player's attributes page with all technical, mental, physical, and (optionally) goalkeeping attributes visible.
+
+If not provided, the tool will wait for an image to be pasted from the clipboard using Cmd+V on macOS.
 
 Example: /path/to/player_screenshot.png
 Can also be set via FM_IMAGE_FILE environment variable."
@@ -272,17 +274,11 @@ impl CommonCLIArgs for ImageCLI {
     fn validate_common(&self) -> Result<()> {
         self.common.validate_common()?;
 
-        // Image file is required for image processing
-        if self.image_file.is_none() {
-            return Err(FMDataError::config(
-                "Image file is required. Use --image-file or -i to specify the path to your PNG screenshot.".to_string()
-            ));
-        }
-
-        // Validate that the image file exists and is readable
+        // Validate that the image file exists and is readable (if provided)
         if let Some(ref image_path) = self.image_file {
             validate_image_file(image_path)?;
         }
+        // If no image file is provided, we'll use clipboard mode
 
         Ok(())
     }
@@ -339,7 +335,8 @@ mod tests {
     }
 
     #[test]
-    fn test_image_cli_validate_missing_image_file() {
+    fn test_image_cli_validate_missing_image_file_clipboard_mode() {
+        // Missing image file is now valid (clipboard mode)
         let cli = ImageCLI {
             image_file: None,
             sheet: "Scouting".to_string(),
@@ -353,11 +350,7 @@ mod tests {
         };
 
         let result = cli.validate_common();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Image file is required"));
+        assert!(result.is_ok()); // Should now succeed (clipboard mode)
     }
 
     #[test]

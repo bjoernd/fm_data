@@ -3,6 +3,8 @@ pub mod app_runner;
 pub mod attributes;
 pub mod auth;
 pub mod cli;
+#[cfg(feature = "image-processing")]
+pub mod clipboard;
 pub mod config;
 pub mod constants;
 pub mod error;
