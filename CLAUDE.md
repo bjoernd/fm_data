@@ -31,7 +31,7 @@ cargo build --release --no-default-features --bin fm_team_selector
 cargo run --bin fm_google_up -- -v
 
 # Run the team selector with role file
-cargo run --bin fm_team_selector -- -r test_roles.txt -v
+cargo run --bin fm_team_selector -- -r tests/test_roles.txt -v
 
 # Run the image processor with screenshot
 cargo run --bin fm_image -- -i player_screenshot.png -v

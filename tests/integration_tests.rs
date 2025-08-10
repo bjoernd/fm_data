@@ -200,7 +200,7 @@ async fn test_config_integration() -> Result<()> {
             "team_sheet": "Squad"
         },
         "input": {
-            "role_file": "test_roles.txt"
+            "role_file": "tests/test_roles.txt"
         }
     }"#;
 
@@ -213,7 +213,7 @@ async fn test_config_integration() -> Result<()> {
     let config = Config::from_file(config_file.path())?;
     assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
     assert_eq!(config.google.team_sheet, "Squad");
-    assert_eq!(config.input.role_file, "test_roles.txt");
+    assert_eq!(config.input.role_file, "tests/test_roles.txt");
 
     // Test path resolution (without validation since files don't exist)
     let (spreadsheet, _credfile, _rolefile) = config.resolve_paths_unchecked(

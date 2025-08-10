@@ -173,7 +173,7 @@ The tool will be implemented as a new Rust binary that reuses existing infrastru
 8.1. ✅ Add binary to Cargo.toml (already done)
 8.2. ✅ Update CLAUDE.md with new binary usage examples
 8.3. ✅ Add role file format documentation (ROLE_FILE_FORMAT.md)
-8.4. ✅ Add example role file to repository (test_roles.txt already done)
+8.4. ✅ Add example role file to repository (tests/test_roles.txt already done)
 8.5. ✅ Update main README to reflect both tools
 8.6. ✅ **Verify test coverage and quality**:
    - ✅ Ensure `cargo test` passes with all unit and integration tests (101 tests total)
