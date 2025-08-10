@@ -3,13 +3,148 @@ use crate::attributes::{
 };
 use crate::image_data::ImagePlayer;
 use crate::types::{Footedness, PlayerType};
-use log::debug;
+use log::{debug, warn};
+
+/// Check for zero values in relevant attribute categories and print warnings
+fn check_zero_attributes(player: &ImagePlayer) {
+    match player.player_type {
+        PlayerType::FieldPlayer => {
+            // Check technical attributes for field players
+            let technical_attrs = [
+                (TechnicalAttribute::Corners, "Corners"),
+                (TechnicalAttribute::Crossing, "Crossing"),
+                (TechnicalAttribute::Dribbling, "Dribbling"),
+                (TechnicalAttribute::Finishing, "Finishing"),
+                (TechnicalAttribute::FirstTouch, "First Touch"),
+                (TechnicalAttribute::FreeKickTaking, "Free Kick Taking"),
+                (TechnicalAttribute::Heading, "Heading"),
+                (TechnicalAttribute::LongShots, "Long Shots"),
+                (TechnicalAttribute::LongThrows, "Long Throws"),
+                (TechnicalAttribute::Marking, "Marking"),
+                (TechnicalAttribute::Passing, "Passing"),
+                (TechnicalAttribute::PenaltyTaking, "Penalty Taking"),
+                (TechnicalAttribute::Tackling, "Tackling"),
+                (TechnicalAttribute::Technique, "Technique"),
+            ];
+
+            for (attr, name) in technical_attrs {
+                if player.attributes.get_technical(attr) == 0 {
+                    warn!(
+                        "Warning: {} has 0 value for technical attribute '{}'",
+                        player.name, name
+                    );
+                }
+            }
+
+            // Check mental attributes for field players
+            check_mental_attributes(player);
+
+            // Check physical attributes for field players
+            check_physical_attributes(player);
+        }
+        PlayerType::Goalkeeper => {
+            // Check goalkeeping attributes for goalkeepers
+            let gk_attrs = [
+                (GoalkeepingAttribute::AerialReach, "Aerial Reach"),
+                (GoalkeepingAttribute::CommandOfArea, "Command Of Area"),
+                (GoalkeepingAttribute::Communication, "Communication"),
+                (GoalkeepingAttribute::Eccentricity, "Eccentricity"),
+                (GoalkeepingAttribute::FirstTouch, "First Touch"),
+                (GoalkeepingAttribute::Handling, "Handling"),
+                (GoalkeepingAttribute::Kicking, "Kicking"),
+                (GoalkeepingAttribute::OneOnOnes, "One On Ones"),
+                (GoalkeepingAttribute::Passing, "Passing"),
+                (
+                    GoalkeepingAttribute::PunchingTendency,
+                    "Punching (Tendency)",
+                ),
+                (GoalkeepingAttribute::Reflexes, "Reflexes"),
+                (
+                    GoalkeepingAttribute::RushingOutTendency,
+                    "Rushing Out (Tendency)",
+                ),
+                (GoalkeepingAttribute::Throwing, "Throwing"),
+                (GoalkeepingAttribute::WorkRate, "Work Rate"),
+            ];
+
+            for (attr, name) in gk_attrs {
+                if player.attributes.get_goalkeeping(attr) == 0 {
+                    warn!(
+                        "Warning: {} has 0 value for goalkeeping attribute '{}'",
+                        player.name, name
+                    );
+                }
+            }
+
+            // Check mental attributes for goalkeepers
+            check_mental_attributes(player);
+
+            // Check physical attributes for goalkeepers
+            check_physical_attributes(player);
+        }
+    }
+}
+
+/// Check mental attributes for zero values
+fn check_mental_attributes(player: &ImagePlayer) {
+    let mental_attrs = [
+        (MentalAttribute::Aggression, "Aggression"),
+        (MentalAttribute::Anticipation, "Anticipation"),
+        (MentalAttribute::Bravery, "Bravery"),
+        (MentalAttribute::Composure, "Composure"),
+        (MentalAttribute::Concentration, "Concentration"),
+        (MentalAttribute::Decisions, "Decisions"),
+        (MentalAttribute::Determination, "Determination"),
+        (MentalAttribute::Flair, "Flair"),
+        (MentalAttribute::Leadership, "Leadership"),
+        (MentalAttribute::OffTheBall, "Off the Ball"),
+        (MentalAttribute::Positioning, "Positioning"),
+        (MentalAttribute::Teamwork, "Teamwork"),
+        (MentalAttribute::Vision, "Vision"),
+        (MentalAttribute::WorkRate, "Work Rate"),
+    ];
+
+    for (attr, name) in mental_attrs {
+        if player.attributes.get_mental(attr) == 0 {
+            warn!(
+                "Warning: {} has 0 value for mental attribute '{}'",
+                player.name, name
+            );
+        }
+    }
+}
+
+/// Check physical attributes for zero values
+fn check_physical_attributes(player: &ImagePlayer) {
+    let physical_attrs = [
+        (PhysicalAttribute::Acceleration, "Acceleration"),
+        (PhysicalAttribute::Agility, "Agility"),
+        (PhysicalAttribute::Balance, "Balance"),
+        (PhysicalAttribute::JumpingReach, "Jumping Reach"),
+        (PhysicalAttribute::NaturalFitness, "Natural Fitness"),
+        (PhysicalAttribute::Pace, "Pace"),
+        (PhysicalAttribute::Stamina, "Stamina"),
+        (PhysicalAttribute::Strength, "Strength"),
+    ];
+
+    for (attr, name) in physical_attrs {
+        if player.attributes.get_physical(attr) == 0 {
+            warn!(
+                "Warning: {} has 0 value for physical attribute '{}'",
+                player.name, name
+            );
+        }
+    }
+}
 
 /// Format an ImagePlayer into tab-separated output with the exact attribute order
 /// specified in the feature requirements
 #[allow(clippy::vec_init_then_push)]
 pub fn format_player_data(player: &ImagePlayer) -> String {
     debug!("Formatting player data for: {}", player.name);
+
+    // Check for zero attribute values and print warnings
+    check_zero_attributes(player);
 
     // Start with basic player information
     let mut output = Vec::new();
@@ -720,5 +855,51 @@ mod tests {
         assert_eq!(fields[0], "Ambidextrous Player");
         assert_eq!(fields[1], "28");
         assert_eq!(fields[2], "lr");
+    }
+
+    #[test]
+    fn test_zero_attribute_warnings_field_player() {
+        use crate::image_data::ImagePlayer;
+
+        // Create a field player with some zero values
+        let mut player = ImagePlayer::new(
+            "Test Player".to_string(),
+            25,
+            PlayerType::FieldPlayer,
+            Footedness::RightFooted,
+        );
+
+        // Add only some attributes, leaving others at 0
+        player.add_attribute("technical_crossing".to_string(), 15);
+        player.add_attribute("mental_composure".to_string(), 18);
+        player.add_attribute("physical_pace".to_string(), 12);
+
+        // This will trigger warnings for all zero attributes
+        let _result = format_player_data(&player);
+        // Warnings are logged, so we can't easily test them in unit tests
+        // but this ensures the function runs without panicking
+    }
+
+    #[test]
+    fn test_zero_attribute_warnings_goalkeeper() {
+        use crate::image_data::ImagePlayer;
+
+        // Create a goalkeeper with some zero values
+        let mut player = ImagePlayer::new(
+            "Test Keeper".to_string(),
+            28,
+            PlayerType::Goalkeeper,
+            Footedness::LeftFooted,
+        );
+
+        // Add only some attributes, leaving others at 0
+        player.add_attribute("goalkeeping_reflexes".to_string(), 18);
+        player.add_attribute("mental_concentration".to_string(), 16);
+        player.add_attribute("physical_agility".to_string(), 14);
+
+        // This will trigger warnings for all zero attributes
+        let _result = format_player_data(&player);
+        // Warnings are logged, so we can't easily test them in unit tests
+        // but this ensures the function runs without panicking
     }
 }
