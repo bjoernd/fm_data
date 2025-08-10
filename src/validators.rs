@@ -1,4 +1,5 @@
 use crate::error::{FMDataError, Result};
+use crate::error_messages::{ErrorBuilder, ErrorCode};
 use crate::selection::Role;
 use std::collections::HashMap;
 use std::path::Path;
@@ -20,16 +21,18 @@ impl ConfigValidator {
     /// Validate spreadsheet ID format and content
     pub fn validate_spreadsheet_id(id: &str) -> Result<()> {
         if id.is_empty() {
-            return Err(FMDataError::config("Spreadsheet ID cannot be empty"));
+            return Err(ErrorBuilder::new(ErrorCode::E105)
+                .with_context("spreadsheet ID")
+                .build());
         }
 
         if !id
             .chars()
             .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
         {
-            return Err(FMDataError::config(format!(
-                "Invalid spreadsheet ID format: '{id}'. Must contain only letters, numbers, hyphens, and underscores"
-            )));
+            return Err(ErrorBuilder::new(ErrorCode::E106)
+                .with_context(format!("invalid spreadsheet ID format: '{id}'"))
+                .build());
         }
 
         if id.len() < 20 {
@@ -42,15 +45,17 @@ impl ConfigValidator {
     /// Validate Google Sheets sheet name
     pub fn validate_sheet_name(name: &str) -> Result<()> {
         if name.is_empty() {
-            return Err(FMDataError::config("Sheet name cannot be empty"));
+            return Err(ErrorBuilder::new(ErrorCode::E105)
+                .with_context("sheet name")
+                .build());
         }
 
         // Google Sheets has some character restrictions
         let invalid_chars = ['[', ']', '*', '?', ':', '\\', '/', '\''];
         if name.chars().any(|c| invalid_chars.contains(&c)) {
-            return Err(FMDataError::config(format!(
-                "Sheet name '{name}' contains invalid characters. Avoid: [ ] * ? : \\ / '"
-            )));
+            return Err(ErrorBuilder::new(ErrorCode::E106)
+                .with_context(format!("sheet name '{name}' contains invalid characters"))
+                .build());
         }
 
         if name.len() > 100 {

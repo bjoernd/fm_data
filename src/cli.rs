@@ -1,4 +1,5 @@
 use crate::error::{FMDataError, Result};
+use crate::error_messages::{ErrorBuilder, ErrorCode};
 use crate::validators::ConfigValidator;
 use clap::Parser;
 
@@ -33,24 +34,15 @@ pub trait CommonCLIArgs {
     fn validate_common(&self) -> Result<()>;
 }
 
-pub fn validate_config_file(config_file: &str) -> Result<()> {
-    use crate::constants::config::DEFAULT_CONFIG_FILE;
-
-    // Validate config file path if it's not the default and doesn't exist
-    if config_file != DEFAULT_CONFIG_FILE {
-        ConfigValidator::validate_config_file(config_file)?;
-    }
-    Ok(())
-}
-
-#[derive(Parser, Debug)]
-pub struct UploaderCLI {
+/// Common CLI arguments shared across all binaries (for clap flattening)
+#[derive(Parser, Debug, Clone)]
+pub struct CommonCLI {
     #[arg(
         short,
         long,
         env = "FM_SPREADSHEET_ID",
         help = "Google Sheets spreadsheet ID",
-        long_help = "The Google Sheets spreadsheet ID where data will be uploaded.
+        long_help = "The Google Sheets spreadsheet ID where data will be stored or retrieved.
 Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
 Can also be set via FM_SPREADSHEET_ID environment variable."
     )]
@@ -70,32 +62,11 @@ Can also be set via FM_CREDENTIALS_FILE environment variable."
     #[arg(
         short,
         long,
-        env = "FM_INPUT_FILE",
-        help = "Path to Football Manager HTML export file",
-        long_help = "Path to the HTML file exported from Football Manager containing player data.
-The file should contain a table with player statistics.
-Example: /path/to/players_export.html
-Can also be set via FM_INPUT_FILE environment variable."
-    )]
-    pub input: Option<String>,
-
-    #[arg(
-        short,
-        long,
         default_value = crate::constants::config::DEFAULT_CONFIG_FILE,
         help = "Path to configuration file",
         long_help = "Path to JSON configuration file containing default settings.
 If the file doesn't exist, default values will be used.
-Example config.json structure:
-{
-  \"google\": {
-    \"spreadsheet_id\": \"1BCD...xyz123\",
-    \"credentials_file\": \"creds.json\",
-    \"team_sheet\": \"Sheet1\",
-    \"token_file\": \"tokencache.json\"
-  },
-  \"input_file\": \"players.html\"
-}"
+See the documentation for example config.json structure."
     )]
     pub config: String,
 
@@ -111,8 +82,9 @@ or CI/CD environments where progress bars may interfere with output parsing."
     pub no_progress: bool,
 }
 
-impl CommonCLIArgs for UploaderCLI {
-    fn get_common_args(&self) -> CommonArgs {
+impl CommonCLI {
+    /// Convert to CommonArgs for existing trait compatibility
+    pub fn to_common_args(&self) -> CommonArgs {
         CommonArgs::new(
             self.config.clone(),
             self.spreadsheet.clone(),
@@ -122,13 +94,99 @@ impl CommonCLIArgs for UploaderCLI {
         )
     }
 
-    fn validate_common(&self) -> Result<()> {
+    /// Basic validation common to all CLI tools
+    pub fn validate_common(&self) -> Result<()> {
         validate_config_file(&self.config)
+    }
+}
+
+pub fn validate_config_file(config_file: &str) -> Result<()> {
+    use crate::constants::config::DEFAULT_CONFIG_FILE;
+
+    // Validate config file path if it's not the default and doesn't exist
+    if config_file != DEFAULT_CONFIG_FILE {
+        ConfigValidator::validate_config_file(config_file)?;
+    }
+    Ok(())
+}
+
+pub fn validate_image_file(image_path: &str) -> Result<()> {
+    use std::fs;
+    use std::io::Read;
+    use std::path::Path;
+
+    let path = Path::new(image_path);
+    if !path.exists() {
+        return Err(ErrorBuilder::new(ErrorCode::E600)
+            .with_context(image_path)
+            .build());
+    }
+
+    if !path.is_file() {
+        return Err(ErrorBuilder::new(ErrorCode::E104)
+            .with_context(format!("path is not a file: {image_path}"))
+            .build());
+    }
+
+    // Check if the file is readable
+    fs::File::open(path).map_err(|_| {
+        ErrorBuilder::new(ErrorCode::E104)
+            .with_context(image_path)
+            .build()
+    })?;
+
+    // Basic PNG file validation (check magic bytes)
+    let mut file = fs::File::open(path).unwrap();
+    let mut png_header = [0u8; 8];
+    if file.read_exact(&mut png_header).is_ok() {
+        let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        if png_header != png_signature {
+            return Err(ErrorBuilder::new(ErrorCode::E601)
+                .with_context(image_path)
+                .build());
+        }
+    } else {
+        return Err(ErrorBuilder::new(ErrorCode::E104)
+            .with_context(format!("unable to read PNG header: {image_path}"))
+            .build());
+    }
+
+    Ok(())
+}
+
+#[derive(Parser, Debug)]
+pub struct UploaderCLI {
+    #[command(flatten)]
+    pub common: CommonCLI,
+
+    #[arg(
+        short,
+        long,
+        env = "FM_INPUT_FILE",
+        help = "Path to Football Manager HTML export file",
+        long_help = "Path to the HTML file exported from Football Manager containing player data.
+The file should contain a table with player statistics.
+Example: /path/to/players_export.html
+Can also be set via FM_INPUT_FILE environment variable."
+    )]
+    pub input: Option<String>,
+}
+
+impl CommonCLIArgs for UploaderCLI {
+    fn get_common_args(&self) -> CommonArgs {
+        self.common.to_common_args()
+    }
+
+    fn validate_common(&self) -> Result<()> {
+        self.common.validate_common()
     }
 }
 
 #[derive(Parser, Debug)]
 pub struct SelectorCLI {
+    #[command(flatten)]
+    pub common: CommonCLI,
+
     #[arg(
         short,
         long,
@@ -156,76 +214,15 @@ Each role must be valid. Duplicate roles are allowed. Player filters restrict pl
 Can also be set via FM_ROLE_FILE environment variable."
     )]
     pub role_file: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        env = "FM_SPREADSHEET_ID",
-        help = "Google Sheets spreadsheet ID",
-        long_help = "The Google Sheets spreadsheet ID containing player data.
-Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
-Can also be set via FM_SPREADSHEET_ID environment variable."
-    )]
-    pub spreadsheet: Option<String>,
-
-    #[arg(
-        long,
-        env = "FM_CREDENTIALS_FILE",
-        help = "Path to Google API credentials JSON file",
-        long_help = "Path to the Google API service account credentials file.
-Download this from Google Cloud Console under APIs & Services > Credentials.
-Example: /path/to/service-account-key.json
-Can also be set via FM_CREDENTIALS_FILE environment variable."
-    )]
-    pub credfile: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        default_value = crate::constants::config::DEFAULT_CONFIG_FILE,
-        help = "Path to configuration file",
-        long_help = "Path to JSON configuration file containing default settings.
-If the file doesn't exist, default values will be used.
-Example config.json structure:
-{
-  \"google\": {
-    \"spreadsheet_id\": \"1BCD...xyz123\",
-    \"credentials_file\": \"creds.json\",
-    \"team_sheet\": \"Squad\",
-    \"token_file\": \"tokencache.json\"
-  },
-  \"input\": {
-    \"role_file\": \"roles.txt\"
-  }
-}"
-    )]
-    pub config: String,
-
-    #[arg(short, long, help = "Enable verbose logging for debugging")]
-    pub verbose: bool,
-
-    #[arg(
-        long,
-        help = "Disable progress bar (useful for scripting)",
-        long_help = "Disable the progress bar display. Useful when running in scripts 
-or CI/CD environments where progress bars may interfere with output parsing."
-    )]
-    pub no_progress: bool,
 }
 
 impl CommonCLIArgs for SelectorCLI {
     fn get_common_args(&self) -> CommonArgs {
-        CommonArgs::new(
-            self.config.clone(),
-            self.spreadsheet.clone(),
-            self.credfile.clone(),
-            self.verbose,
-            self.no_progress,
-        )
+        self.common.to_common_args()
     }
 
     fn validate_common(&self) -> Result<()> {
-        validate_config_file(&self.config)?;
+        self.common.validate_common()?;
 
         // Role file is required for team selection
         if self.role_file.is_none() {
@@ -240,6 +237,9 @@ impl CommonCLIArgs for SelectorCLI {
 
 #[derive(Parser, Debug)]
 pub struct ImageCLI {
+    #[command(flatten)]
+    pub common: CommonCLI,
+
     #[arg(
         short,
         long,
@@ -252,76 +252,15 @@ Example: /path/to/player_screenshot.png
 Can also be set via FM_IMAGE_FILE environment variable."
     )]
     pub image_file: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        env = "FM_SPREADSHEET_ID",
-        help = "Google Sheets spreadsheet ID (for future integration)",
-        long_help = "The Google Sheets spreadsheet ID for potential future integration.
-Example: 1BCD...xyz123 (the long ID from the spreadsheet URL)
-Can also be set via FM_SPREADSHEET_ID environment variable."
-    )]
-    pub spreadsheet: Option<String>,
-
-    #[arg(
-        long,
-        env = "FM_CREDENTIALS_FILE",
-        help = "Path to Google API credentials JSON file (for future integration)",
-        long_help = "Path to the Google API service account credentials file for future integration.
-Download this from Google Cloud Console under APIs & Services > Credentials.
-Example: /path/to/service-account-key.json
-Can also be set via FM_CREDENTIALS_FILE environment variable."
-    )]
-    pub credfile: Option<String>,
-
-    #[arg(
-        short,
-        long,
-        default_value = crate::constants::config::DEFAULT_CONFIG_FILE,
-        help = "Path to configuration file",
-        long_help = "Path to JSON configuration file containing default settings.
-If the file doesn't exist, default values will be used.
-Example config.json structure:
-{
-  \"google\": {
-    \"spreadsheet_id\": \"1BCD...xyz123\",
-    \"credentials_file\": \"creds.json\",
-    \"team_sheet\": \"Squad\",
-    \"token_file\": \"tokencache.json\"
-  },
-  \"input\": {
-    \"image_file\": \"player.png\"
-  }
-}"
-    )]
-    pub config: String,
-
-    #[arg(short, long, help = "Enable verbose logging for debugging")]
-    pub verbose: bool,
-
-    #[arg(
-        long,
-        help = "Disable progress bar (useful for scripting)",
-        long_help = "Disable the progress bar display. Useful when running in scripts 
-or CI/CD environments where progress bars may interfere with output parsing."
-    )]
-    pub no_progress: bool,
 }
 
 impl CommonCLIArgs for ImageCLI {
     fn get_common_args(&self) -> CommonArgs {
-        CommonArgs::new(
-            self.config.clone(),
-            self.spreadsheet.clone(),
-            self.credfile.clone(),
-            self.verbose,
-            self.no_progress,
-        )
+        self.common.to_common_args()
     }
 
     fn validate_common(&self) -> Result<()> {
-        validate_config_file(&self.config)?;
+        self.common.validate_common()?;
 
         // Image file is required for image processing
         if self.image_file.is_none() {
@@ -332,43 +271,7 @@ impl CommonCLIArgs for ImageCLI {
 
         // Validate that the image file exists and is readable
         if let Some(ref image_path) = self.image_file {
-            use std::fs;
-            use std::path::Path;
-
-            let path = Path::new(image_path);
-            if !path.exists() {
-                return Err(FMDataError::config(format!(
-                    "Image file does not exist: {image_path}"
-                )));
-            }
-
-            if !path.is_file() {
-                return Err(FMDataError::config(format!(
-                    "Image path is not a file: {image_path}"
-                )));
-            }
-
-            // Check if the file is readable
-            fs::File::open(path).map_err(|e| {
-                FMDataError::config(format!("Cannot read image file {image_path}: {e}"))
-            })?;
-
-            // Basic PNG file validation (check magic bytes)
-            let mut file = fs::File::open(path).unwrap();
-            let mut png_header = [0u8; 8];
-            use std::io::Read;
-            if file.read_exact(&mut png_header).is_ok() {
-                let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-                if png_header != png_signature {
-                    return Err(FMDataError::config(format!(
-                        "File is not a valid PNG image: {image_path}"
-                    )));
-                }
-            } else {
-                return Err(FMDataError::config(format!(
-                    "Unable to read PNG header from: {image_path}"
-                )));
-            }
+            validate_image_file(image_path)?;
         }
 
         Ok(())
@@ -404,11 +307,13 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_png.path().to_string_lossy().to_string()),
-            spreadsheet: Some("test_spreadsheet_id".to_string()),
-            credfile: Some("test_creds.json".to_string()),
-            config: "test_config.json".to_string(),
-            verbose: true,
-            no_progress: false,
+            common: CommonCLI {
+                spreadsheet: Some("test_spreadsheet_id".to_string()),
+                credfile: Some("test_creds.json".to_string()),
+                config: "test_config.json".to_string(),
+                verbose: true,
+                no_progress: false,
+            },
         };
 
         let common_args = cli.get_common_args();
@@ -426,11 +331,13 @@ mod tests {
     fn test_image_cli_validate_missing_image_file() {
         let cli = ImageCLI {
             image_file: None,
-            spreadsheet: None,
-            credfile: None,
-            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
-            verbose: false,
-            no_progress: false,
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
         };
 
         let result = cli.validate_common();
@@ -445,11 +352,13 @@ mod tests {
     fn test_image_cli_validate_nonexistent_image_file() {
         let cli = ImageCLI {
             image_file: Some("/nonexistent/path/image.png".to_string()),
-            spreadsheet: None,
-            credfile: None,
-            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
-            verbose: false,
-            no_progress: false,
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
         };
 
         let result = cli.validate_common();
@@ -457,7 +366,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("Image file does not exist"));
+            .contains("Image file not found"));
     }
 
     #[test]
@@ -468,11 +377,13 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_file.path().to_string_lossy().to_string()),
-            spreadsheet: None,
-            credfile: None,
-            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
-            verbose: false,
-            no_progress: false,
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
         };
 
         let result = cli.validate_common();
@@ -480,7 +391,7 @@ mod tests {
         assert!(result
             .unwrap_err()
             .to_string()
-            .contains("not a valid PNG image"));
+            .contains("Invalid image format"));
     }
 
     #[test]
@@ -489,11 +400,13 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_png.path().to_string_lossy().to_string()),
-            spreadsheet: None,
-            credfile: None,
-            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
-            verbose: false,
-            no_progress: false,
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
         };
 
         let result = cli.validate_common();
@@ -506,19 +419,18 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_dir.path().to_string_lossy().to_string()),
-            spreadsheet: None,
-            credfile: None,
-            config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
-            verbose: false,
-            no_progress: false,
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
         };
 
         let result = cli.validate_common();
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("Image path is not a file"));
+        assert!(result.unwrap_err().to_string().contains("Cannot read file"));
     }
 
     #[test]
@@ -536,19 +448,18 @@ mod tests {
 
             let cli = ImageCLI {
                 image_file: Some(temp_png.path().to_string_lossy().to_string()),
-                spreadsheet: None,
-                credfile: None,
-                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
-                verbose: false,
-                no_progress: false,
+                common: CommonCLI {
+                    spreadsheet: None,
+                    credfile: None,
+                    config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                    verbose: false,
+                    no_progress: false,
+                },
             };
 
             let result = cli.validate_common();
             assert!(result.is_err());
-            assert!(result
-                .unwrap_err()
-                .to_string()
-                .contains("Cannot read image file"));
+            assert!(result.unwrap_err().to_string().contains("Cannot read file"));
 
             // Restore permissions for cleanup
             let mut perms = temp_png.path().metadata().unwrap().permissions();

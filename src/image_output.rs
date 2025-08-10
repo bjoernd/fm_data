@@ -1,4 +1,8 @@
-use crate::image_data::{Footedness, ImagePlayer, PlayerType};
+use crate::attributes::{
+    GoalkeepingAttribute, MentalAttribute, PhysicalAttribute, TechnicalAttribute,
+};
+use crate::image_data::ImagePlayer;
+use crate::types::{Footedness, PlayerType};
 use log::debug;
 
 /// Format an ImagePlayer into tab-separated output with the exact attribute order
@@ -13,81 +17,332 @@ pub fn format_player_data(player: &ImagePlayer) -> String {
     output.push(player.age.to_string());
     output.push(format_footedness(&player.footedness));
 
-    // Technical attributes (in exact specification order)
-    output.push(player.get_attribute("technical_corners").to_string());
-    output.push(player.get_attribute("technical_crossing").to_string());
-    output.push(player.get_attribute("technical_dribbling").to_string());
-    output.push(player.get_attribute("technical_finishing").to_string());
-    output.push(player.get_attribute("technical_first_touch").to_string());
+    // Technical attributes (in exact specification order) - for field players only
+    // For goalkeepers, use backward compatibility with string lookups for technical attributes they might have
+    match player.player_type {
+        PlayerType::FieldPlayer => {
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Corners)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Crossing)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Dribbling)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Finishing)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::FirstTouch)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::FreeKickTaking)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Heading)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::LongShots)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::LongThrows)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Marking)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Passing)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::PenaltyTaking)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Tackling)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_technical(TechnicalAttribute::Technique)
+                    .to_string(),
+            );
+        }
+        PlayerType::Goalkeeper => {
+            // Goalkeepers may have some technical attributes set via the old API, use backward compatibility
+            output.push(player.get_attribute("technical_corners").to_string());
+            output.push(player.get_attribute("technical_crossing").to_string());
+            output.push(player.get_attribute("technical_dribbling").to_string());
+            output.push(player.get_attribute("technical_finishing").to_string());
+            output.push(player.get_attribute("technical_first_touch").to_string());
+            output.push(
+                player
+                    .get_attribute("technical_free_kick_taking")
+                    .to_string(),
+            );
+            output.push(player.get_attribute("technical_heading").to_string());
+            output.push(player.get_attribute("technical_long_shots").to_string());
+            output.push(player.get_attribute("technical_long_throws").to_string());
+            output.push(player.get_attribute("technical_marking").to_string());
+            output.push(player.get_attribute("technical_passing").to_string());
+            output.push(player.get_attribute("technical_penalty_taking").to_string());
+            output.push(player.get_attribute("technical_tackling").to_string());
+            output.push(player.get_attribute("technical_technique").to_string());
+        }
+    }
+
+    // Mental attributes (in exact specification order) - common to all players
     output.push(
         player
-            .get_attribute("technical_free_kick_taking")
+            .attributes
+            .get_mental(MentalAttribute::Aggression)
             .to_string(),
     );
-    output.push(player.get_attribute("technical_heading").to_string());
-    output.push(player.get_attribute("technical_long_shots").to_string());
-    output.push(player.get_attribute("technical_long_throws").to_string());
-    output.push(player.get_attribute("technical_marking").to_string());
-    output.push(player.get_attribute("technical_passing").to_string());
-    output.push(player.get_attribute("technical_penalty_taking").to_string());
-    output.push(player.get_attribute("technical_tackling").to_string());
-    output.push(player.get_attribute("technical_technique").to_string());
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Anticipation)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Bravery)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Composure)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Concentration)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Decisions)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Determination)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Flair)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Leadership)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::OffTheBall)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Positioning)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Teamwork)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::Vision)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_mental(MentalAttribute::WorkRate)
+            .to_string(),
+    );
 
-    // Mental attributes (in exact specification order)
-    output.push(player.get_attribute("mental_aggression").to_string());
-    output.push(player.get_attribute("mental_anticipation").to_string());
-    output.push(player.get_attribute("mental_bravery").to_string());
-    output.push(player.get_attribute("mental_composure").to_string());
-    output.push(player.get_attribute("mental_concentration").to_string());
-    output.push(player.get_attribute("mental_decisions").to_string());
-    output.push(player.get_attribute("mental_determination").to_string());
-    output.push(player.get_attribute("mental_flair").to_string());
-    output.push(player.get_attribute("mental_leadership").to_string());
-    output.push(player.get_attribute("mental_off_the_ball").to_string());
-    output.push(player.get_attribute("mental_positioning").to_string());
-    output.push(player.get_attribute("mental_teamwork").to_string());
-    output.push(player.get_attribute("mental_vision").to_string());
-    output.push(player.get_attribute("mental_work_rate").to_string());
-
-    // Physical attributes (in exact specification order)
-    output.push(player.get_attribute("physical_acceleration").to_string());
-    output.push(player.get_attribute("physical_agility").to_string());
-    output.push(player.get_attribute("physical_balance").to_string());
-    output.push(player.get_attribute("physical_jumping_reach").to_string());
-    output.push(player.get_attribute("physical_natural_fitness").to_string());
-    output.push(player.get_attribute("physical_pace").to_string());
-    output.push(player.get_attribute("physical_stamina").to_string());
-    output.push(player.get_attribute("physical_strength").to_string());
+    // Physical attributes (in exact specification order) - common to all players
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::Acceleration)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::Agility)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::Balance)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::JumpingReach)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::NaturalFitness)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::Pace)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::Stamina)
+            .to_string(),
+    );
+    output.push(
+        player
+            .attributes
+            .get_physical(PhysicalAttribute::Strength)
+            .to_string(),
+    );
 
     // Goalkeeping attributes (in exact specification order)
     // These will be 0 for field players, actual values for goalkeepers
-    output.push(player.get_attribute("goalkeeping_aerial_reach").to_string());
-    output.push(
-        player
-            .get_attribute("goalkeeping_command_of_area")
-            .to_string(),
-    );
-    output.push(
-        player
-            .get_attribute("goalkeeping_communication")
-            .to_string(),
-    );
-    output.push(player.get_attribute("goalkeeping_eccentricity").to_string());
-    output.push(player.get_attribute("goalkeeping_handling").to_string());
-    output.push(player.get_attribute("goalkeeping_kicking").to_string());
-    output.push(player.get_attribute("goalkeeping_one_on_ones").to_string());
-    output.push(
-        player
-            .get_attribute("goalkeeping_punching_tendency")
-            .to_string(),
-    );
-    output.push(player.get_attribute("goalkeeping_reflexes").to_string());
-    output.push(
-        player
-            .get_attribute("goalkeeping_rushing_out_tendency")
-            .to_string(),
-    );
-    output.push(player.get_attribute("goalkeeping_throwing").to_string());
+    match player.player_type {
+        PlayerType::Goalkeeper => {
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::AerialReach)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::CommandOfArea)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::Communication)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::Eccentricity)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::Handling)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::Kicking)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::OneOnOnes)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::PunchingTendency)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::Reflexes)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::RushingOutTendency)
+                    .to_string(),
+            );
+            output.push(
+                player
+                    .attributes
+                    .get_goalkeeping(GoalkeepingAttribute::Throwing)
+                    .to_string(),
+            );
+        }
+        PlayerType::FieldPlayer => {
+            // Field players don't have goalkeeping attributes, use 0s
+            for _ in 0..11 {
+                output.push("0".to_string());
+            }
+        }
+    }
 
     let result = output.join("\t");
     debug!("Formatted player data: {} fields", output.len());
@@ -121,8 +376,8 @@ pub fn format_player_data_verbose(player: &ImagePlayer) -> String {
     add_attribute_group(&mut output, player, "physical");
 
     // Only show goalkeeping attributes if player is a goalkeeper or has any GK attributes > 0
-    let has_gk_attrs = player
-        .attributes
+    let attr_hashmap = player.attributes.to_hashmap();
+    let has_gk_attrs = attr_hashmap
         .iter()
         .any(|(k, &v)| k.starts_with("goalkeeping_") && v > 0);
 
@@ -200,10 +455,11 @@ fn get_expected_attributes(category: &str) -> Vec<&'static str> {
 /// Add all attributes from a specific category to the output, including missing ones marked as 0
 fn add_attribute_group(output: &mut Vec<String>, player: &ImagePlayer, category: &str) {
     let expected_attributes = get_expected_attributes(category);
+    let attr_hashmap = player.attributes.to_hashmap();
 
     for attr_name in expected_attributes {
         let value = player.get_attribute(attr_name);
-        let is_missing = !player.attributes.contains_key(attr_name);
+        let is_missing = !attr_hashmap.contains_key(attr_name);
 
         let display_name = attr_name
             .strip_prefix(&format!("{category}_"))
@@ -249,7 +505,8 @@ fn format_footedness(footedness: &Footedness) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::image_data::{ImagePlayer, PlayerType};
+    use crate::image_data::ImagePlayer;
+    use crate::types::PlayerType;
 
     fn create_test_field_player() -> ImagePlayer {
         let mut player = ImagePlayer::new(

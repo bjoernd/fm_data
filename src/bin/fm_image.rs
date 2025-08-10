@@ -1,8 +1,9 @@
 use clap::Parser;
 use fm_data::error::{FMDataError, Result};
+use fm_data::error_messages::{ErrorBuilder, ErrorCode};
 use fm_data::{
-    extract_text_from_image, format_player_data, format_player_data_verbose, load_image,
-    parse_player_from_ocr, AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI,
+    format_player_data, format_player_data_verbose, load_image, parse_player_from_ocr,
+    AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, ImageCLI, ImageProcessor,
 };
 use log::{debug, info};
 
@@ -41,15 +42,15 @@ impl CLIArgumentValidator for CLIArguments {
     }
 
     fn is_verbose(&self) -> bool {
-        self.common.verbose
+        self.common.common.verbose
     }
 
     fn is_no_progress(&self) -> bool {
-        self.common.no_progress
+        self.common.common.no_progress
     }
 
     fn config_path(&self) -> &str {
-        &self.common.config
+        &self.common.common.config
     }
 }
 
@@ -82,12 +83,16 @@ async fn main() -> Result<()> {
     debug!("PNG image loaded successfully from: {}", image_file_path);
     info!("Image file validated: {}", image_file_path);
 
-    // Step 2: Extract text using OCR
+    // Step 2: Extract text using OCR with new ImageProcessor
     app_runner
         .progress()
         .update(30, 100, "Extracting text with OCR...");
 
-    let ocr_text = extract_text_from_image(image_file_path).map_err(|e| {
+    // Create ImageProcessor with default configuration for robust processing
+    let processor = ImageProcessor::with_defaults()
+        .map_err(|e| FMDataError::image(format!("Failed to initialize image processor: {e}")))?;
+
+    let ocr_text = processor.extract_text(image_file_path).map_err(|e| {
         FMDataError::image(format!(
             "OCR text extraction failed for '{image_file_path}': {e}"
         ))
@@ -97,7 +102,9 @@ async fn main() -> Result<()> {
     info!("OCR text extraction completed");
 
     if ocr_text.trim().is_empty() {
-        return Err(FMDataError::image("No text could be extracted from the image. Please ensure the screenshot contains clear, readable player attribute text.".to_string()));
+        return Err(ErrorBuilder::new(ErrorCode::E605)
+            .with_context("ensure screenshot contains clear, readable player attribute text")
+            .build());
     }
 
     // Step 3: Parse player data from OCR text (includes footedness detection)
@@ -113,7 +120,8 @@ async fn main() -> Result<()> {
         "Parsed player: {} (age: {}, type: {:?}, footedness: {:?})",
         player.name, player.age, player.player_type, player.footedness
     );
-    debug!("Player has {} attributes", player.attributes.len());
+    let attr_hashmap = player.attributes.to_hashmap();
+    debug!("Player has {} attributes", attr_hashmap.len());
 
     // Step 4: Format output data
     app_runner

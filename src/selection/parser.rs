@@ -1,6 +1,7 @@
 use super::types::{PlayerCategory, PlayerFilter, Role, RoleFileContent};
 use crate::error::{FMDataError, Result};
 use crate::error_helpers::{role_file_format_error, ErrorContext};
+use crate::error_messages::{ErrorBuilder, ErrorCode};
 use crate::validators::RoleValidator;
 use std::collections::HashSet;
 use tokio::fs;
@@ -66,11 +67,13 @@ fn parse_sectioned_role_file(lines: Vec<String>) -> Result<RoleFileContent> {
                 "[roles]" => current_section = Some("roles"),
                 "[filters]" => current_section = Some("filters"),
                 _ => {
-                    return Err(FMDataError::selection(format!(
-                        "Unknown section '{}' on line {}",
-                        line,
-                        line_num + 1
-                    )));
+                    return Err(ErrorBuilder::new(ErrorCode::E502)
+                        .with_context(format!(
+                            "unknown section '{}' on line {}",
+                            line,
+                            line_num + 1
+                        ))
+                        .build());
                 }
             }
         } else {
@@ -80,18 +83,22 @@ fn parse_sectioned_role_file(lines: Vec<String>) -> Result<RoleFileContent> {
                 Some("filters") => filters_lines.push(line.clone()),
                 Some(_) => {
                     // This shouldn't happen since we validate sections above
-                    return Err(FMDataError::selection(format!(
-                        "Unknown section state on line {}: {}",
-                        line_num + 1,
-                        line
-                    )));
+                    return Err(ErrorBuilder::new(ErrorCode::E502)
+                        .with_context(format!(
+                            "unknown section state on line {}: {}",
+                            line_num + 1,
+                            line
+                        ))
+                        .build());
                 }
                 None => {
-                    return Err(FMDataError::selection(format!(
-                        "Content found outside of section on line {}: {}",
-                        line_num + 1,
-                        line
-                    )));
+                    return Err(ErrorBuilder::new(ErrorCode::E502)
+                        .with_context(format!(
+                            "content outside section on line {}: {}",
+                            line_num + 1,
+                            line
+                        ))
+                        .build());
                 }
             }
         }

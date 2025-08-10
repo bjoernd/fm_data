@@ -19,28 +19,48 @@ path = "src/bin/fm_team_selector.rs"
 [[bin]]
 name = "fm_image"
 path = "src/bin/fm_image.rs"
+required-features = ["image-processing"]
 
 [dependencies]
+# Core dependencies
 anyhow = "1.0"
 thiserror = "1.0"
-clap = { version = "^4.5", features = ["derive", "env", "unicode", "wrap_help"] }
+clap = { version = "4.5", features = ["derive", "env", "unicode", "wrap_help"] }
 dirs = "5.0"
 env_logger = "0.10"
 log = "0.4"
 indicatif = "0.17"
 zeroize = "1.7"
 
+# Table extraction (used by fm_google_up)
 table-extract = "0.2.2"
-tokio = { version = "1", features = ["full"] }
 
-serde = { version = "^1.0", features = ["derive"] }
-serde_json = "^1.0"
-yup-oauth2 = "^11.0"
+# Optimized tokio features - only what we need
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "time"] }
 
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Google API dependencies
+yup-oauth2 = "11.0"
 sheets = "0.7.0"
-tesseract = "0.14"
-image = "0.25"
+
+# Image processing dependencies (optional for fm_image)
+tesseract = { version = "0.14", optional = true }
+image = { version = "0.25", optional = true }
+tempfile = "3.8"
 
 [dev-dependencies]
 tempfile = "3.8"
 tokio-test = "0.4"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = ["image-processing"]
+image-processing = ["dep:tesseract", "dep:image"]
+
+[[bench]]
+name = "attribute_processing"
+harness = false
+required-features = ["image-processing"]

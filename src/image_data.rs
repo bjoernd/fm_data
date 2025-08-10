@@ -1,21 +1,12 @@
+use crate::attributes::AttributeSet;
 use crate::error::FMDataError;
+use crate::image_constants::age_name;
 use crate::image_processor;
+use crate::layout_manager::{default_paths, LayoutManager};
+use crate::ocr_corrections::OCRCorrector;
+use crate::types::{Footedness, PlayerType};
 use anyhow::Result;
-use std::collections::HashMap;
 use std::path::Path;
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum PlayerType {
-    Goalkeeper,
-    FieldPlayer,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Footedness {
-    LeftFooted,
-    RightFooted,
-    BothFooted,
-}
 
 #[derive(Debug, Clone)]
 pub struct ImagePlayer {
@@ -23,7 +14,7 @@ pub struct ImagePlayer {
     pub age: u8,
     pub player_type: PlayerType,
     pub footedness: Footedness,
-    pub attributes: HashMap<String, u8>,
+    pub attributes: AttributeSet,
 }
 
 impl ImagePlayer {
@@ -31,18 +22,22 @@ impl ImagePlayer {
         Self {
             name,
             age,
-            player_type,
+            player_type: player_type.clone(),
             footedness,
-            attributes: HashMap::new(),
+            attributes: AttributeSet::new(player_type),
         }
     }
 
     pub fn add_attribute(&mut self, name: String, value: u8) {
-        self.attributes.insert(name, value);
+        // For backward compatibility, convert to HashMap and set
+        let mut hashmap = self.attributes.to_hashmap();
+        hashmap.insert(name, value);
+        self.attributes = AttributeSet::from_hashmap(&hashmap, self.player_type.clone());
     }
 
     pub fn get_attribute(&self, name: &str) -> u8 {
-        self.attributes.get(name).copied().unwrap_or(0)
+        let hashmap = self.attributes.to_hashmap();
+        hashmap.get(name).copied().unwrap_or(0)
     }
 }
 
@@ -53,21 +48,23 @@ pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> R
     let age = extract_player_age(ocr_text)?;
     let player_type = detect_player_type(ocr_text);
 
-    // Detect footedness from image
-    let footedness = image_processor::detect_footedness(&image_path).unwrap_or_else(|e| {
-        log::warn!(
-            "Failed to detect footedness from image: {}. Defaulting to BothFooted",
-            e
-        );
-        Footedness::BothFooted
-    });
+    // Detect footedness from image (using optional detection with built-in fallback)
+    let footedness = image_processor::detect_footedness_optional(&image_path)?;
 
     let mut player = ImagePlayer::new(name, age, player_type, footedness);
 
-    parse_attributes(&mut player, ocr_text)?;
+    // Load layout manager with fallback to embedded layouts
+    let layout_manager = LayoutManager::from_files_with_fallback(
+        default_paths::FIELD_LAYOUT_FILE,
+        default_paths::GOALKEEPER_LAYOUT_FILE,
+    )
+    .map_err(|e| FMDataError::image(format!("Failed to load layouts: {e}")))?;
 
-    log::debug!("Player has {} total attributes", player.attributes.len());
-    for (attr_name, value) in &player.attributes {
+    parse_attributes(&mut player, ocr_text, &layout_manager)?;
+
+    let attr_hashmap = player.attributes.to_hashmap();
+    log::debug!("Player has {} total attributes", attr_hashmap.len());
+    for (attr_name, value) in &attr_hashmap {
         log::debug!("Final attribute: {} = {}", attr_name, value);
     }
 
@@ -105,7 +102,8 @@ fn extract_player_name(ocr_text: &str) -> Result<String> {
                     break; // Stop when we hit the age number
                 }
                 if part.chars().next().is_some_and(|c| c.is_uppercase())
-                    && part.chars().filter(|c| c.is_alphabetic()).count() > part.len() / 2
+                    && part.chars().filter(|c| c.is_alphabetic()).count()
+                        > part.len() / age_name::MIN_ALPHABETIC_FRACTION
                 {
                     name_parts.push(part);
                 }
@@ -113,7 +111,7 @@ fn extract_player_name(ocr_text: &str) -> Result<String> {
 
             if !name_parts.is_empty() {
                 let name = name_parts.join(" ");
-                if name.len() > 2 {
+                if name.len() > age_name::MIN_NAME_LENGTH {
                     log::debug!(
                         "Found name from 'years old' pattern: '{}' in line: '{}'",
                         name,
@@ -145,7 +143,7 @@ fn extract_name_from_text(text: &str) -> Option<String> {
                     .chars()
                     .skip_while(|c| !c.is_alphabetic())
                     .collect::<String>();
-                if cleaned.len() >= 2 {
+                if cleaned.len() >= age_name::MIN_CLEANED_NAME_LENGTH {
                     cleaned
                 } else {
                     word.to_string()
@@ -178,13 +176,13 @@ fn extract_name_from_text(text: &str) -> Option<String> {
         }
 
         // Check if this looks like a name word
-        let is_mostly_letters =
-            word_to_check.chars().filter(|c| c.is_alphabetic()).count() > word_to_check.len() / 2;
+        let is_mostly_letters = word_to_check.chars().filter(|c| c.is_alphabetic()).count()
+            > word_to_check.len() / age_name::MIN_ALPHABETIC_FRACTION;
         let starts_with_capital = word_to_check
             .chars()
             .next()
             .is_some_and(|c| c.is_uppercase());
-        let is_connector_word = word_to_check.len() <= 3
+        let is_connector_word = word_to_check.len() <= age_name::MAX_CONNECTOR_WORD_LENGTH
             && (word_to_check == "van"
                 || word_to_check == "de"
                 || word_to_check == "la"
@@ -203,7 +201,10 @@ fn extract_name_from_text(text: &str) -> Option<String> {
         }
     }
 
-    if name_words.len() >= 2 && name_words.len() <= 4 && found_capital {
+    if name_words.len() >= age_name::MIN_NAME_WORDS
+        && name_words.len() <= age_name::MAX_NAME_WORDS
+        && found_capital
+    {
         // Reasonable name length (first + last, or first + middle + last) and at least one capital
         Some(name_words.join(" "))
     } else {
@@ -236,7 +237,7 @@ fn extract_age_from_years_old_pattern(text: &str) -> Option<u8> {
         // Check for "X years old" or "X year old" patterns
         if (words[i + 1] == "year" || words[i + 1] == "years") && words[i + 2] == "old" {
             if let Ok(age) = words[i].parse::<u8>() {
-                if (15..=45).contains(&age) {
+                if (age_name::MIN_PLAYER_AGE..=age_name::MAX_PLAYER_AGE).contains(&age) {
                     return Some(age);
                 }
             }
@@ -254,68 +255,30 @@ fn detect_player_type(ocr_text: &str) -> PlayerType {
     }
 }
 
-fn parse_attributes(player: &mut ImagePlayer, ocr_text: &str) -> Result<()> {
+fn parse_attributes(
+    player: &mut ImagePlayer,
+    ocr_text: &str,
+    layout_manager: &LayoutManager,
+) -> Result<()> {
     let lines: Vec<&str> = ocr_text.lines().collect();
 
-    // Use structured parsing based on player type
-    match player.player_type {
-        PlayerType::Goalkeeper => parse_goalkeeper_attributes(player, &lines)?,
-        PlayerType::FieldPlayer => parse_field_player_attributes(player, &lines)?,
-    }
+    // Use structured parsing with dynamic layout
+    let layout = layout_manager.get_layout(&player.player_type);
+    let first_section_name = layout_manager.get_first_section_name(&player.player_type);
 
-    log::debug!("Parsed {} total attributes", player.attributes.len());
+    parse_structured_attributes(player, &lines, layout, first_section_name)?;
+
+    let attr_hashmap = player.attributes.to_hashmap();
+    log::debug!("Parsed {} total attributes", attr_hashmap.len());
     Ok(())
 }
 
-// Structured layouts for different player types
-static FIELD_PLAYER_LAYOUT: &[&[&str]] = &[
-    &["TECHNICAL", "MENTAL", "PHYSICAL"],
-    &["Corners", "Aggression", "Acceleration"],
-    &["Crossing", "Anticipation", "Agility"],
-    &["Dribbling", "Bravery", "Balance"],
-    &["Finishing", "Composure", "Jumping Reach"],
-    &["First Touch", "Concentration", "Natural Fitness"],
-    &["Free Kick Taking", "Decisions", "Pace"],
-    &["Heading", "Determination", "Stamina"],
-    &["Long Shots", "Flair", "Strength"],
-    &["Long Throws", "Leadership"],
-    &["Marking", "Off the Ball"],
-    &["Passing", "Positioning"],
-    &["Penalty Taking", "Teamwork"],
-    &["Tackling", "Vision"],
-    &["Technique", "Work Rate"],
-];
-
-static GOALKEEPER_LAYOUT: &[&[&str]] = &[
-    &["GOALKEEPING", "MENTAL", "PHYSICAL"],
-    &["Aerial Reach", "Aggression", "Acceleration"],
-    &["Command Of Area", "Anticipation", "Agility"],
-    &["Communication", "Bravery", "Balance"],
-    &["Eccentricity", "Composure", "Jumping Reach"],
-    &["First Touch", "Concentration", "Natural Fitness"],
-    &["Handling", "Decisions", "Pace"],
-    &["Kicking", "Determination", "Stamina"],
-    &["One On Ones", "Flair", "Strength"],
-    &["Passing", "Leadership"],
-    &["Punching (Tendency)", "Off the Ball"],
-    &["Reflexes", "Positioning"],
-    &["Rushing Out (Tendency)", "Teamwork"],
-    &["Throwing", "Vision"],
-    &["", "Work Rate"],
-];
-
-fn parse_field_player_attributes(player: &mut ImagePlayer, lines: &[&str]) -> Result<()> {
-    parse_structured_attributes(player, lines, FIELD_PLAYER_LAYOUT, "TECHNICAL")
-}
-
-fn parse_goalkeeper_attributes(player: &mut ImagePlayer, lines: &[&str]) -> Result<()> {
-    parse_structured_attributes(player, lines, GOALKEEPER_LAYOUT, "GOALKEEPING")
-}
+// Structured layouts are now loaded dynamically via LayoutManager
 
 fn parse_structured_attributes(
     player: &mut ImagePlayer,
     lines: &[&str],
-    layout: &[&[&str]],
+    layout: &[Vec<String>],
     first_section_name: &str,
 ) -> Result<()> {
     // Find the start of attribute section by looking for the header line
@@ -335,6 +298,9 @@ fn parse_structured_attributes(
 
     log::debug!("Found attribute section starting at line {}", start_idx);
 
+    // Create OCR corrector for handling attribute name and value corrections
+    let corrector = OCRCorrector::new();
+
     // Instead of rigid line-by-line parsing, search through all relevant lines for each attribute
     let search_lines = &lines[start_idx..];
 
@@ -346,7 +312,7 @@ fn parse_structured_attributes(
             expected_attrs
         );
 
-        for &attr_name in expected_attrs.iter() {
+        for attr_name in expected_attrs.iter() {
             if attr_name.is_empty() {
                 continue;
             }
@@ -359,7 +325,7 @@ fn parse_structured_attributes(
                     continue;
                 }
 
-                if let Some(value) = find_attribute_value_in_line(line, attr_name) {
+                if let Some(value) = find_attribute_value_in_line(line, attr_name, &corrector) {
                     // Determine the correct section prefix for this attribute
                     let section_prefix = get_correct_section_prefix(attr_name, &player.player_type);
                     let full_attr_name = format!(
@@ -395,153 +361,36 @@ fn parse_structured_attributes(
     Ok(())
 }
 
-fn find_attribute_value_in_line(line: &str, attr_name: &str) -> Option<u8> {
-    // Look for the attribute name in the line, case-insensitive
-    let line_lower = line.to_lowercase();
-    let attr_lower = attr_name.to_lowercase();
-
-    // First try exact match
-    if let Some(attr_pos) = line_lower.find(&attr_lower) {
-        return extract_value_after_position(line, attr_pos, attr_name.len(), attr_name);
+fn find_attribute_value_in_line(
+    line: &str,
+    attr_name: &str,
+    corrector: &OCRCorrector,
+) -> Option<u8> {
+    // Use OCR corrector to find attribute name (handles OCR errors)
+    if let Some(attr_pos) = corrector.find_corrected_attribute_in_line(line, attr_name) {
+        return extract_value_after_position(line, attr_pos, attr_name, corrector);
     }
-
-    // Handle common OCR attribute name typos
-    let corrected_patterns = match attr_name {
-        "Rushing Out (Tendency)" => vec!["rushing out (tendeney)"],
-        "Punching (Tendency)" => vec!["punching (tendeney)"],
-        "Agility" => vec!["agtity", "agtlty"],
-        "Dribbling" => vec!["dribbting"],
-        "Off the Ball" => vec!["offthe ball", "offtheball"],
-        "Tackling" => vec!["tackting"],
-        "Positioning" => vec!["postioning", "posttioning"],
-        _ => vec![],
-    };
-
-    for pattern in corrected_patterns {
-        if let Some(attr_pos) = line_lower.find(pattern) {
-            log::debug!(
-                "Found OCR attribute name correction: '{}' -> '{}'",
-                pattern,
-                attr_name
-            );
-            return extract_value_after_position(line, attr_pos, pattern.len(), attr_name);
-        }
-    }
-
     None
 }
 
 fn extract_value_after_position(
     line: &str,
     attr_pos: usize,
-    attr_len: usize,
     attr_name: &str,
+    corrector: &OCRCorrector,
 ) -> Option<u8> {
-    // Get the text after the attribute name
-    let after_attr = &line[attr_pos + attr_len..];
-    let words: Vec<&str> = after_attr.split_whitespace().collect();
+    // Get all words starting from the found position
+    let line_after_pos = &line[attr_pos..];
+    let words: Vec<&str> = line_after_pos.split_whitespace().collect();
 
-    // Look for the first valid number after the attribute name
-    for word in words {
-        // Try to extract and validate attribute value
-        if let Some(validated_value) = extract_and_validate_attribute_value(word, attr_name) {
+    // Skip the first word (attribute name) and look for values
+    for word in words.iter().skip(1) {
+        // Use OCR corrector for value validation and correction
+        if let Some(validated_value) = corrector.correct_attribute_value(word, attr_name) {
             return Some(validated_value);
         }
     }
     None
-}
-
-/// Extract and validate attribute values, ensuring they fall within the valid 1-20 range.
-/// Handles OCR errors and provides corrections when possible.
-fn extract_and_validate_attribute_value(word: &str, attr_name: &str) -> Option<u8> {
-    // Handle specific OCR corrections first before normal parsing
-    if word == "40" {
-        log::debug!("Found {} = {} (OCR garbled '40' -> 10)", attr_name, 10);
-        return Some(10);
-    }
-
-    // Then try direct parsing
-    if let Ok(num) = word.parse::<u8>() {
-        if (1..=20).contains(&num) {
-            log::debug!("Found {} = {} (valid range)", attr_name, num);
-            return Some(num);
-        } else {
-            log::warn!(
-                "Found {} = {} (out of valid range 1-20, ignoring)",
-                attr_name,
-                num
-            );
-            return None;
-        }
-    }
-
-    // Handle common OCR garbled patterns
-    let corrected_value = match word {
-        // Common OCR misreads for specific numbers
-        "n" | "ll" => Some((11, "OCR garbled 'n'/'ll' -> 11")),
-        "rn" => Some((12, "OCR garbled 'rn' -> 12")),
-        "rn)" => Some((12, "OCR garbled 'rn)' -> 12")),
-        "n)" => Some((11, "OCR garbled 'n)' -> 11")),
-        "rl" => Some((12, "OCR garbled 'rl' -> 12")),
-        "rT" => Some((11, "OCR garbled 'rT' -> 11")),
-        "ri" => Some((11, "OCR garbled 'ri' -> 11")),
-        "nn" => Some((11, "OCR garbled 'nn' -> 11")),
-        "l" => Some((1, "OCR garbled 'l' -> 1")),
-        "I" => Some((1, "OCR garbled 'I' -> 1")),
-        "TT" => Some((11, "OCR garbled 'nn' -> 11")),
-        "T" => Some((7, "OCR garbled 'T' -> 7")),
-        "S" => Some((7, "OCR garbled 'S' -> 8")),
-        "a" => Some((9, "OCR garbled 'Oo' -> 9")),
-        "Oo" => Some((9, "OCR garbled 'Oo' -> 9")),
-        "O" => Some((0, "OCR garbled 'O' -> invalid, ignoring")),
-        "o" => Some((0, "OCR garbled 'o' -> invalid, ignoring")),
-        _ => None,
-    };
-
-    if let Some((value, explanation)) = corrected_value {
-        if (1..=20).contains(&value) {
-            log::debug!("Found {} = {} ({})", attr_name, value, explanation);
-            Some(value)
-        } else {
-            log::warn!(
-                "Found {} = {} ({}, out of valid range 1-20, ignoring)",
-                attr_name,
-                value,
-                explanation
-            );
-            None
-        }
-    } else {
-        // Try to handle partial OCR corruption - look for digits within the word
-        let digits: String = word.chars().filter(|c| c.is_ascii_digit()).collect();
-        if !digits.is_empty() {
-            if let Ok(num) = digits.parse::<u8>() {
-                if (1..=20).contains(&num) {
-                    log::debug!(
-                        "Found {} = {} (extracted digits from '{}')",
-                        attr_name,
-                        num,
-                        word
-                    );
-                    return Some(num);
-                } else {
-                    log::warn!(
-                        "Found {} = {} (extracted from '{}', out of valid range 1-20, ignoring)",
-                        attr_name,
-                        num,
-                        word
-                    );
-                }
-            }
-        }
-
-        log::debug!(
-            "Could not extract valid attribute value from '{}' for {}",
-            word,
-            attr_name
-        );
-        None
-    }
 }
 
 fn get_correct_section_prefix(attr_name: &str, player_type: &PlayerType) -> &'static str {
@@ -589,11 +438,11 @@ fn get_correct_section_prefix(attr_name: &str, player_type: &PlayerType) -> &'st
 fn validate_required_attributes(player: &ImagePlayer) -> Result<()> {
     match player.player_type {
         PlayerType::Goalkeeper => {
-            // Goalkeepers should have goalkeeping attributes
-            if !player
-                .attributes
-                .keys()
-                .any(|k| k.starts_with("goalkeeping_"))
+            // Goalkeepers should have non-zero goalkeeping attributes
+            let attr_hashmap = player.attributes.to_hashmap();
+            if !attr_hashmap
+                .iter()
+                .any(|(k, &v)| k.starts_with("goalkeeping_") && v > 0)
             {
                 return Err(FMDataError::image(
                     "Goalkeeper missing required GOALKEEPING attributes",
@@ -602,13 +451,17 @@ fn validate_required_attributes(player: &ImagePlayer) -> Result<()> {
             }
         }
         PlayerType::FieldPlayer => {
-            // Field players should have technical, mental, and physical attributes
-            let has_technical = player
-                .attributes
-                .keys()
-                .any(|k| k.starts_with("technical_"));
-            let has_mental = player.attributes.keys().any(|k| k.starts_with("mental_"));
-            let has_physical = player.attributes.keys().any(|k| k.starts_with("physical_"));
+            // Field players should have non-zero technical, mental, and physical attributes
+            let attr_hashmap = player.attributes.to_hashmap();
+            let has_technical = attr_hashmap
+                .iter()
+                .any(|(k, &v)| k.starts_with("technical_") && v > 0);
+            let has_mental = attr_hashmap
+                .iter()
+                .any(|(k, &v)| k.starts_with("mental_") && v > 0);
+            let has_physical = attr_hashmap
+                .iter()
+                .any(|(k, &v)| k.starts_with("physical_") && v > 0);
 
             if !has_technical || !has_mental || !has_physical {
                 return Err(
@@ -638,7 +491,8 @@ mod tests {
         assert_eq!(player.age, 32);
         assert_eq!(player.player_type, PlayerType::FieldPlayer);
         assert_eq!(player.footedness, Footedness::LeftFooted);
-        assert!(player.attributes.is_empty());
+        let attr_hashmap = player.attributes.to_non_zero_hashmap();
+        assert!(attr_hashmap.is_empty());
     }
 
     #[test]
@@ -777,120 +631,53 @@ mod tests {
         assert!(validate_required_attributes(&player).is_err());
     }
 
-    #[test]
-    fn test_extract_and_validate_attribute_value_valid_range() {
-        assert_eq!(extract_and_validate_attribute_value("1", "Test"), Some(1));
-        assert_eq!(extract_and_validate_attribute_value("10", "Test"), Some(10));
-        assert_eq!(extract_and_validate_attribute_value("20", "Test"), Some(20));
-        assert_eq!(extract_and_validate_attribute_value("15", "Test"), Some(15));
-    }
-
-    #[test]
-    fn test_extract_and_validate_attribute_value_invalid_range() {
-        assert_eq!(extract_and_validate_attribute_value("0", "Test"), None);
-        assert_eq!(extract_and_validate_attribute_value("21", "Test"), None);
-        assert_eq!(extract_and_validate_attribute_value("100", "Test"), None);
-        assert_eq!(extract_and_validate_attribute_value("255", "Test"), None);
-    }
-
-    #[test]
-    fn test_extract_and_validate_attribute_value_ocr_corrections() {
-        // Common OCR garbled patterns
-        assert_eq!(extract_and_validate_attribute_value("n", "Test"), Some(11));
-        assert_eq!(extract_and_validate_attribute_value("ll", "Test"), Some(11));
-        assert_eq!(extract_and_validate_attribute_value("rn", "Test"), Some(12));
-        assert_eq!(
-            extract_and_validate_attribute_value("rn)", "Test"),
-            Some(12)
-        );
-        assert_eq!(extract_and_validate_attribute_value("n)", "Test"), Some(11));
-        assert_eq!(extract_and_validate_attribute_value("rl", "Test"), Some(12));
-        assert_eq!(extract_and_validate_attribute_value("ri", "Test"), Some(11));
-        assert_eq!(extract_and_validate_attribute_value("nn", "Test"), Some(11));
-        assert_eq!(extract_and_validate_attribute_value("l", "Test"), Some(1));
-        assert_eq!(extract_and_validate_attribute_value("I", "Test"), Some(1));
-        assert_eq!(extract_and_validate_attribute_value("T", "Test"), Some(7));
-        assert_eq!(extract_and_validate_attribute_value("Oo", "Test"), Some(9));
-        assert_eq!(extract_and_validate_attribute_value("40", "Test"), Some(10));
-    }
-
-    #[test]
-    fn test_extract_and_validate_attribute_value_ocr_invalid() {
-        // OCR patterns that map to invalid values should be rejected
-        assert_eq!(extract_and_validate_attribute_value("O", "Test"), None);
-        assert_eq!(extract_and_validate_attribute_value("o", "Test"), None);
-    }
-
-    #[test]
-    fn test_extract_and_validate_attribute_value_digit_extraction() {
-        // Extract digits from corrupted words
-        assert_eq!(
-            extract_and_validate_attribute_value("15x", "Test"),
-            Some(15)
-        );
-        assert_eq!(
-            extract_and_validate_attribute_value("abc8def", "Test"),
-            Some(8)
-        );
-        assert_eq!(
-            extract_and_validate_attribute_value("~12!", "Test"),
-            Some(12)
-        );
-        assert_eq!(extract_and_validate_attribute_value("(5)", "Test"), Some(5));
-    }
-
-    #[test]
-    fn test_extract_and_validate_attribute_value_invalid_extractions() {
-        // Invalid digit extractions
-        assert_eq!(extract_and_validate_attribute_value("25x", "Test"), None); // Out of range
-        assert_eq!(extract_and_validate_attribute_value("abc", "Test"), None); // No digits
-        assert_eq!(extract_and_validate_attribute_value("", "Test"), None); // Empty
-        assert_eq!(extract_and_validate_attribute_value("xyz", "Test"), None); // No digits
-    }
+    // OCR correction tests have been moved to the ocr_corrections module
 
     #[test]
     fn test_find_attribute_value_in_line_with_validation() {
+        let corrector = OCRCorrector::new();
+
         // Valid cases
         assert_eq!(
-            find_attribute_value_in_line("Crossing 15 Mental", "Crossing"),
+            find_attribute_value_in_line("Crossing 15 Mental", "Crossing", &corrector),
             Some(15)
         );
         assert_eq!(
-            find_attribute_value_in_line("Pace 8 Strength", "Pace"),
+            find_attribute_value_in_line("Pace 8 Strength", "Pace", &corrector),
             Some(8)
         );
         assert_eq!(
-            find_attribute_value_in_line("Corners rn Aggression", "Corners"),
+            find_attribute_value_in_line("Corners rn Aggression", "Corners", &corrector),
             Some(12)
         ); // OCR correction
 
         // Invalid range cases
         assert_eq!(
-            find_attribute_value_in_line("Crossing 0 Mental", "Crossing"),
+            find_attribute_value_in_line("Crossing 0 Mental", "Crossing", &corrector),
             None
         );
         assert_eq!(
-            find_attribute_value_in_line("Pace 25 Strength", "Pace"),
+            find_attribute_value_in_line("Pace 25 Strength", "Pace", &corrector),
             None
         );
         assert_eq!(
-            find_attribute_value_in_line("Speed 100 Power", "Speed"),
+            find_attribute_value_in_line("Speed 100 Power", "Speed", &corrector),
             None
         );
 
         // OCR corrections
         assert_eq!(
-            find_attribute_value_in_line("Finishing n Defense", "Finishing"),
+            find_attribute_value_in_line("Finishing n Defense", "Finishing", &corrector),
             Some(11)
         );
         assert_eq!(
-            find_attribute_value_in_line("Tackling ll Vision", "Tackling"),
+            find_attribute_value_in_line("Tackling ll Vision", "Tackling", &corrector),
             Some(11)
         );
 
         // Digit extraction from corrupted text
         assert_eq!(
-            find_attribute_value_in_line("Dribbling 7x Composure", "Dribbling"),
+            find_attribute_value_in_line("Dribbling 7x Composure", "Dribbling", &corrector),
             Some(7)
         );
 
@@ -898,39 +685,41 @@ mod tests {
         assert_eq!(
             find_attribute_value_in_line(
                 "Rushing Out (Tendeney) 10 Teamwork",
-                "Rushing Out (Tendency)"
+                "Rushing Out (Tendency)",
+                &corrector
             ),
             Some(10)
         );
         assert_eq!(
             find_attribute_value_in_line(
                 "Punching (Tendeney) 15 Off the Ball",
-                "Punching (Tendency)"
+                "Punching (Tendency)",
+                &corrector
             ),
             Some(15)
         );
 
         // Combined attribute name + value OCR corrections
         assert_eq!(
-            find_attribute_value_in_line("Agtity n Balance", "Agility"),
+            find_attribute_value_in_line("Agtity n Balance", "Agility", &corrector),
             Some(11)
         );
 
         // Value OCR corrections
         assert_eq!(
-            find_attribute_value_in_line("Leadership T Off the Ball", "Leadership"),
+            find_attribute_value_in_line("Leadership T Off the Ball", "Leadership", &corrector),
             Some(7)
         );
 
         // Attribute name spacing corrections
         assert_eq!(
-            find_attribute_value_in_line("OffThe Ball 15 Positioning", "Off the Ball"),
+            find_attribute_value_in_line("OffThe Ball 15 Positioning", "Off the Ball", &corrector),
             Some(15)
         );
 
         // Combined attribute name typo + value OCR corrections
         assert_eq!(
-            find_attribute_value_in_line("Postioning Oo Teamwork", "Positioning"),
+            find_attribute_value_in_line("Postioning Oo Teamwork", "Positioning", &corrector),
             Some(9)
         );
     }

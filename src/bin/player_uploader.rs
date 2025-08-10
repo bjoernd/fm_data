@@ -36,15 +36,15 @@ impl CLIArgumentValidator for CLIArguments {
     }
 
     fn is_verbose(&self) -> bool {
-        self.common.verbose
+        self.common.common.verbose
     }
 
     fn is_no_progress(&self) -> bool {
-        self.common.no_progress
+        self.common.common.no_progress
     }
 
     fn config_path(&self) -> &str {
-        &self.common.config
+        &self.common.common.config
     }
 }
 
@@ -60,8 +60,8 @@ async fn main() -> Result<()> {
     // Setup for player uploader and get resolved paths
     let (_spreadsheet_id, _credfile_path, input_path) = app_runner
         .setup_for_player_uploader(
-            cli.common.spreadsheet,
-            cli.common.credfile,
+            cli.common.common.spreadsheet,
+            cli.common.common.credfile,
             cli.common.input,
         )
         .await?;

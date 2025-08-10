@@ -1,33 +1,57 @@
 pub mod app_builder;
 pub mod app_runner;
+pub mod attributes;
 pub mod auth;
 pub mod cli;
 pub mod config;
 pub mod constants;
 pub mod error;
 pub mod error_helpers;
+pub mod error_messages;
+#[cfg(feature = "image-processing")]
+pub mod image_constants;
+#[cfg(feature = "image-processing")]
 pub mod image_data;
+#[cfg(feature = "image-processing")]
 pub mod image_output;
+#[cfg(feature = "image-processing")]
 pub mod image_processor;
+#[cfg(feature = "image-processing")]
+pub mod layout_manager;
+#[cfg(feature = "image-processing")]
+pub mod ocr_corrections;
 pub mod progress;
 pub mod selection;
 pub mod sheets_client;
 pub mod table;
 pub mod test_helpers;
+pub mod types;
 pub mod validation;
 pub mod validators;
 
 pub use app_builder::AppRunnerBuilder;
 pub use app_runner::{AppRunner, CLIArgumentValidator};
+pub use attributes::{
+    AttributeSet, GoalkeepingAttribute, MentalAttribute, PhysicalAttribute, TechnicalAttribute,
+};
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use cli::{CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, UploaderCLI};
 pub use config::Config;
 pub use error::{FMDataError, Result};
-pub use image_data::{
-    parse_player_from_ocr, Footedness as ImageFootedness, ImagePlayer, PlayerType,
-};
+pub use error_messages::{ErrorBuilder, ErrorCode};
+#[cfg(feature = "image-processing")]
+pub use image_data::{parse_player_from_ocr, ImagePlayer};
+#[cfg(feature = "image-processing")]
 pub use image_output::{format_player_data, format_player_data_verbose};
-pub use image_processor::{extract_text_from_image, load_image, preprocess_image};
+#[cfg(feature = "image-processing")]
+pub use image_processor::{
+    detect_footedness_optional, extract_text_from_image, load_image, preprocess_image,
+    ImageProcessor, ProcessingConfig,
+};
+#[cfg(feature = "image-processing")]
+pub use layout_manager::{default_paths, LayoutManager};
+#[cfg(feature = "image-processing")]
+pub use ocr_corrections::OCRCorrector;
 pub use progress::{
     create_progress_reporter, NoOpProgress, NoOpProgressReporter, ProgressCallback,
     ProgressReporter, ProgressTracker,
@@ -39,6 +63,7 @@ pub use selection::{
 };
 pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
+pub use types::{Footedness as TypesFootedness, PlayerType};
 pub use validation::Validator;
 pub use validators::{
     AuthValidator, ConfigValidator, DataValidator, FileValidator, PlayerValidator, RoleValidator,
