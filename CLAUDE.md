@@ -117,7 +117,7 @@ The codebase is organized into a library (`src/lib.rs`) with separate modules fo
 - **Image Processor**: `src/bin/fm_image.rs` - Extracts player data from PNG screenshots using OCR
 - **Library**: `src/lib.rs` - Core functionality exposed as reusable modules
 - **Integration Tests**: `tests/integration_tests.rs` - End-to-end testing with mock data
-- **Layout Files**: `layout-field.txt` and `layout-gk.txt` - Define structured attribute layouts for parsing
+- **Layout Files**: `layout-specs/layout-field.txt` and `layout-specs/layout-gk.txt` - Define structured attribute layouts for parsing
 
 ### Key Dependencies
 
@@ -508,7 +508,7 @@ The image processor uses **structured layout-based parsing** to extract data rel
 
 The tool uses hardcoded layouts that match the fixed structure of FM screenshots:
 
-- **Layout files**: `layout-field.txt` and `layout-gk.txt` define expected attribute positions
+- **Layout files**: `layout-specs/layout-field.txt` and `layout-specs/layout-gk.txt` define expected attribute positions
 - **Position-based extraction**: Numbers are matched to attributes by their column position
 - **Advanced OCR correction**: Comprehensive handling of attribute name typos and value misreads
 - **Reliability**: Eliminates guesswork by leveraging known FM attribute layout

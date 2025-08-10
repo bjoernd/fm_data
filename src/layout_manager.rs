@@ -282,8 +282,8 @@ impl LayoutManager {
 
 /// Default file paths for layouts relative to the project root
 pub mod default_paths {
-    pub const FIELD_LAYOUT_FILE: &str = "layout-field.txt";
-    pub const GOALKEEPER_LAYOUT_FILE: &str = "layout-gk.txt";
+    pub const FIELD_LAYOUT_FILE: &str = "layout-specs/layout-field.txt";
+    pub const GOALKEEPER_LAYOUT_FILE: &str = "layout-specs/layout-gk.txt";
 }
 
 #[cfg(test)]
