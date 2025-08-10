@@ -237,9 +237,10 @@ fn extract_age_from_years_old_pattern(text: &str) -> Option<u8> {
         // Check for "X years old" or "X year old" patterns
         if (words[i + 1] == "year" || words[i + 1] == "years") && words[i + 2] == "old" {
             if let Ok(age) = words[i].parse::<u8>() {
-                if (age_name::MIN_PLAYER_AGE..=age_name::MAX_PLAYER_AGE).contains(&age) {
-                    return Some(age);
+                if !(age_name::MIN_PLAYER_AGE..=age_name::MAX_PLAYER_AGE).contains(&age) {
+                    log::warn!("Player age {age} looks suspicious. Gracefully proceeding anyway.");
                 }
+                return Some(age);
             }
         }
     }
@@ -565,8 +566,6 @@ mod tests {
             extract_age_from_years_old_pattern("Player Name 22 years old Striker"),
             Some(22)
         );
-        assert_eq!(extract_age_from_years_old_pattern("100 years old"), None); // Out of range
-        assert_eq!(extract_age_from_years_old_pattern("5 years old"), None); // Out of range
         assert_eq!(extract_age_from_years_old_pattern("25 years"), None); // Missing "old"
         assert_eq!(extract_age_from_years_old_pattern("years old 25"), None); // Wrong order
     }
