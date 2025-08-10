@@ -17,9 +17,9 @@ pub mod ocr {
     /// Default OCR language
     pub const DEFAULT_LANGUAGE: &str = "eng";
 
-    /// Character whitelist for OCR (alphanumeric and common punctuation)
+    /// Character whitelist for OCR (alphanumeric, common punctuation, umlauts and accents)
     pub const CHAR_WHITELIST: &str =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()";
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ()ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ";
 }
 
 /// Text Processing Constants
