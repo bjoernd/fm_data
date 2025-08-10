@@ -18,6 +18,10 @@ fn default_league_perf_sheet() -> String {
     String::from(defaults::LEAGUE_PERF_SHEET)
 }
 
+fn default_scouting_sheet() -> String {
+    String::from(defaults::SCOUTING_SHEET)
+}
+
 fn default_token_file() -> String {
     dirs::config_dir()
         .unwrap_or_else(|| dirs::home_dir().unwrap_or_else(|| PathBuf::from(".")))
@@ -49,6 +53,8 @@ pub struct GoogleConfig {
     pub team_perf_sheet: String,
     #[serde(default = "default_league_perf_sheet")]
     pub league_perf_sheet: String,
+    #[serde(default = "default_scouting_sheet")]
+    pub scouting_sheet: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -61,6 +67,8 @@ pub struct InputConfig {
     pub team_perf_html: String,
     #[serde(default)]
     pub role_file: String,
+    #[serde(default)]
+    pub image_file: String,
 }
 
 impl Default for GoogleConfig {
@@ -72,6 +80,7 @@ impl Default for GoogleConfig {
             team_sheet: default_team_sheet(),
             team_perf_sheet: default_team_perf_sheet(),
             league_perf_sheet: default_league_perf_sheet(),
+            scouting_sheet: default_scouting_sheet(),
         }
     }
 }
@@ -226,6 +235,54 @@ impl Config {
 
         Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
     }
+
+    /// Resolve paths for image processor including image file and sheet name
+    pub fn resolve_image_paths(
+        &self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        image_file: Option<String>,
+        sheet: Option<String>,
+    ) -> Result<(String, String, String, String)> {
+        let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
+
+        let resolved_spreadsheet = Self::resolve_with_fallback(
+            spreadsheet,
+            self.google.spreadsheet_name.clone(),
+            default_spreadsheet,
+        );
+
+        let resolved_credfile =
+            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
+
+        let resolved_image_file = image_file
+            .or_else(|| Some(self.input.image_file.clone()))
+            .filter(|s| !s.is_empty())
+            .ok_or_else(|| config_missing_field("image_file"))?;
+
+        let resolved_sheet = Self::resolve_with_fallback(
+            sheet,
+            self.google.scouting_sheet.clone(),
+            default_scouting_sheet(),
+        );
+
+        // Validate the resolved paths
+        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        FileValidator::validate_file_extension_typed(
+            &resolved_credfile,
+            crate::constants::FileExtension::Json,
+        )?;
+        FileValidator::validate_file_exists(&resolved_image_file, "Image")?;
+        crate::cli::validate_image_file(&resolved_image_file)?;
+
+        Ok((
+            resolved_spreadsheet,
+            resolved_credfile,
+            resolved_image_file,
+            resolved_sheet,
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -240,10 +297,12 @@ mod tests {
         assert_eq!(config.google.team_sheet, "Squad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
+        assert_eq!(config.google.scouting_sheet, "Scouting");
         assert!(config.google.token_file.contains("fm_data"));
         assert!(config.google.token_file.contains("tokencache.json"));
         assert!(config.google.creds_file.is_empty());
         assert!(config.google.spreadsheet_name.is_empty());
+        assert!(config.input.image_file.is_empty());
     }
 
     #[test]
@@ -312,12 +371,14 @@ mod tests {
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
+                scouting_sheet: "Scouting".to_string(),
             },
             input: InputConfig {
                 data_html: "config_data.html".to_string(),
                 league_perf_html: "config_league.html".to_string(),
                 team_perf_html: "config_team.html".to_string(),
                 role_file: String::new(),
+                image_file: String::new(),
             },
         };
 
@@ -351,12 +412,14 @@ mod tests {
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
+                scouting_sheet: "Scouting".to_string(),
             },
             input: InputConfig {
                 data_html: input_file.path().to_string_lossy().to_string(),
                 league_perf_html: "config_league.html".to_string(),
                 team_perf_html: "config_team.html".to_string(),
                 role_file: String::new(),
+                image_file: String::new(),
             },
         };
 
@@ -509,12 +572,14 @@ mod tests {
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
+                scouting_sheet: "Scouting".to_string(),
             },
             input: InputConfig {
                 data_html: "data.html".to_string(),
                 league_perf_html: "league.html".to_string(),
                 team_perf_html: "team.html".to_string(),
                 role_file: role_file.path().to_string_lossy().to_string(),
+                image_file: String::new(),
             },
         };
 
@@ -574,12 +639,14 @@ mod tests {
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
+                scouting_sheet: "Scouting".to_string(),
             },
             input: InputConfig {
                 data_html: input_file.path().to_string_lossy().to_string(),
                 league_perf_html: "league.html".to_string(),
                 team_perf_html: "team.html".to_string(),
                 role_file: String::new(),
+                image_file: String::new(),
             },
         };
 
@@ -620,12 +687,14 @@ mod tests {
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
+                scouting_sheet: "Scouting".to_string(),
             },
             input: InputConfig {
                 data_html: "data.html".to_string(),
                 league_perf_html: "league.html".to_string(),
                 team_perf_html: "team.html".to_string(),
                 role_file: role_file.path().to_string_lossy().to_string(),
+                image_file: String::new(),
             },
         };
 
@@ -644,6 +713,88 @@ mod tests {
             resolved_role_file.contains("tmp"),
             "Expected temp file path, got: {resolved_role_file}"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_config_image_fields_and_resolve_paths() -> Result<()> {
+        // Create temporary files for testing
+        let creds_file = NamedTempFile::new().unwrap();
+        let image_file = create_test_png();
+
+        let config_json = r#"{
+            "google": {
+                "creds_file": "/config/creds.json",
+                "spreadsheet_name": "test-spreadsheet-id",
+                "scouting_sheet": "MyScoutingSheet"
+            },
+            "input": {
+                "image_file": "/config/image.png"
+            }
+        }"#;
+
+        let mut temp_config_file = NamedTempFile::new()?;
+        temp_config_file.write_all(config_json.as_bytes())?;
+
+        let config = Config::from_file(temp_config_file.path())?;
+
+        // Test that new fields are loaded correctly
+        assert_eq!(config.google.scouting_sheet, "MyScoutingSheet");
+        assert_eq!(config.input.image_file, "/config/image.png");
+
+        // Test resolve_image_paths method
+        let (spreadsheet, credfile, imagefile, sheet) = config.resolve_image_paths(
+            Some("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string()),
+            Some(creds_file.path().to_string_lossy().to_string()),
+            Some(image_file.path().to_string_lossy().to_string()),
+            Some("CustomSheet".to_string()),
+        )?;
+
+        assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
+        assert!(credfile.contains("tmp"));
+        assert!(imagefile.contains("tmp"));
+        assert_eq!(sheet, "CustomSheet");
+
+        Ok(())
+    }
+
+    fn create_test_png() -> NamedTempFile {
+        let mut temp_file = NamedTempFile::new().unwrap();
+        // Write PNG magic bytes to create a valid PNG file
+        let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+        temp_file.write_all(&png_signature).unwrap();
+        temp_file.flush().unwrap();
+        temp_file
+    }
+
+    #[test]
+    fn test_config_image_defaults() {
+        let config = Config::create_default();
+
+        // Test that scouting sheet defaults to "Scouting"
+        assert_eq!(config.google.scouting_sheet, "Scouting");
+
+        // Test that image_file defaults to empty
+        assert!(config.input.image_file.is_empty());
+    }
+
+    #[test]
+    fn test_config_from_file_image_partial() -> Result<()> {
+        let config_json = r#"{
+            "input": {
+                "image_file": "/path/to/screenshot.png"
+            }
+        }"#;
+
+        let mut temp_file = NamedTempFile::new()?;
+        temp_file.write_all(config_json.as_bytes())?;
+
+        let config = Config::from_file(temp_file.path())?;
+
+        assert_eq!(config.input.image_file, "/path/to/screenshot.png");
+        assert_eq!(config.google.scouting_sheet, "Scouting"); // Should use default
+        assert!(config.input.data_html.is_empty());
 
         Ok(())
     }

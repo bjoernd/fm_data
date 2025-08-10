@@ -252,6 +252,16 @@ Example: /path/to/player_screenshot.png
 Can also be set via FM_IMAGE_FILE environment variable."
     )]
     pub image_file: Option<String>,
+
+    #[arg(
+        long,
+        default_value = "Scouting",
+        help = "Name of the Google Sheets sheet for scouting data",
+        long_help = "Name of the sheet in the Google Sheets spreadsheet where player scouting data will be uploaded.
+The sheet must exist in the spreadsheet before uploading.
+Default: \"Scouting\""
+    )]
+    pub sheet: String,
 }
 
 impl CommonCLIArgs for ImageCLI {
@@ -307,6 +317,7 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_png.path().to_string_lossy().to_string()),
+            sheet: "Scouting".to_string(),
             common: CommonCLI {
                 spreadsheet: Some("test_spreadsheet_id".to_string()),
                 credfile: Some("test_creds.json".to_string()),
@@ -331,6 +342,7 @@ mod tests {
     fn test_image_cli_validate_missing_image_file() {
         let cli = ImageCLI {
             image_file: None,
+            sheet: "Scouting".to_string(),
             common: CommonCLI {
                 spreadsheet: None,
                 credfile: None,
@@ -352,6 +364,7 @@ mod tests {
     fn test_image_cli_validate_nonexistent_image_file() {
         let cli = ImageCLI {
             image_file: Some("/nonexistent/path/image.png".to_string()),
+            sheet: "Scouting".to_string(),
             common: CommonCLI {
                 spreadsheet: None,
                 credfile: None,
@@ -377,6 +390,7 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_file.path().to_string_lossy().to_string()),
+            sheet: "Scouting".to_string(),
             common: CommonCLI {
                 spreadsheet: None,
                 credfile: None,
@@ -400,6 +414,7 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_png.path().to_string_lossy().to_string()),
+            sheet: "Scouting".to_string(),
             common: CommonCLI {
                 spreadsheet: None,
                 credfile: None,
@@ -419,6 +434,7 @@ mod tests {
 
         let cli = ImageCLI {
             image_file: Some(temp_dir.path().to_string_lossy().to_string()),
+            sheet: "Scouting".to_string(),
             common: CommonCLI {
                 spreadsheet: None,
                 credfile: None,
@@ -448,6 +464,7 @@ mod tests {
 
             let cli = ImageCLI {
                 image_file: Some(temp_png.path().to_string_lossy().to_string()),
+                sheet: "Scouting".to_string(),
                 common: CommonCLI {
                     spreadsheet: None,
                     credfile: None,

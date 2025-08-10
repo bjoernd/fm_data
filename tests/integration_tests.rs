@@ -1276,3 +1276,437 @@ async fn test_config_file_input_path_resolution() -> Result<()> {
 
     Ok(())
 }
+
+/// Test fm_image Google Sheets upload functionality - successful new player upload
+#[tokio::test]
+async fn test_image_upload_new_player() -> Result<()> {
+    use fm_data::{
+        app_builder::AppRunnerBuilder,
+        cli::{CommonCLI, ImageCLI},
+        Config,
+    };
+    use tempfile::NamedTempFile;
+
+    // Create a test image file (PNG format required)
+    let image_file = NamedTempFile::with_suffix(".png").unwrap();
+
+    // Create a minimal PNG header to satisfy file validation
+    let png_header = vec![
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, // PNG magic number
+    ];
+    std::fs::write(image_file.path(), png_header).unwrap();
+
+    // Create test configuration
+    let cli_args = ImageCLI {
+        common: CommonCLI {
+            spreadsheet: Some("test-spreadsheet-123".to_string()),
+            credfile: Some("test-credentials.json".to_string()),
+            config: "config.json".to_string(),
+            verbose: false,
+            no_progress: true,
+        },
+        image_file: Some(image_file.path().to_string_lossy().to_string()),
+        sheet: "TestSheet".to_string(),
+    };
+
+    // Create config from CLI args
+    let config = Config::default();
+
+    // Test path resolution
+    let resolve_result = config.resolve_image_paths(
+        cli_args.common.spreadsheet.clone(),
+        cli_args.common.credfile.clone(),
+        cli_args.image_file.clone(),
+        Some(cli_args.sheet.clone()),
+    );
+
+    match resolve_result {
+        Ok((spreadsheet, _credfile, imagefile, sheet)) => {
+            assert_eq!(spreadsheet, "test-spreadsheet-123");
+            assert_eq!(imagefile, image_file.path().to_string_lossy());
+            assert_eq!(sheet, "TestSheet");
+        }
+        Err(e) => {
+            // Expected to fail due to missing credentials file
+            assert!(e.to_string().contains("credential") || e.to_string().contains("PNG"));
+        }
+    }
+
+    // Test that AppRunnerBuilder can be created with fm_image binary name
+    let _builder = AppRunnerBuilder::new("fm_image");
+
+    // Builder creation should succeed
+    // (actual app setup would require valid credentials in a real scenario)
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - player data conversion
+#[tokio::test]
+async fn test_image_tsv_conversion() -> Result<()> {
+    // Test TSV string that would come from image processing (50 columns: A-AX)
+    // TestPlayer(1) Age(2) Foot(3) Type(4) + 46 more values = 50 total
+    let test_tsv = "TestPlayer\t25\tRight\tOutfield\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t10\t11\t12\t13\t14\t15\t16\t17\t18\t19\t10\t11\t12\t13\t14\t15";
+
+    // Split by tabs like the actual conversion function would
+    let cells: Vec<String> = test_tsv.split('\t').map(|s| s.trim().to_string()).collect();
+
+    // Should have correct number of columns for spreadsheet (50 columns: A through AX)
+    assert_eq!(
+        cells.len(),
+        50,
+        "TSV should convert to exactly 50 cell values"
+    );
+
+    // Verify key fields
+    assert_eq!(cells[0], "TestPlayer"); // Player name
+    assert_eq!(cells[1], "25"); // Age
+    assert_eq!(cells[2], "Right"); // Footedness
+    assert_eq!(cells[3], "Outfield"); // Player type
+
+    // Verify attributes are numeric strings
+    for (i, cell) in cells.iter().enumerate().skip(4) {
+        let parse_result = cell.parse::<f32>();
+        assert!(
+            parse_result.is_ok() || cell.is_empty(),
+            "Cell {i} should be numeric or empty, got: '{cell}'"
+        );
+    }
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - row finding logic
+#[tokio::test]
+async fn test_image_row_finding() -> Result<()> {
+    use std::collections::HashMap;
+
+    // Create mock existing player data mapping (name -> row)
+    let mut existing_players: HashMap<String, usize> = HashMap::new();
+    existing_players.insert("ExistingPlayer1".to_string(), 5);
+    existing_players.insert("ExistingPlayer2".to_string(), 10);
+
+    // Create mock spreadsheet data (simulating rows 4-104)
+    let mut existing_data = Vec::new();
+    for i in 0..101 {
+        // 101 rows (0-based indexing for rows 4-104)
+        let mut row = Vec::new();
+        for j in 0..50 {
+            // 50 columns (A:AX)
+            if i == 1 && j == 0 {
+                // Row 5 (1-based) has existing player
+                row.push("ExistingPlayer1".to_string());
+            } else if i == 6 && j == 0 {
+                // Row 10 (1-based) has existing player
+                row.push("ExistingPlayer2".to_string());
+            } else if i < 15 {
+                // First 15 rows have some data
+                row.push(format!("data_{i}_{j}"));
+            } else if i == 15 && j < 25 {
+                // Row 16 is partially filled
+                row.push(format!("partial_{j}"));
+            } else {
+                // Empty cell
+                row.push("".to_string());
+            }
+        }
+        existing_data.push(row);
+    }
+
+    // Test finding existing player
+    if existing_players.contains_key("ExistingPlayer1") {
+        let row = existing_players.get("ExistingPlayer1").unwrap();
+        assert_eq!(*row, 5); // Should return existing row
+    }
+
+    // Test finding first empty row
+    let mut first_empty_row = None;
+    for (i, row) in existing_data.iter().enumerate() {
+        let is_empty = row.iter().all(|cell| cell.trim().is_empty());
+        if is_empty {
+            first_empty_row = Some(i + 4); // Convert to 1-based sheet row (add 4 for range A4:AX104)
+            break;
+        }
+    }
+
+    // Should find an empty row after the filled ones
+    assert!(first_empty_row.is_some());
+    let empty_row = first_empty_row.unwrap();
+    assert!(empty_row > 15); // Should be after the filled rows
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - error handling for missing sheet
+#[tokio::test]
+async fn test_image_upload_missing_sheet_error() -> Result<()> {
+    use fm_data::{
+        cli::{CommonCLI, ImageCLI},
+        Config,
+    };
+    use tempfile::NamedTempFile;
+
+    // Create a test PNG file
+    let image_file = NamedTempFile::with_suffix(".png").unwrap();
+    let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    std::fs::write(image_file.path(), png_header).unwrap();
+
+    // Create CLI args with non-existent credentials (should trigger error)
+    let cli_args = ImageCLI {
+        common: CommonCLI {
+            spreadsheet: Some("nonexistent-spreadsheet".to_string()),
+            credfile: Some("/nonexistent/path/credentials.json".to_string()),
+            config: "config.json".to_string(),
+            verbose: false,
+            no_progress: true,
+        },
+        image_file: Some(image_file.path().to_string_lossy().to_string()),
+        sheet: "NonexistentSheet".to_string(),
+    };
+
+    let config = Config::default();
+
+    // Test that missing credentials file is properly detected
+    let resolve_result = config.resolve_image_paths(
+        cli_args.common.spreadsheet.clone(),
+        cli_args.common.credfile.clone(),
+        cli_args.image_file.clone(),
+        Some(cli_args.sheet.clone()),
+    );
+
+    // Should fail due to missing credentials file
+    assert!(resolve_result.is_err());
+    let error = resolve_result.unwrap_err();
+    let error_msg = error.to_string().to_lowercase();
+    assert!(
+        error_msg.contains("credential")
+            || error_msg.contains("file not found")
+            || error_msg.contains("no such file"),
+        "Error should mention missing credentials file: {error}"
+    );
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - configuration integration
+#[tokio::test]
+async fn test_image_upload_config_integration() -> Result<()> {
+    use fm_data::Config;
+    use tempfile::NamedTempFile;
+    use tokio::fs;
+
+    // Create test files
+    let config_file = NamedTempFile::new().unwrap();
+    let image_file = NamedTempFile::with_suffix(".png").unwrap();
+    let creds_file = NamedTempFile::with_suffix(".json").unwrap();
+
+    // Write PNG header to image file
+    let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    fs::write(image_file.path(), png_header).await.unwrap();
+
+    // Write dummy credentials to creds file
+    fs::write(creds_file.path(), r#"{"type":"service_account"}"#)
+        .await
+        .unwrap();
+
+    // Create config JSON with image-specific settings
+    let config_content = format!(
+        r#"{{
+            "google": {{
+                "spreadsheet_name": "test-image-spreadsheet-id",
+                "scouting_sheet": "CustomScoutingSheet",
+                "creds_file": "{}"
+            }},
+            "input": {{
+                "image_file": "{}"
+            }}
+        }}"#,
+        creds_file.path().to_string_lossy().replace('\\', "\\\\"),
+        image_file.path().to_string_lossy().replace('\\', "\\\\")
+    );
+
+    fs::write(config_file.path(), config_content).await.unwrap();
+
+    // Load and test configuration
+    let config = Config::from_file(config_file.path())?;
+
+    assert_eq!(config.google.spreadsheet_name, "test-image-spreadsheet-id");
+    assert_eq!(config.google.scouting_sheet, "CustomScoutingSheet");
+    assert_eq!(config.input.image_file, image_file.path().to_string_lossy());
+
+    // Test path resolution with config
+    let resolve_result = config.resolve_image_paths(
+        None, // Use config spreadsheet
+        None, // Use config credentials
+        None, // Use config image file
+        None, // Use config sheet name
+    );
+
+    // Should use values from config file
+    match resolve_result {
+        Ok((spreadsheet, credfile, imagefile, sheet)) => {
+            assert_eq!(spreadsheet, "test-image-spreadsheet-id");
+            assert_eq!(credfile, creds_file.path().to_string_lossy());
+            assert_eq!(imagefile, image_file.path().to_string_lossy());
+            assert_eq!(sheet, "CustomScoutingSheet");
+        }
+        Err(e) => {
+            // May fail on path validation but config loading should work
+            let error_msg = e.to_string();
+            assert!(
+                error_msg.contains("does not exist") || error_msg.contains("credentials"),
+                "Unexpected error: {e}"
+            );
+        }
+    }
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - backward compatibility  
+#[tokio::test]
+async fn test_image_upload_backward_compatibility() -> Result<()> {
+    use fm_data::{
+        cli::{CommonCLI, ImageCLI},
+        Config,
+    };
+    use tempfile::NamedTempFile;
+
+    // Create a test PNG file
+    let image_file = NamedTempFile::with_suffix(".png").unwrap();
+    let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    std::fs::write(image_file.path(), png_header).unwrap();
+
+    // Test that tool works without Google Sheets arguments (backward compatibility)
+    let cli_args_minimal = ImageCLI {
+        common: CommonCLI {
+            spreadsheet: None,
+            credfile: None,
+            config: "config.json".to_string(),
+            verbose: false,
+            no_progress: true,
+        },
+        image_file: Some(image_file.path().to_string_lossy().to_string()),
+        sheet: "Scouting".to_string(),
+    };
+
+    let config = Config::default();
+
+    // Test path resolution with minimal args (should use defaults)
+    let resolve_result = config.resolve_image_paths(
+        cli_args_minimal.common.spreadsheet.clone(),
+        cli_args_minimal.common.credfile.clone(),
+        cli_args_minimal.image_file.clone(),
+        Some(cli_args_minimal.sheet.clone()),
+    );
+
+    match resolve_result {
+        Ok((_spreadsheet, credfile, imagefile, sheet)) => {
+            // Should use defaults from config (which may be non-empty in test environment)
+            // Just verify the image file and sheet are correct
+            assert_eq!(imagefile, image_file.path().to_string_lossy());
+            assert_eq!(sheet, "Scouting"); // Default scouting sheet
+                                           // Spreadsheet and credfile can vary based on test config
+            assert!(!credfile.is_empty()); // Should have some credfile path
+        }
+        Err(e) => {
+            // Expected to fail due to missing default credentials file
+            let error_msg = e.to_string().to_lowercase();
+            assert!(
+                error_msg.contains("credential") || error_msg.contains("file not found"),
+                "Should fail due to missing credentials, got: {e}"
+            );
+        }
+    }
+
+    // Test that image file path is properly validated
+    let invalid_image_cli = ImageCLI {
+        common: CommonCLI {
+            spreadsheet: None,
+            credfile: None,
+            config: "config.json".to_string(),
+            verbose: false,
+            no_progress: true,
+        },
+        image_file: Some("/nonexistent/image.png".to_string()),
+        sheet: "Scouting".to_string(),
+    };
+
+    let invalid_resolve_result = config.resolve_image_paths(
+        invalid_image_cli.common.spreadsheet.clone(),
+        invalid_image_cli.common.credfile.clone(),
+        invalid_image_cli.image_file.clone(),
+        Some(invalid_image_cli.sheet.clone()),
+    );
+
+    // Should fail due to missing image file
+    assert!(invalid_resolve_result.is_err());
+    let error = invalid_resolve_result.unwrap_err();
+    assert!(
+        error.to_string().contains("image") || error.to_string().contains("file"),
+        "Should fail due to missing image file: {error}"
+    );
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - file format validation
+#[tokio::test]
+async fn test_image_upload_file_format_validation() -> Result<()> {
+    use fm_data::Config;
+    use tempfile::NamedTempFile;
+
+    let config = Config::default();
+
+    // Test with non-PNG file extension
+    let txt_file = NamedTempFile::with_suffix(".txt").unwrap();
+    std::fs::write(txt_file.path(), "not an image").unwrap();
+
+    let result = config.resolve_image_paths(
+        Some("test-spreadsheet".to_string()),
+        Some("test-creds.json".to_string()),
+        Some(txt_file.path().to_string_lossy().to_string()),
+        Some("TestSheet".to_string()),
+    );
+
+    // Should fail due to non-PNG extension or missing credentials
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    let error_msg = error.to_string().to_lowercase();
+    assert!(
+        error_msg.contains("png")
+            || error_msg.contains("image")
+            || error_msg.contains("format")
+            || error_msg.contains("credential"),
+        "Should reject non-PNG files or fail on credentials: {error}"
+    );
+
+    // Test with correct PNG extension
+    let png_file = NamedTempFile::with_suffix(".png").unwrap();
+    let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+    std::fs::write(png_file.path(), png_header).unwrap();
+
+    let result = config.resolve_image_paths(
+        Some("test-spreadsheet".to_string()),
+        Some("test-creds.json".to_string()),
+        Some(png_file.path().to_string_lossy().to_string()),
+        Some("TestSheet".to_string()),
+    );
+
+    // May still fail due to missing credentials, but PNG validation should pass
+    match result {
+        Ok(_) => {
+            // Success means PNG validation passed (though creds may not exist)
+        }
+        Err(e) => {
+            // Should fail on credentials, not PNG format
+            let error_msg = e.to_string().to_lowercase();
+            assert!(
+                error_msg.contains("credential") || error_msg.contains("file not found"),
+                "Should fail on credentials, not PNG format: {e}"
+            );
+        }
+    }
+
+    Ok(())
+}

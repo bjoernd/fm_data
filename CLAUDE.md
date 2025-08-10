@@ -8,7 +8,7 @@ This is a Rust-based Football Manager data analysis toolkit with three main bina
 
 1. **`fm_google_up`** - Extracts player data from HTML exports and uploads them to Google Sheets
 2. **`fm_team_selector`** - Analyzes player data from Google Sheets to find optimal team assignments
-3. **`fm_image`** - Extracts player data from Football Manager PNG screenshots using OCR
+3. **`fm_image`** - Extracts player data from Football Manager PNG screenshots using OCR and optionally uploads to Google Sheets
 
 All tools share common authentication, configuration, and Google Sheets integration infrastructure.
 
@@ -36,6 +36,9 @@ cargo run --bin fm_team_selector -- -r tests/test_roles.txt -v
 # Run the image processor with screenshot
 cargo run --bin fm_image -- -i player_screenshot.png -v
 
+# Run the image processor with Google Sheets upload
+cargo run --bin fm_image -- -i player_screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json -v
+
 # Run with custom config
 cargo run --bin fm_google_up -- -c custom_config.json
 cargo run --bin fm_team_selector -- -r roles.txt -c custom_config.json
@@ -46,7 +49,10 @@ cargo run --bin fm_google_up -- --no-progress
 cargo run --bin fm_team_selector -- -r roles.txt --no-progress
 cargo run --bin fm_image -- -i screenshot.png --no-progress
 
-# Run tests (163 unit + 17 integration tests)
+# Run image processor with Google Sheets upload (no progress bar)
+cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json --no-progress
+
+# Run tests (174 unit + 24 integration tests)
 cargo test
 
 # Run tests with output
@@ -178,6 +184,7 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, inp
 - Detects player footedness through color analysis with optional fallback
 - **Layout Management**: Dynamic layout loading with embedded fallbacks for reliability
 - **Automatic Cleanup**: Temporary file management with proper error handling
+- **Google Sheets Integration**: Optional upload to "Scouting" sheet with automatic player matching and row assignment
 - Outputs tab-separated player data compatible with spreadsheet import
 - Supports verbose mode for OCR debugging and processing details
 
@@ -516,33 +523,73 @@ The tool uses hardcoded layouts that match the fixed structure of FM screenshots
 ### Usage Examples
 
 ```bash
-# Basic screenshot processing
+# Basic screenshot processing (stdout output only)
 cargo run --bin fm_image -- -i player_screenshot.png
 
 # With verbose OCR debugging
 cargo run --bin fm_image -- -i screenshot.png -v
 
-# Using configuration file
+# Upload to Google Sheets "Scouting" sheet (default sheet name)
+cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json
+
+# Upload to custom sheet name
+cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json --sheet "PlayerScouts"
+
+# Stdout output + Google Sheets upload with verbose logging
+cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json -v
+
+# Using configuration file (can include Google Sheets settings)
 cargo run --bin fm_image -- -i screenshot.png -c image_config.json
 
 # Scripting mode (no progress bar)
 cargo run --bin fm_image -- -i screenshot.png --no-progress
 
-# Processing multiple screenshots (example workflow)
+# Batch processing with Google Sheets upload
+for file in screenshots/*.png; do
+  cargo run --bin fm_image -- -i "$file" -s YOUR_SPREADSHEET_ID --credfile credentials.json --no-progress
+done
+
+# Processing multiple screenshots (stdout only, for importing elsewhere)
 for file in screenshots/*.png; do
   cargo run --bin fm_image -- -i "$file" --no-progress >> players_data.tsv
 done
 ```
 
-### Configuration Example
+### Configuration Examples
 
+#### Basic Configuration (stdout output only)
 ```json
 {
   "input": {
     "image_file": "player_screenshot.png"
+  }
+}
+```
+
+#### Configuration with Google Sheets Upload
+```json
+{
+  "google": {
+    "spreadsheet_name": "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc",
+    "creds_file": "path/to/credentials.json",
+    "scouting_sheet": "PlayerScouts"
   },
-  "output": {
-    "format": "tsv"
+  "input": {
+    "image_file": "player_screenshot.png"
+  }
+}
+```
+
+#### Full Configuration with All Options
+```json
+{
+  "google": {
+    "spreadsheet_name": "YOUR_SPREADSHEET_ID",
+    "creds_file": "credentials.json",
+    "scouting_sheet": "Scouting"
+  },
+  "input": {
+    "image_file": "screenshots/messi.png"
   }
 }
 ```
@@ -591,6 +638,44 @@ This format is compatible with spreadsheet applications and can be imported dire
 - Age must appear in "X years old" format in the OCR text
 - The tool no longer relies on standalone numbers for age detection (more reliable)
 
+### Troubleshooting Google Sheets Upload Issues
+
+**Authentication failures**:
+- Verify that the credentials file exists and is readable (`--credfile path/to/credentials.json`)
+- Ensure the credentials file contains valid Google Service Account credentials
+- Check that the service account has access to the target spreadsheet
+- Use verbose mode (`-v`) to see authentication debugging information
+
+**Spreadsheet access errors**:
+- Verify the spreadsheet ID is correct and accessible
+- Ensure the service account email has been granted access to the spreadsheet (Editor or Owner permissions)
+- Check that the target sheet exists in the spreadsheet (default: "Scouting")
+- Use `--sheet "CustomName"` to specify a different sheet name if needed
+
+**Upload errors**:
+- Ensure the target sheet has sufficient empty rows (scans rows 4-104 for available space)
+- Check that the spreadsheet is not being edited by another user during upload
+- Verify the sheet structure matches expected format (50 columns: A through AX)
+- Upload errors are logged as warnings and do not prevent stdout output
+
+**Configuration issues**:
+- Use `scouting_sheet` in config file to specify custom sheet name
+- Set `spreadsheet_name` and `creds_file` in the `google` section of config
+- CLI arguments override config file settings
+- Missing Google Sheets settings default to stdout-only mode (backward compatible)
+
+**Data range conflicts**:
+- The tool uses range A4:AX104 for player data (101 rows available)
+- Existing players are updated in place based on name matching in column A
+- New players are added to the first completely empty row
+- If no empty rows are available, an error is logged but stdout continues to work
+
+**Common solutions**:
+- Always works in stdout-first mode: upload failures don't break console output
+- Use `--no-progress` for scripting to avoid progress bar interference
+- Enable verbose mode (`-v`) for detailed upload debugging
+- Test authentication separately using other tools (`fm_google_up` or `fm_team_selector`)
+
 ## Testing
 
 The codebase includes comprehensive unit and integration tests:
@@ -628,11 +713,11 @@ The codebase includes comprehensive unit and integration tests:
 - Data range validation:
   - Uploader: A2:AX58 (57 data rows max)
   - Team Selector: A2:EQ58 (reads player data including 96 role ratings)
-  - Image Processor: PNG format validation and OCR text extraction
+  - Image Processor: PNG format validation, OCR text extraction, and optional Google Sheets upload to A4:AX104 (101 rows)
 - Role file validation ensures exactly 11 valid Football Manager roles
 - Player filtering system with 9 positional categories covering all 96 roles
 - Sectioned role file format with backward compatibility for legacy files
-- All modules include comprehensive unit tests (128 tests total: 111 unit + 17 integration)
+- All modules include comprehensive unit tests (198 tests total: 174 unit + 24 integration)
 - Structured attribute parsing with hardcoded FM layouts for reliability
 
 ## Code Quality

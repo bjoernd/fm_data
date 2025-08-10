@@ -206,6 +206,54 @@ impl SheetsManager {
 
         Ok(values)
     }
+
+    /// Upload data to a specific range in the sheet
+    /// This method allows writing to any specified range, unlike upload_data which is fixed to A2:AX{n}
+    pub async fn upload_data_to_range(
+        &self,
+        sheet_name: &str,
+        range: &str,
+        data: Vec<Vec<String>>,
+        progress: &dyn ProgressReporter,
+    ) -> Result<()> {
+        // Validate data before upload
+        DataValidator::validate_non_empty_data(&data)?;
+        DataValidator::validate_row_consistency(&data)?;
+
+        let row_count = data.len();
+        progress.set_message(&format!("Uploading {row_count} rows to {range}..."));
+
+        let full_range = format!("{sheet_name}!{range}");
+        let update_body = ValueRange {
+            values: data,
+            major_dimension: Some(Dimension::Rows),
+            range: full_range.clone(),
+        };
+
+        debug!("Updating range: {}", full_range);
+
+        let update = self
+            .client
+            .values_update(
+                &self.spreadsheet_id,
+                &full_range,
+                false,
+                DateTimeRenderOption::FormattedString,
+                ValueRenderOption::FormattedValue,
+                ValueInputOption::UserEntered,
+                &update_body,
+            )
+            .await
+            .map_err(|e| {
+                FMDataError::sheets_api(format!("Failed to upload data to {full_range}: {e}"))
+            })?;
+
+        info!("Updated data in {}: {}", full_range, update.status);
+
+        progress.inc(1);
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

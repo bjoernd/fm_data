@@ -20,6 +20,9 @@ pub mod defaults {
 
     /// Default name for the league/division performance statistics sheet
     pub const LEAGUE_PERF_SHEET: &str = "Stats_Division";
+
+    /// Default name for the scouting sheet used by image processor
+    pub const SCOUTING_SHEET: &str = "Scouting";
 }
 
 /// Data layout constants for column positions in spreadsheets

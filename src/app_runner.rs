@@ -148,6 +148,37 @@ impl AppRunner {
         Ok((spreadsheet_id, credfile_path, role_file_path))
     }
 
+    /// Resolve paths for image processor and setup authentication
+    pub async fn setup_for_image_processor(
+        &mut self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        image_file: Option<String>,
+        sheet: Option<String>,
+    ) -> Result<(String, String, String, String)> {
+        let progress = self.progress();
+        progress.update(5, 100, "Resolving configuration paths...");
+
+        let (spreadsheet_id, credfile_path, image_file_path, sheet_name) = self
+            .config
+            .resolve_image_paths(spreadsheet, credfile, image_file, sheet)
+            .map_err(|e| {
+                error!("Configuration validation failed: {}", e);
+                e
+            })?;
+
+        debug!("Using spreadsheet: {}", spreadsheet_id);
+        debug!("Using credentials file: {}", credfile_path);
+        debug!("Using image file: {}", image_file_path);
+        debug!("Using sheet: {}", sheet_name);
+
+        // Complete authentication setup
+        self.complete_authentication(spreadsheet_id.clone(), credfile_path.clone(), 10)
+            .await?;
+
+        Ok((spreadsheet_id, credfile_path, image_file_path, sheet_name))
+    }
+
     /// Complete authentication for team selector (called after role file processing)
     pub async fn complete_team_selector_auth(
         &mut self,
