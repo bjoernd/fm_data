@@ -352,16 +352,31 @@ fn find_target_row(
         player_name
     );
 
-    // Scan for first completely empty row (no data in columns A:AX)
+    // If we have existing data, first scan for empty rows within the downloaded data
     for (index, row) in existing_data.iter().enumerate() {
         // Check if the entire row is empty (all cells are empty or whitespace-only)
         let is_empty_row = row.iter().all(|cell| cell.trim().is_empty());
 
         if is_empty_row {
             let target_row = index + 4; // Convert to 1-based sheet row number
-            debug!("Found empty row at position {}", target_row);
+            debug!(
+                "Found empty row within existing data at position {}",
+                target_row
+            );
             return Ok(target_row);
         }
+    }
+
+    // No empty rows found within existing data
+    // If we have fewer than 101 rows, the next available row is after the last returned row
+    if existing_data.len() < 101 {
+        let target_row = existing_data.len() + 4; // First empty row after existing data
+        debug!(
+            "No empty rows in existing data, using next available row {} (after {} existing rows)",
+            target_row,
+            existing_data.len()
+        );
+        return Ok(target_row);
     }
 
     // If we've reached here, no empty rows were found in the scanned range

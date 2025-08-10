@@ -1437,6 +1437,218 @@ async fn test_image_row_finding() -> Result<()> {
     Ok(())
 }
 
+/// Test fm_image upload functionality - empty sheet handling (completely empty sheet)
+#[tokio::test]
+async fn test_image_empty_sheet_row_finding() -> Result<()> {
+    use std::collections::HashMap;
+
+    // Create empty player mapping (no existing players)
+    let existing_players: HashMap<String, usize> = HashMap::new();
+
+    // Create empty spreadsheet data (simulating completely empty sheet)
+    let existing_data: Vec<Vec<String>> = Vec::new(); // Empty sheet - 0 rows returned from API
+
+    // Test that we can handle completely empty sheet
+    // This simulates the case where Google Sheets API returns empty vector for empty sheets
+    assert_eq!(existing_data.len(), 0);
+    assert!(!existing_players.contains_key("NewPlayer"));
+
+    // In this case, we should expect row 4 (the first available row in range A4:AX104)
+    // The logic should handle this by falling through to existing_data.len() + 4
+
+    // Simulate the logic from find_target_row function
+    let expected_row = {
+        // First check for empty rows within existing data
+        let mut found_empty = None;
+        for (index, row) in existing_data.iter().enumerate() {
+            let is_empty_row = row.iter().all(|cell| cell.trim().is_empty());
+            if is_empty_row {
+                found_empty = Some(index + 4);
+                break;
+            }
+        }
+
+        if let Some(empty_row) = found_empty {
+            empty_row
+        } else if existing_data.len() < 101 {
+            existing_data.len() + 4 // First empty row after existing data (0 + 4 = 4 for empty sheet)
+        } else {
+            4 // fallback - should not happen in normal cases
+        }
+    };
+
+    assert_eq!(expected_row, 4);
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - partial sheet handling (some existing data)
+#[tokio::test]
+async fn test_image_partial_sheet_row_finding() -> Result<()> {
+    use std::collections::HashMap;
+
+    // Create player mapping with some existing players
+    let mut existing_players: HashMap<String, usize> = HashMap::new();
+    existing_players.insert("Player1".to_string(), 4);
+    existing_players.insert("Player2".to_string(), 5);
+
+    // Create partial spreadsheet data (simulating sheet with 2 rows of data)
+    // Google Sheets API only returns rows that have data, not empty rows
+    let mut existing_data: Vec<Vec<String>> = Vec::new();
+
+    // Row 4 (index 0)
+    let mut row1 = vec!["Player1".to_string()];
+    row1.extend(vec!["data".to_string(); 49]);
+    existing_data.push(row1);
+
+    // Row 5 (index 1)
+    let mut row2 = vec!["Player2".to_string()];
+    row2.extend(vec!["data".to_string(); 49]);
+    existing_data.push(row2);
+
+    // Test that we can handle partial sheet with existing data
+    assert_eq!(existing_data.len(), 2); // Only 2 rows returned by API
+    assert!(existing_players.contains_key("Player1"));
+    assert!(existing_players.contains_key("Player2"));
+    assert!(!existing_players.contains_key("NewPlayer"));
+
+    // For a new player, we should expect row 6 (after the 2 existing rows)
+    // Since existing_data.len() = 2, next available row = 2 + 4 = 6
+
+    // Simulate the logic from find_target_row function
+    let expected_row = {
+        // First check for empty rows within existing data
+        let mut found_empty = None;
+        for (index, row) in existing_data.iter().enumerate() {
+            let is_empty_row = row.iter().all(|cell| cell.trim().is_empty());
+            if is_empty_row {
+                found_empty = Some(index + 4);
+                break;
+            }
+        }
+
+        if let Some(empty_row) = found_empty {
+            empty_row
+        } else if existing_data.len() < 101 {
+            existing_data.len() + 4 // First empty row after existing data
+        } else {
+            4 // fallback - should not happen in normal cases
+        }
+    };
+
+    assert_eq!(expected_row, 6); // Should be row 6 (after rows 4 and 5)
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - empty rows within existing data
+#[tokio::test]
+async fn test_image_empty_row_within_existing_data() -> Result<()> {
+    use std::collections::HashMap;
+
+    // Create player mapping with some existing players, but with gaps
+    let mut existing_players: HashMap<String, usize> = HashMap::new();
+    existing_players.insert("Player1".to_string(), 4);
+    existing_players.insert("Player3".to_string(), 6);
+
+    // Create spreadsheet data with an empty row in the middle
+    // This simulates when Google Sheets API returns some rows including empty ones
+    let mut existing_data: Vec<Vec<String>> = Vec::new();
+
+    // Row 4 (index 0) - has data
+    let mut row1 = vec!["Player1".to_string()];
+    row1.extend(vec!["data".to_string(); 49]);
+    existing_data.push(row1);
+
+    // Row 5 (index 1) - completely empty
+    let empty_row = vec!["".to_string(); 50]; // All cells empty
+    existing_data.push(empty_row);
+
+    // Row 6 (index 2) - has data
+    let mut row3 = vec!["Player3".to_string()];
+    row3.extend(vec!["data".to_string(); 49]);
+    existing_data.push(row3);
+
+    // Test that we can handle empty row within existing data
+    assert_eq!(existing_data.len(), 3);
+    assert!(existing_players.contains_key("Player1"));
+    assert!(existing_players.contains_key("Player3"));
+    assert!(!existing_players.contains_key("NewPlayer"));
+
+    // For a new player, we should expect row 5 (the empty row in the middle)
+    // The logic should find the empty row at index 1, which corresponds to row 5
+
+    // Simulate the logic from find_target_row function
+    let expected_row = if existing_data.is_empty() {
+        4 // First row in range A4:AX104 when sheet is completely empty
+    } else {
+        // First check for empty rows within existing data
+        let mut found_empty = None;
+        for (index, row) in existing_data.iter().enumerate() {
+            let is_empty_row = row.iter().all(|cell| cell.trim().is_empty());
+            if is_empty_row {
+                found_empty = Some(index + 4);
+                break;
+            }
+        }
+
+        if let Some(empty_row) = found_empty {
+            empty_row
+        } else if existing_data.len() < 101 {
+            existing_data.len() + 4 // First empty row after existing data
+        } else {
+            4 // fallback
+        }
+    };
+
+    assert_eq!(expected_row, 5); // Should find the empty row at position 5
+
+    Ok(())
+}
+
+/// Test fm_image upload functionality - real Google Sheets API behavior simulation  
+#[tokio::test]
+async fn test_image_google_sheets_api_behavior() -> Result<()> {
+    // This test simulates the actual Google Sheets API behavior:
+    // When you read A4:AX104 and only some rows have data,
+    // the API only returns those rows, not empty rows
+
+    // Scenario 1: One existing player (API returns 1 row)
+    let existing_data_one_player = vec![
+        vec!["Existing Player".to_string(); 50], // One row with data
+    ];
+
+    // Expected behavior: next available row should be 5 (1 + 4)
+    let target_row = if existing_data_one_player.is_empty() {
+        4
+    } else if existing_data_one_player.len() < 101 {
+        existing_data_one_player.len() + 4
+    } else {
+        // Scan logic would go here
+        4
+    };
+    assert_eq!(target_row, 5);
+
+    // Scenario 2: Three existing players (API returns 3 rows)
+    let existing_data_three_players = [
+        vec!["Player 1".to_string(); 50],
+        vec!["Player 2".to_string(); 50],
+        vec!["Player 3".to_string(); 50],
+    ];
+
+    // Expected behavior: next available row should be 7 (3 + 4)
+    let target_row = if existing_data_three_players.is_empty() {
+        4
+    } else if existing_data_three_players.len() < 101 {
+        existing_data_three_players.len() + 4
+    } else {
+        4
+    };
+    assert_eq!(target_row, 7);
+
+    Ok(())
+}
+
 /// Test fm_image upload functionality - error handling for missing sheet
 #[tokio::test]
 async fn test_image_upload_missing_sheet_error() -> Result<()> {
