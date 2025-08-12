@@ -1,4 +1,5 @@
 use crate::types::PlayerType;
+use anyhow;
 use std::collections::HashMap;
 
 /// Technical attributes for field players (14 attributes)
@@ -656,6 +657,274 @@ impl AttributeSet {
             .filter(|(_, v)| *v > 0)
             .collect()
     }
+
+    /// Set attribute by name without HashMap conversion (optimized for performance)
+    pub fn set_by_name(&mut self, name: &str, value: u8) -> anyhow::Result<()> {
+        // Handle different attribute sections based on the name prefix and player type
+        if let Some(attr_name) = name.strip_prefix("technical_") {
+            if self.player_type == PlayerType::FieldPlayer {
+                self.set_technical_by_name(attr_name, value)?
+            } else {
+                // For goalkeepers, some technical attributes map to goalkeeping attributes
+                if let Ok(()) = self.set_goalkeeper_technical_mapping(attr_name, value) {
+                    // Successfully mapped to goalkeeping attribute
+                } else {
+                    // Fall back to extra_attributes for backward compatibility
+                    self.extra_attributes.insert(name.to_string(), value);
+                }
+            }
+        } else if let Some(attr_name) = name.strip_prefix("goalkeeping_") {
+            if self.player_type != PlayerType::Goalkeeper {
+                return Err(anyhow::anyhow!(
+                    "Goalkeeping attributes not available for field players"
+                ));
+            }
+            self.set_goalkeeping_by_name(attr_name, value)?
+        } else if let Some(attr_name) = name.strip_prefix("mental_") {
+            self.set_mental_by_name(attr_name, value)?
+        } else if let Some(attr_name) = name.strip_prefix("physical_") {
+            self.set_physical_by_name(attr_name, value)?
+        } else {
+            // Fall back to extra_attributes for unknown attributes
+            self.extra_attributes.insert(name.to_string(), value);
+        }
+        Ok(())
+    }
+
+    /// Get attribute by name without HashMap conversion (optimized for performance)
+    pub fn get_by_name(&self, name: &str) -> Option<u8> {
+        // Handle different attribute sections based on the name prefix and player type
+        if let Some(attr_name) = name.strip_prefix("technical_") {
+            if self.player_type == PlayerType::FieldPlayer {
+                self.get_technical_by_name(attr_name)
+            } else {
+                // For goalkeepers, check if technical attribute maps to goalkeeping attribute
+                if let Some(value) = self.get_goalkeeper_technical_mapping(attr_name) {
+                    Some(value)
+                } else {
+                    // Check extra_attributes for backward compatibility
+                    self.extra_attributes.get(name).copied()
+                }
+            }
+        } else if let Some(attr_name) = name.strip_prefix("goalkeeping_") {
+            if self.player_type == PlayerType::Goalkeeper {
+                self.get_goalkeeping_by_name(attr_name)
+            } else {
+                None
+            }
+        } else if let Some(attr_name) = name.strip_prefix("mental_") {
+            self.get_mental_by_name(attr_name)
+        } else if let Some(attr_name) = name.strip_prefix("physical_") {
+            self.get_physical_by_name(attr_name)
+        } else {
+            // Check extra_attributes for unknown attributes
+            self.extra_attributes.get(name).copied()
+        }
+    }
+
+    // Helper methods for direct attribute setting by name
+    fn set_technical_by_name(&mut self, attr_name: &str, value: u8) -> anyhow::Result<()> {
+        let attr = match attr_name {
+            "corners" => TechnicalAttribute::Corners,
+            "crossing" => TechnicalAttribute::Crossing,
+            "dribbling" => TechnicalAttribute::Dribbling,
+            "finishing" => TechnicalAttribute::Finishing,
+            "first_touch" => TechnicalAttribute::FirstTouch,
+            "free_kick_taking" => TechnicalAttribute::FreeKickTaking,
+            "heading" => TechnicalAttribute::Heading,
+            "long_shots" => TechnicalAttribute::LongShots,
+            "long_throws" => TechnicalAttribute::LongThrows,
+            "marking" => TechnicalAttribute::Marking,
+            "passing" => TechnicalAttribute::Passing,
+            "penalty_taking" => TechnicalAttribute::PenaltyTaking,
+            "tackling" => TechnicalAttribute::Tackling,
+            "technique" => TechnicalAttribute::Technique,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unknown technical attribute: {}",
+                    attr_name
+                ))
+            }
+        };
+        self.set_technical(attr, value);
+        Ok(())
+    }
+
+    fn set_goalkeeping_by_name(&mut self, attr_name: &str, value: u8) -> anyhow::Result<()> {
+        let attr = match attr_name {
+            "aerial_reach" => GoalkeepingAttribute::AerialReach,
+            "command_of_area" => GoalkeepingAttribute::CommandOfArea,
+            "communication" => GoalkeepingAttribute::Communication,
+            "eccentricity" => GoalkeepingAttribute::Eccentricity,
+            "first_touch" => GoalkeepingAttribute::FirstTouch,
+            "handling" => GoalkeepingAttribute::Handling,
+            "kicking" => GoalkeepingAttribute::Kicking,
+            "one_on_ones" => GoalkeepingAttribute::OneOnOnes,
+            "passing" => GoalkeepingAttribute::Passing,
+            "punching_tendency" => GoalkeepingAttribute::PunchingTendency,
+            "reflexes" => GoalkeepingAttribute::Reflexes,
+            "rushing_out_tendency" => GoalkeepingAttribute::RushingOutTendency,
+            "throwing" => GoalkeepingAttribute::Throwing,
+            "work_rate" => GoalkeepingAttribute::WorkRate,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Unknown goalkeeping attribute: {}",
+                    attr_name
+                ))
+            }
+        };
+        self.set_goalkeeping(attr, value);
+        Ok(())
+    }
+
+    fn set_mental_by_name(&mut self, attr_name: &str, value: u8) -> anyhow::Result<()> {
+        let attr = match attr_name {
+            "aggression" => MentalAttribute::Aggression,
+            "anticipation" => MentalAttribute::Anticipation,
+            "bravery" => MentalAttribute::Bravery,
+            "composure" => MentalAttribute::Composure,
+            "concentration" => MentalAttribute::Concentration,
+            "decisions" => MentalAttribute::Decisions,
+            "determination" => MentalAttribute::Determination,
+            "flair" => MentalAttribute::Flair,
+            "leadership" => MentalAttribute::Leadership,
+            "off_the_ball" => MentalAttribute::OffTheBall,
+            "positioning" => MentalAttribute::Positioning,
+            "teamwork" => MentalAttribute::Teamwork,
+            "vision" => MentalAttribute::Vision,
+            "work_rate" => MentalAttribute::WorkRate,
+            _ => return Err(anyhow::anyhow!("Unknown mental attribute: {}", attr_name)),
+        };
+        self.set_mental(attr, value);
+        Ok(())
+    }
+
+    fn set_physical_by_name(&mut self, attr_name: &str, value: u8) -> anyhow::Result<()> {
+        let attr = match attr_name {
+            "acceleration" => PhysicalAttribute::Acceleration,
+            "agility" => PhysicalAttribute::Agility,
+            "balance" => PhysicalAttribute::Balance,
+            "jumping_reach" => PhysicalAttribute::JumpingReach,
+            "natural_fitness" => PhysicalAttribute::NaturalFitness,
+            "pace" => PhysicalAttribute::Pace,
+            "stamina" => PhysicalAttribute::Stamina,
+            "strength" => PhysicalAttribute::Strength,
+            _ => return Err(anyhow::anyhow!("Unknown physical attribute: {}", attr_name)),
+        };
+        self.set_physical(attr, value);
+        Ok(())
+    }
+
+    // Helper methods for direct attribute getting by name
+    fn get_technical_by_name(&self, attr_name: &str) -> Option<u8> {
+        let attr = match attr_name {
+            "corners" => TechnicalAttribute::Corners,
+            "crossing" => TechnicalAttribute::Crossing,
+            "dribbling" => TechnicalAttribute::Dribbling,
+            "finishing" => TechnicalAttribute::Finishing,
+            "first_touch" => TechnicalAttribute::FirstTouch,
+            "free_kick_taking" => TechnicalAttribute::FreeKickTaking,
+            "heading" => TechnicalAttribute::Heading,
+            "long_shots" => TechnicalAttribute::LongShots,
+            "long_throws" => TechnicalAttribute::LongThrows,
+            "marking" => TechnicalAttribute::Marking,
+            "passing" => TechnicalAttribute::Passing,
+            "penalty_taking" => TechnicalAttribute::PenaltyTaking,
+            "tackling" => TechnicalAttribute::Tackling,
+            "technique" => TechnicalAttribute::Technique,
+            _ => return None,
+        };
+        Some(self.get_technical(attr))
+    }
+
+    fn get_goalkeeping_by_name(&self, attr_name: &str) -> Option<u8> {
+        let attr = match attr_name {
+            "aerial_reach" => GoalkeepingAttribute::AerialReach,
+            "command_of_area" => GoalkeepingAttribute::CommandOfArea,
+            "communication" => GoalkeepingAttribute::Communication,
+            "eccentricity" => GoalkeepingAttribute::Eccentricity,
+            "first_touch" => GoalkeepingAttribute::FirstTouch,
+            "handling" => GoalkeepingAttribute::Handling,
+            "kicking" => GoalkeepingAttribute::Kicking,
+            "one_on_ones" => GoalkeepingAttribute::OneOnOnes,
+            "passing" => GoalkeepingAttribute::Passing,
+            "punching_tendency" => GoalkeepingAttribute::PunchingTendency,
+            "reflexes" => GoalkeepingAttribute::Reflexes,
+            "rushing_out_tendency" => GoalkeepingAttribute::RushingOutTendency,
+            "throwing" => GoalkeepingAttribute::Throwing,
+            "work_rate" => GoalkeepingAttribute::WorkRate,
+            _ => return None,
+        };
+        Some(self.get_goalkeeping(attr))
+    }
+
+    fn get_mental_by_name(&self, attr_name: &str) -> Option<u8> {
+        let attr = match attr_name {
+            "aggression" => MentalAttribute::Aggression,
+            "anticipation" => MentalAttribute::Anticipation,
+            "bravery" => MentalAttribute::Bravery,
+            "composure" => MentalAttribute::Composure,
+            "concentration" => MentalAttribute::Concentration,
+            "decisions" => MentalAttribute::Decisions,
+            "determination" => MentalAttribute::Determination,
+            "flair" => MentalAttribute::Flair,
+            "leadership" => MentalAttribute::Leadership,
+            "off_the_ball" => MentalAttribute::OffTheBall,
+            "positioning" => MentalAttribute::Positioning,
+            "teamwork" => MentalAttribute::Teamwork,
+            "vision" => MentalAttribute::Vision,
+            "work_rate" => MentalAttribute::WorkRate,
+            _ => return None,
+        };
+        Some(self.get_mental(attr))
+    }
+
+    fn get_physical_by_name(&self, attr_name: &str) -> Option<u8> {
+        let attr = match attr_name {
+            "acceleration" => PhysicalAttribute::Acceleration,
+            "agility" => PhysicalAttribute::Agility,
+            "balance" => PhysicalAttribute::Balance,
+            "jumping_reach" => PhysicalAttribute::JumpingReach,
+            "natural_fitness" => PhysicalAttribute::NaturalFitness,
+            "pace" => PhysicalAttribute::Pace,
+            "stamina" => PhysicalAttribute::Stamina,
+            "strength" => PhysicalAttribute::Strength,
+            _ => return None,
+        };
+        Some(self.get_physical(attr))
+    }
+
+    // Helper methods for mapping technical attributes to goalkeeping attributes
+    fn set_goalkeeper_technical_mapping(
+        &mut self,
+        attr_name: &str,
+        value: u8,
+    ) -> anyhow::Result<()> {
+        // Map some technical attributes to goalkeeping attributes for backward compatibility
+        match attr_name {
+            "first_touch" => {
+                self.set_goalkeeping(GoalkeepingAttribute::FirstTouch, value);
+                Ok(())
+            }
+            "passing" => {
+                self.set_goalkeeping(GoalkeepingAttribute::Passing, value);
+                Ok(())
+            }
+            _ => Err(anyhow::anyhow!(
+                "No mapping for technical attribute {} to goalkeeping",
+                attr_name
+            )),
+        }
+    }
+
+    fn get_goalkeeper_technical_mapping(&self, attr_name: &str) -> Option<u8> {
+        // Map some technical attributes to goalkeeping attributes for backward compatibility
+        match attr_name {
+            "first_touch" => Some(self.get_goalkeeping(GoalkeepingAttribute::FirstTouch)),
+            "passing" => Some(self.get_goalkeeping(GoalkeepingAttribute::Passing)),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -801,5 +1070,112 @@ mod tests {
         assert_eq!(converted_back.get("technical_finishing"), Some(&18));
         assert_eq!(converted_back.get("mental_determination"), Some(&19));
         assert_eq!(converted_back.get("physical_pace"), Some(&16));
+    }
+
+    #[test]
+    fn test_direct_access_field_player() {
+        let mut attr_set = AttributeSet::new(PlayerType::FieldPlayer);
+
+        // Test setting and getting technical attributes
+        attr_set.set_by_name("technical_crossing", 15).unwrap();
+        assert_eq!(attr_set.get_by_name("technical_crossing"), Some(15));
+
+        // Test setting and getting mental attributes
+        attr_set.set_by_name("mental_composure", 18).unwrap();
+        assert_eq!(attr_set.get_by_name("mental_composure"), Some(18));
+
+        // Test setting and getting physical attributes
+        attr_set.set_by_name("physical_strength", 19).unwrap();
+        assert_eq!(attr_set.get_by_name("physical_strength"), Some(19));
+
+        // Test unknown attribute
+        assert_eq!(attr_set.get_by_name("unknown_attribute"), None);
+
+        // Test goalkeeping attributes should fail for field players
+        assert!(attr_set.set_by_name("goalkeeping_reflexes", 15).is_err());
+        assert_eq!(attr_set.get_by_name("goalkeeping_reflexes"), None);
+    }
+
+    #[test]
+    fn test_direct_access_goalkeeper() {
+        let mut attr_set = AttributeSet::new(PlayerType::Goalkeeper);
+
+        // Test setting and getting goalkeeping attributes
+        attr_set.set_by_name("goalkeeping_reflexes", 19).unwrap();
+        assert_eq!(attr_set.get_by_name("goalkeeping_reflexes"), Some(19));
+
+        // Test setting and getting mental attributes
+        attr_set.set_by_name("mental_concentration", 16).unwrap();
+        assert_eq!(attr_set.get_by_name("mental_concentration"), Some(16));
+
+        // Test setting and getting physical attributes
+        attr_set.set_by_name("physical_agility", 17).unwrap();
+        assert_eq!(attr_set.get_by_name("physical_agility"), Some(17));
+
+        // Test unknown attribute
+        assert_eq!(attr_set.get_by_name("unknown_attribute"), None);
+
+        // Test technical attributes for goalkeepers are stored as extra attributes for backward compatibility
+        attr_set.set_by_name("technical_crossing", 15).unwrap(); // Should not fail
+        assert_eq!(attr_set.get_by_name("technical_crossing"), Some(15)); // Should be accessible via extra_attributes
+
+        // Test technical attributes that map to goalkeeping attributes
+        attr_set.set_by_name("technical_first_touch", 12).unwrap();
+        assert_eq!(attr_set.get_by_name("technical_first_touch"), Some(12)); // Should map to goalkeeping first_touch
+    }
+
+    #[test]
+    fn test_direct_access_extra_attributes() {
+        let mut attr_set = AttributeSet::new(PlayerType::FieldPlayer);
+
+        // Test setting and getting extra attributes (unknown names)
+        attr_set.set_by_name("custom_attribute", 12).unwrap();
+        assert_eq!(attr_set.get_by_name("custom_attribute"), Some(12));
+
+        // Verify it's stored in extra_attributes and appears in hashmap conversion
+        let hashmap = attr_set.to_hashmap();
+        assert_eq!(hashmap.get("custom_attribute"), Some(&12));
+    }
+
+    #[test]
+    fn test_direct_access_performance_equivalence() {
+        let mut attr_set = AttributeSet::new(PlayerType::FieldPlayer);
+
+        // Set some attributes using direct access
+        attr_set.set_by_name("technical_finishing", 18).unwrap();
+        attr_set.set_by_name("mental_determination", 19).unwrap();
+        attr_set.set_by_name("physical_pace", 16).unwrap();
+
+        // Verify they match hashmap conversion results
+        let hashmap = attr_set.to_hashmap();
+        assert_eq!(
+            attr_set.get_by_name("technical_finishing"),
+            hashmap.get("technical_finishing").copied()
+        );
+        assert_eq!(
+            attr_set.get_by_name("mental_determination"),
+            hashmap.get("mental_determination").copied()
+        );
+        assert_eq!(
+            attr_set.get_by_name("physical_pace"),
+            hashmap.get("physical_pace").copied()
+        );
+    }
+
+    #[test]
+    fn test_invalid_attribute_names() {
+        let mut attr_set = AttributeSet::new(PlayerType::FieldPlayer);
+
+        // Test invalid technical attribute
+        assert!(attr_set.set_by_name("technical_invalid", 15).is_err());
+        assert_eq!(attr_set.get_by_name("technical_invalid"), None);
+
+        // Test invalid mental attribute
+        assert!(attr_set.set_by_name("mental_invalid", 15).is_err());
+        assert_eq!(attr_set.get_by_name("mental_invalid"), None);
+
+        // Test invalid physical attribute
+        assert!(attr_set.set_by_name("physical_invalid", 15).is_err());
+        assert_eq!(attr_set.get_by_name("physical_invalid"), None);
     }
 }

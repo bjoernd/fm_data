@@ -29,15 +29,27 @@ impl ImagePlayer {
     }
 
     pub fn add_attribute(&mut self, name: String, value: u8) {
-        // For backward compatibility, convert to HashMap and set
-        let mut hashmap = self.attributes.to_hashmap();
-        hashmap.insert(name, value);
-        self.attributes = AttributeSet::from_hashmap(&hashmap, self.player_type.clone());
+        // Use direct attribute access for performance, fallback to HashMap conversion if needed
+        match self.attributes.set_by_name(&name, value) {
+            Ok(()) => {}
+            Err(err) => {
+                // Log the error but don't fail - maintain backward compatibility
+                log::debug!(
+                    "Failed to set attribute {} directly: {}, falling back to HashMap conversion",
+                    name,
+                    err
+                );
+                // Fallback to the old method for unknown attributes
+                let mut hashmap = self.attributes.to_hashmap();
+                hashmap.insert(name, value);
+                self.attributes = AttributeSet::from_hashmap(&hashmap, self.player_type.clone());
+            }
+        }
     }
 
     pub fn get_attribute(&self, name: &str) -> u8 {
-        let hashmap = self.attributes.to_hashmap();
-        hashmap.get(name).copied().unwrap_or(0)
+        // Use direct attribute access for performance
+        self.attributes.get_by_name(name).unwrap_or(0)
     }
 }
 
@@ -124,7 +136,7 @@ fn extract_player_name(ocr_text: &str) -> Result<String> {
     }
 
     log::warn!("Unable to extract player name from OCR text");
-    return Ok("N. N.".to_string());
+    Ok("N. N.".to_string())
 }
 
 /// Extract a plausible player name from a piece of text
