@@ -22,7 +22,7 @@ impl ImagePlayer {
         Self {
             name,
             age,
-            player_type: player_type.clone(),
+            player_type,
             footedness,
             attributes: AttributeSet::new(player_type),
         }
@@ -42,7 +42,7 @@ impl ImagePlayer {
                 // Fallback to the old method for unknown attributes
                 let mut hashmap = self.attributes.to_hashmap();
                 hashmap.insert(name, value);
-                self.attributes = AttributeSet::from_hashmap(&hashmap, self.player_type.clone());
+                self.attributes = AttributeSet::from_hashmap(&hashmap, &self.player_type);
             }
         }
     }

@@ -212,7 +212,7 @@ fn bench_conversion_overhead(c: &mut Criterion) {
             let mut converted = Vec::new();
             for attr_map in &hashmaps {
                 let attr_set =
-                    AttributeSet::from_hashmap(black_box(attr_map), PlayerType::FieldPlayer);
+                    AttributeSet::from_hashmap(black_box(attr_map), &PlayerType::FieldPlayer);
                 converted.push(attr_set);
             }
             black_box(converted)

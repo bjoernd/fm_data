@@ -155,15 +155,15 @@ impl AttributeSet {
     }
 
     /// Convert from HashMap-based attributes (for backward compatibility)
-    pub fn from_hashmap(attributes: &HashMap<String, u8>, player_type: PlayerType) -> Self {
-        let mut attr_set = Self::new(player_type.clone());
+    pub fn from_hashmap(attributes: &HashMap<String, u8>, player_type: &PlayerType) -> Self {
+        let mut attr_set = Self::new(*player_type);
 
         // Store any attributes that don't fit the structured format in extra_attributes
         for (key, &value) in attributes {
             attr_set.extra_attributes.insert(key.clone(), value);
         }
 
-        match player_type {
+        match *player_type {
             PlayerType::FieldPlayer => {
                 // Technical attributes
                 attr_set.set_technical(
@@ -994,7 +994,7 @@ mod tests {
         attributes.insert("mental_determination".to_string(), 18);
         attributes.insert("physical_pace".to_string(), 16);
 
-        let attr_set = AttributeSet::from_hashmap(&attributes, PlayerType::FieldPlayer);
+        let attr_set = AttributeSet::from_hashmap(&attributes, &PlayerType::FieldPlayer);
 
         assert_eq!(attr_set.get_technical(TechnicalAttribute::Corners), 15);
         assert_eq!(attr_set.get_technical(TechnicalAttribute::Crossing), 12);
@@ -1010,7 +1010,7 @@ mod tests {
         attributes.insert("mental_concentration".to_string(), 16);
         attributes.insert("physical_agility".to_string(), 15);
 
-        let attr_set = AttributeSet::from_hashmap(&attributes, PlayerType::Goalkeeper);
+        let attr_set = AttributeSet::from_hashmap(&attributes, &PlayerType::Goalkeeper);
 
         assert_eq!(attr_set.get_goalkeeping(GoalkeepingAttribute::Reflexes), 19);
         assert_eq!(attr_set.get_goalkeeping(GoalkeepingAttribute::Handling), 17);
@@ -1064,7 +1064,7 @@ mod tests {
         original.insert("mental_determination".to_string(), 19);
         original.insert("physical_pace".to_string(), 16);
 
-        let attr_set = AttributeSet::from_hashmap(&original, PlayerType::FieldPlayer);
+        let attr_set = AttributeSet::from_hashmap(&original, &PlayerType::FieldPlayer);
         let converted_back = attr_set.to_hashmap();
 
         assert_eq!(converted_back.get("technical_finishing"), Some(&18));
