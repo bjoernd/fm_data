@@ -206,8 +206,11 @@ fn default_attribute_name_corrections() -> HashMap<String, String> {
     corrections.insert("agtlty".to_string(), "Agility".to_string());
     corrections.insert("dribbting".to_string(), "Dribbling".to_string());
     corrections.insert("tackting".to_string(), "Tackling".to_string());
+    corrections.insert("taking".to_string(), "Tackling".to_string());
     corrections.insert("postioning".to_string(), "Positioning".to_string());
     corrections.insert("posttioning".to_string(), "Positioning".to_string());
+    corrections.insert("postioning".to_string(), "Positioning".to_string());
+    corrections.insert("vison".to_string(), "Vision".to_string());
 
     corrections
 }
