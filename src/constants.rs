@@ -59,6 +59,9 @@ pub mod file_extensions {
 
     /// Text file extension
     pub const TXT: &str = "txt";
+
+    /// PNG image file extension
+    pub const PNG: &str = "png";
 }
 
 /// File extension enum for type-safe file extension handling
@@ -67,6 +70,7 @@ pub enum FileExtension {
     Json,
     Html,
     Txt,
+    Png,
 }
 
 impl FileExtension {
@@ -76,6 +80,7 @@ impl FileExtension {
             FileExtension::Json => file_extensions::JSON,
             FileExtension::Html => file_extensions::HTML,
             FileExtension::Txt => file_extensions::TXT,
+            FileExtension::Png => file_extensions::PNG,
         }
     }
 
@@ -96,6 +101,7 @@ impl std::str::FromStr for FileExtension {
             "json" => Ok(FileExtension::Json),
             "html" => Ok(FileExtension::Html),
             "txt" => Ok(FileExtension::Txt),
+            "png" => Ok(FileExtension::Png),
             _ => Err(format!("Unknown file extension: {ext}")),
         }
     }
@@ -116,6 +122,7 @@ mod tests {
         assert_eq!(FileExtension::Json.as_str(), "json");
         assert_eq!(FileExtension::Html.as_str(), "html");
         assert_eq!(FileExtension::Txt.as_str(), "txt");
+        assert_eq!(FileExtension::Png.as_str(), "png");
     }
 
     #[test]
@@ -126,11 +133,14 @@ mod tests {
         assert_eq!(FileExtension::from_str("JSON"), Ok(FileExtension::Json));
         assert_eq!(FileExtension::from_str("html"), Ok(FileExtension::Html));
         assert_eq!(FileExtension::from_str("txt"), Ok(FileExtension::Txt));
+        assert_eq!(FileExtension::from_str("png"), Ok(FileExtension::Png));
+        assert_eq!(FileExtension::from_str("PNG"), Ok(FileExtension::Png));
         assert!(FileExtension::from_str("unknown").is_err());
 
         // Test with parse method
         assert_eq!("json".parse::<FileExtension>(), Ok(FileExtension::Json));
         assert_eq!("HTML".parse::<FileExtension>(), Ok(FileExtension::Html));
+        assert_eq!("png".parse::<FileExtension>(), Ok(FileExtension::Png));
         assert!("unknown".parse::<FileExtension>().is_err());
     }
 
@@ -148,6 +158,10 @@ mod tests {
             FileExtension::from_path("config.txt"),
             Some(FileExtension::Txt)
         );
+        assert_eq!(
+            FileExtension::from_path("image.png"),
+            Some(FileExtension::Png)
+        );
         assert_eq!(FileExtension::from_path("no_extension"), None);
         assert_eq!(FileExtension::from_path("unknown.xyz"), None);
     }
@@ -157,6 +171,7 @@ mod tests {
         assert_eq!(format!("{}", FileExtension::Json), "json");
         assert_eq!(format!("{}", FileExtension::Html), "html");
         assert_eq!(format!("{}", FileExtension::Txt), "txt");
+        assert_eq!(format!("{}", FileExtension::Png), "png");
     }
 }
 
