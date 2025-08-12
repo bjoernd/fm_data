@@ -132,7 +132,6 @@ impl Config {
             .unwrap_or(default_value)
     }
 
-
     pub async fn from_file(config_path: &Path) -> Result<Config> {
         let config_str = fs::read_to_string(config_path)
             .await
@@ -373,7 +372,10 @@ mod tests {
         let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
-        assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-spreadsheet-id");
+        assert_eq!(
+            config.google.spreadsheet_name.as_ref().unwrap().as_str(),
+            "test-spreadsheet-id"
+        );
         assert_eq!(config.google.team_sheet, "MySquad");
         assert_eq!(config.input.data_html, "/path/to/data.html");
 
@@ -452,7 +454,9 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
+                spreadsheet_name: Some(
+                    SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap(),
+                ),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -519,7 +523,10 @@ mod tests {
         let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
-        assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-spreadsheet-id");
+        assert_eq!(
+            config.google.spreadsheet_name.as_ref().unwrap().as_str(),
+            "test-spreadsheet-id"
+        );
         assert_eq!(config.google.team_sheet, "Squad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
@@ -612,7 +619,9 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
+                spreadsheet_name: Some(
+                    SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap(),
+                ),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -679,7 +688,9 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
+                spreadsheet_name: Some(
+                    SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap(),
+                ),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -728,7 +739,9 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
+                spreadsheet_name: Some(
+                    SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap(),
+                ),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),

@@ -57,7 +57,8 @@ impl SheetsManager {
             .map_err(|e| {
                 FMDataError::sheets_api(format!(
                     "Failed to access spreadsheet '{}': {}",
-                    self.spreadsheet_id.as_str(), e
+                    self.spreadsheet_id.as_str(),
+                    e
                 ))
             })?;
 
@@ -82,7 +83,8 @@ impl SheetsManager {
             .map_err(|e| {
                 FMDataError::sheets_api(format!(
                     "Failed to access spreadsheet '{}': {}",
-                    self.spreadsheet_id.as_str(), e
+                    self.spreadsheet_id.as_str(),
+                    e
                 ))
             })?;
 
@@ -115,7 +117,11 @@ impl SheetsManager {
 
         let clear_range = format!("{sheet_name}!{}", ranges::UPLOAD_RANGE);
         self.client
-            .values_clear(self.spreadsheet_id.as_str(), &clear_range, &ClearValuesRequest {})
+            .values_clear(
+                self.spreadsheet_id.as_str(),
+                &clear_range,
+                &ClearValuesRequest {},
+            )
             .await
             .map_err(|e| {
                 FMDataError::sheets_api(format!(

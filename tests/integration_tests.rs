@@ -211,7 +211,10 @@ async fn test_config_integration() -> Result<()> {
 
     // Test loading config
     let config = Config::from_file(config_file.path()).await?;
-    assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-spreadsheet-id");
+    assert_eq!(
+        config.google.spreadsheet_name.as_ref().unwrap().as_str(),
+        "test-spreadsheet-id"
+    );
     assert_eq!(config.google.team_sheet, "Squad");
     assert_eq!(config.input.role_file, "tests/test_roles.txt");
 
@@ -1746,7 +1749,10 @@ async fn test_image_upload_config_integration() -> Result<()> {
     // Load and test configuration
     let config = Config::from_file(config_file.path()).await?;
 
-    assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-image-spreadsheet-id");
+    assert_eq!(
+        config.google.spreadsheet_name.as_ref().unwrap().as_str(),
+        "test-image-spreadsheet-id"
+    );
     assert_eq!(config.google.scouting_sheet, "CustomScoutingSheet");
     assert_eq!(config.input.image_file, image_file.path().to_string_lossy());
 

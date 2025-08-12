@@ -87,7 +87,6 @@ impl RoleFileContent {
     }
 }
 
-
 /// Player abilities tracked in the system
 pub const ABILITIES: &[&str] = &[
     "Cor", "Cro", "Dri", "Fin", "Fir", "Fre", "Hea", "Lon", "L Th", "Mar", "Pas", "Pen", "Tck",
@@ -180,7 +179,7 @@ impl Player {
         role_ratings: Vec<Option<f32>>,
     ) -> Result<Self> {
         let player_id = PlayerId::new(&name)?;
-        
+
         if abilities.len() != ABILITIES.len() {
             return Err(FMDataError::selection(format!(
                 "Player {} has {} abilities, expected {}",

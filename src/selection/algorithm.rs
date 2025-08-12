@@ -1,9 +1,7 @@
 use super::categories::role_belongs_to_category;
-use super::types::{
-    Assignment, Footedness, Player, PlayerFilter, Role, Team, ABILITIES,
-};
-use crate::domain::RoleId;
+use super::types::{Assignment, Footedness, Player, PlayerFilter, Role, Team, ABILITIES};
 use crate::constants::data_layout;
+use crate::domain::RoleId;
 use crate::error::{FMDataError, Result};
 use crate::error_helpers::validation_error;
 
@@ -123,7 +121,10 @@ pub fn is_player_eligible_for_role(
     filters: &[PlayerFilter],
 ) -> bool {
     // Find filter for this player
-    if let Some(filter) = filters.iter().find(|f| f.player_name.as_str() == player_name) {
+    if let Some(filter) = filters
+        .iter()
+        .find(|f| f.player_name.as_str() == player_name)
+    {
         // Player has a filter - check if role belongs to any allowed category
         filter
             .allowed_categories
