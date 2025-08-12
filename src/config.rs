@@ -3,8 +3,8 @@ use crate::error::Result;
 use crate::error_helpers::{config_missing_field, ErrorContext};
 use crate::validators::{ConfigValidator, FileValidator};
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::path::{Path, PathBuf};
+use tokio::fs;
 
 fn default_team_sheet() -> String {
     String::from(defaults::TEAM_SHEET)
@@ -98,8 +98,9 @@ impl Config {
             .unwrap_or(default_value)
     }
 
-    pub fn from_file(config_path: &Path) -> Result<Config> {
+    pub async fn from_file(config_path: &Path) -> Result<Config> {
         let config_str = fs::read_to_string(config_path)
+            .await
             .with_file_context(&config_path.display().to_string(), "read")?;
 
         let config: Config =
@@ -237,7 +238,7 @@ impl Config {
     }
 
     /// Resolve paths for image processor including image file and sheet name
-    pub fn resolve_image_paths(
+    pub async fn resolve_image_paths(
         &self,
         spreadsheet: Option<String>,
         credfile: Option<String>,
@@ -274,7 +275,7 @@ impl Config {
             crate::constants::FileExtension::Json,
         )?;
         FileValidator::validate_file_exists(&resolved_image_file, "Image")?;
-        crate::cli::validate_image_file(&resolved_image_file)?;
+        crate::cli::validate_image_file(&resolved_image_file).await?;
 
         Ok((
             resolved_spreadsheet,
@@ -305,8 +306,8 @@ mod tests {
         assert!(config.input.image_file.is_empty());
     }
 
-    #[test]
-    fn test_config_from_file_valid() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_from_file_valid() -> Result<()> {
         let config_json = r#"{
             "google": {
                 "creds_file": "/path/to/creds.json",
@@ -326,7 +327,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_file.path())?;
+        let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
         assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
@@ -336,14 +337,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_from_file_invalid_json() {
+    #[tokio::test]
+    async fn test_config_from_file_invalid_json() {
         let invalid_json = r#"{ invalid json }"#;
 
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(invalid_json.as_bytes()).unwrap();
 
-        let result = Config::from_file(temp_file.path());
+        let result = Config::from_file(temp_file.path()).await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -351,9 +352,9 @@ mod tests {
             .contains("Configuration error in field 'JSON parsing'"));
     }
 
-    #[test]
-    fn test_config_from_file_nonexistent() {
-        let result = Config::from_file(Path::new("/nonexistent/config.json"));
+    #[tokio::test]
+    async fn test_config_from_file_nonexistent() {
+        let result = Config::from_file(Path::new("/nonexistent/config.json")).await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -460,8 +461,8 @@ mod tests {
         assert!(input.ends_with("bd.html"));
     }
 
-    #[test]
-    fn test_config_from_file_partial_google() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_from_file_partial_google() -> Result<()> {
         let config_json = r#"{
             "google": {
                 "creds_file": "/path/to/creds.json",
@@ -472,7 +473,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_file.path())?;
+        let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
         assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
@@ -488,8 +489,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_from_file_partial_input() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_from_file_partial_input() -> Result<()> {
         let config_json = r#"{
             "input": {
                 "data_html": "/path/to/data.html"
@@ -499,7 +500,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_file.path())?;
+        let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.input.data_html, "/path/to/data.html");
         assert!(config.input.league_perf_html.is_empty());
@@ -510,14 +511,14 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_from_file_empty_object() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_from_file_empty_object() -> Result<()> {
         let config_json = r#"{}"#;
 
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_file.path())?;
+        let config = Config::from_file(temp_file.path()).await?;
 
         assert!(config.google.creds_file.is_empty());
         assert!(config.google.spreadsheet_name.is_empty());
@@ -530,8 +531,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_from_file_mixed_partial() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_from_file_mixed_partial() -> Result<()> {
         let config_json = r#"{
             "google": {
                 "creds_file": "/custom/creds.json",
@@ -545,7 +546,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_file.path())?;
+        let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/custom/creds.json");
         assert_eq!(config.google.team_sheet, "CustomSquad");
@@ -665,17 +666,18 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_role_file_path_takes_precedence_over_cli_none() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_role_file_path_takes_precedence_over_cli_none() -> Result<()> {
         // Create temporary files for testing
         let creds_file = NamedTempFile::new().unwrap();
         let role_file = NamedTempFile::new().unwrap();
 
         // Write a simple role file content
-        std::fs::write(
+        fs::write(
             role_file.path(),
             "GK\nCD(d)\nCD(s)\nFB(d) R\nFB(d) L\nCM(d)\nCM(s)\nCM(a)\nW(s) R\nW(s) L\nCF(s)",
         )
+        .await
         .unwrap();
 
         // Create config with specific role file path
@@ -717,8 +719,8 @@ mod tests {
         Ok(())
     }
 
-    #[test]
-    fn test_config_image_fields_and_resolve_paths() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_image_fields_and_resolve_paths() -> Result<()> {
         // Create temporary files for testing
         let creds_file = NamedTempFile::new().unwrap();
         let image_file = create_test_png();
@@ -737,19 +739,21 @@ mod tests {
         let mut temp_config_file = NamedTempFile::new()?;
         temp_config_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_config_file.path())?;
+        let config = Config::from_file(temp_config_file.path()).await?;
 
         // Test that new fields are loaded correctly
         assert_eq!(config.google.scouting_sheet, "MyScoutingSheet");
         assert_eq!(config.input.image_file, "/config/image.png");
 
         // Test resolve_image_paths method
-        let (spreadsheet, credfile, imagefile, sheet) = config.resolve_image_paths(
-            Some("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string()),
-            Some(creds_file.path().to_string_lossy().to_string()),
-            Some(image_file.path().to_string_lossy().to_string()),
-            Some("CustomSheet".to_string()),
-        )?;
+        let (spreadsheet, credfile, imagefile, sheet) = config
+            .resolve_image_paths(
+                Some("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string()),
+                Some(creds_file.path().to_string_lossy().to_string()),
+                Some(image_file.path().to_string_lossy().to_string()),
+                Some("CustomSheet".to_string()),
+            )
+            .await?;
 
         assert_eq!(spreadsheet, "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc");
         assert!(credfile.contains("tmp"));
@@ -779,8 +783,8 @@ mod tests {
         assert!(config.input.image_file.is_empty());
     }
 
-    #[test]
-    fn test_config_from_file_image_partial() -> Result<()> {
+    #[tokio::test]
+    async fn test_config_from_file_image_partial() -> Result<()> {
         let config_json = r#"{
             "input": {
                 "image_file": "/path/to/screenshot.png"
@@ -790,7 +794,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new()?;
         temp_file.write_all(config_json.as_bytes())?;
 
-        let config = Config::from_file(temp_file.path())?;
+        let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.input.image_file, "/path/to/screenshot.png");
         assert_eq!(config.google.scouting_sheet, "Scouting"); // Should use default

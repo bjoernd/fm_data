@@ -210,7 +210,7 @@ async fn test_config_integration() -> Result<()> {
         .unwrap();
 
     // Test loading config
-    let config = Config::from_file(config_file.path())?;
+    let config = Config::from_file(config_file.path()).await?;
     assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
     assert_eq!(config.google.team_sheet, "Squad");
     assert_eq!(config.input.role_file, "tests/test_roles.txt");
@@ -1244,7 +1244,7 @@ async fn test_config_file_input_path_resolution() -> Result<()> {
     drop(config_file_handle);
 
     // Test that Config::from_file correctly loads the input path
-    let config = Config::from_file(config_file.path())?;
+    let config = Config::from_file(config_file.path()).await?;
     assert_eq!(
         config.input.data_html,
         input_file.path().to_string_lossy().to_string()
@@ -1313,12 +1313,14 @@ async fn test_image_upload_new_player() -> Result<()> {
     let config = Config::default();
 
     // Test path resolution
-    let resolve_result = config.resolve_image_paths(
-        cli_args.common.spreadsheet.clone(),
-        cli_args.common.credfile.clone(),
-        cli_args.image_file.clone(),
-        Some(cli_args.sheet.clone()),
-    );
+    let resolve_result = config
+        .resolve_image_paths(
+            cli_args.common.spreadsheet.clone(),
+            cli_args.common.credfile.clone(),
+            cli_args.image_file.clone(),
+            Some(cli_args.sheet.clone()),
+        )
+        .await;
 
     match resolve_result {
         Ok((spreadsheet, _credfile, imagefile, sheet)) => {
@@ -1679,12 +1681,14 @@ async fn test_image_upload_missing_sheet_error() -> Result<()> {
     let config = Config::default();
 
     // Test that missing credentials file is properly detected
-    let resolve_result = config.resolve_image_paths(
-        cli_args.common.spreadsheet.clone(),
-        cli_args.common.credfile.clone(),
-        cli_args.image_file.clone(),
-        Some(cli_args.sheet.clone()),
-    );
+    let resolve_result = config
+        .resolve_image_paths(
+            cli_args.common.spreadsheet.clone(),
+            cli_args.common.credfile.clone(),
+            cli_args.image_file.clone(),
+            Some(cli_args.sheet.clone()),
+        )
+        .await;
 
     // Should fail due to missing credentials file
     assert!(resolve_result.is_err());
@@ -1740,7 +1744,7 @@ async fn test_image_upload_config_integration() -> Result<()> {
     fs::write(config_file.path(), config_content).await.unwrap();
 
     // Load and test configuration
-    let config = Config::from_file(config_file.path())?;
+    let config = Config::from_file(config_file.path()).await?;
 
     assert_eq!(config.google.spreadsheet_name, "test-image-spreadsheet-id");
     assert_eq!(config.google.scouting_sheet, "CustomScoutingSheet");
@@ -1755,7 +1759,7 @@ async fn test_image_upload_config_integration() -> Result<()> {
     );
 
     // Should use values from config file
-    match resolve_result {
+    match resolve_result.await {
         Ok((spreadsheet, credfile, imagefile, sheet)) => {
             assert_eq!(spreadsheet, "test-image-spreadsheet-id");
             assert_eq!(credfile, creds_file.path().to_string_lossy());
@@ -1812,7 +1816,7 @@ async fn test_image_upload_backward_compatibility() -> Result<()> {
         Some(cli_args_minimal.sheet.clone()),
     );
 
-    match resolve_result {
+    match resolve_result.await {
         Ok((_spreadsheet, credfile, imagefile, sheet)) => {
             // Should use defaults from config (which may be non-empty in test environment)
             // Just verify the image file and sheet are correct
@@ -1844,12 +1848,14 @@ async fn test_image_upload_backward_compatibility() -> Result<()> {
         sheet: "Scouting".to_string(),
     };
 
-    let invalid_resolve_result = config.resolve_image_paths(
-        invalid_image_cli.common.spreadsheet.clone(),
-        invalid_image_cli.common.credfile.clone(),
-        invalid_image_cli.image_file.clone(),
-        Some(invalid_image_cli.sheet.clone()),
-    );
+    let invalid_resolve_result = config
+        .resolve_image_paths(
+            invalid_image_cli.common.spreadsheet.clone(),
+            invalid_image_cli.common.credfile.clone(),
+            invalid_image_cli.image_file.clone(),
+            Some(invalid_image_cli.sheet.clone()),
+        )
+        .await;
 
     // Should fail due to missing image file
     assert!(invalid_resolve_result.is_err());
@@ -1874,12 +1880,14 @@ async fn test_image_upload_file_format_validation() -> Result<()> {
     let txt_file = NamedTempFile::with_suffix(".txt").unwrap();
     std::fs::write(txt_file.path(), "not an image").unwrap();
 
-    let result = config.resolve_image_paths(
-        Some("test-spreadsheet".to_string()),
-        Some("test-creds.json".to_string()),
-        Some(txt_file.path().to_string_lossy().to_string()),
-        Some("TestSheet".to_string()),
-    );
+    let result = config
+        .resolve_image_paths(
+            Some("test-spreadsheet".to_string()),
+            Some("test-creds.json".to_string()),
+            Some(txt_file.path().to_string_lossy().to_string()),
+            Some("TestSheet".to_string()),
+        )
+        .await;
 
     // Should fail due to non-PNG extension or missing credentials
     assert!(result.is_err());
@@ -1898,12 +1906,14 @@ async fn test_image_upload_file_format_validation() -> Result<()> {
     let png_header = vec![0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
     std::fs::write(png_file.path(), png_header).unwrap();
 
-    let result = config.resolve_image_paths(
-        Some("test-spreadsheet".to_string()),
-        Some("test-creds.json".to_string()),
-        Some(png_file.path().to_string_lossy().to_string()),
-        Some("TestSheet".to_string()),
-    );
+    let result = config
+        .resolve_image_paths(
+            Some("test-spreadsheet".to_string()),
+            Some("test-creds.json".to_string()),
+            Some(png_file.path().to_string_lossy().to_string()),
+            Some("TestSheet".to_string()),
+        )
+        .await;
 
     // May still fail due to missing credentials, but PNG validation should pass
     match result {

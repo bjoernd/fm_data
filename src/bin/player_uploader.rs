@@ -31,8 +31,8 @@ struct CLIArguments {
 }
 
 impl CLIArgumentValidator for CLIArguments {
-    fn validate(&self) -> Result<()> {
-        self.common.validate_common()
+    async fn validate(&self) -> Result<()> {
+        self.common.validate_common().await
     }
 
     fn is_verbose(&self) -> bool {

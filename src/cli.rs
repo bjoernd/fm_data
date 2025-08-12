@@ -31,7 +31,7 @@ impl CommonArgs {
 
 pub trait CommonCLIArgs {
     fn get_common_args(&self) -> CommonArgs;
-    fn validate_common(&self) -> Result<()>;
+    fn validate_common(&self) -> impl std::future::Future<Output = Result<()>> + Send;
 }
 
 /// Common CLI arguments shared across all binaries (for clap flattening)
@@ -110,10 +110,10 @@ pub fn validate_config_file(config_file: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_image_file(image_path: &str) -> Result<()> {
-    use std::fs;
-    use std::io::Read;
+pub async fn validate_image_file(image_path: &str) -> Result<()> {
     use std::path::Path;
+    use tokio::fs;
+    use tokio::io::AsyncReadExt;
 
     let path = Path::new(image_path);
     if !path.exists() {
@@ -129,13 +129,13 @@ pub fn validate_image_file(image_path: &str) -> Result<()> {
     }
 
     // Basic PNG file validation (check magic bytes)
-    let mut file = fs::File::open(path).map_err(|_| {
+    let mut file = fs::File::open(path).await.map_err(|_| {
         ErrorBuilder::new(ErrorCode::E104)
             .with_context(image_path)
             .build()
     })?;
     let mut png_header = [0u8; 8];
-    if file.read_exact(&mut png_header).is_ok() {
+    if file.read_exact(&mut png_header).await.is_ok() {
         let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
         if png_header != png_signature {
             return Err(ErrorBuilder::new(ErrorCode::E601)
@@ -174,7 +174,7 @@ impl CommonCLIArgs for UploaderCLI {
         self.common.to_common_args()
     }
 
-    fn validate_common(&self) -> Result<()> {
+    async fn validate_common(&self) -> Result<()> {
         self.common.validate_common()
     }
 }
@@ -218,7 +218,7 @@ impl CommonCLIArgs for SelectorCLI {
         self.common.to_common_args()
     }
 
-    fn validate_common(&self) -> Result<()> {
+    async fn validate_common(&self) -> Result<()> {
         self.common.validate_common()?;
 
         // Role file is required for team selection
@@ -268,12 +268,12 @@ impl CommonCLIArgs for ImageCLI {
         self.common.to_common_args()
     }
 
-    fn validate_common(&self) -> Result<()> {
+    async fn validate_common(&self) -> Result<()> {
         self.common.validate_common()?;
 
         // Validate that the image file exists and is readable (if provided)
         if let Some(ref image_path) = self.image_file {
-            validate_image_file(image_path)?;
+            validate_image_file(image_path).await?;
         }
         // If no image file is provided, we'll use clipboard mode
 
@@ -331,8 +331,8 @@ mod tests {
         assert!(!common_args.no_progress);
     }
 
-    #[test]
-    fn test_image_cli_validate_missing_image_file_clipboard_mode() {
+    #[tokio::test]
+    async fn test_image_cli_validate_missing_image_file_clipboard_mode() {
         // Missing image file is now valid (clipboard mode)
         let cli = ImageCLI {
             image_file: None,
@@ -346,12 +346,12 @@ mod tests {
             },
         };
 
-        let result = cli.validate_common();
+        let result = cli.validate_common().await;
         assert!(result.is_ok()); // Should now succeed (clipboard mode)
     }
 
-    #[test]
-    fn test_image_cli_validate_nonexistent_image_file() {
+    #[tokio::test]
+    async fn test_image_cli_validate_nonexistent_image_file() {
         let cli = ImageCLI {
             image_file: Some("/nonexistent/path/image.png".to_string()),
             sheet: "Scouting".to_string(),
@@ -364,7 +364,7 @@ mod tests {
             },
         };
 
-        let result = cli.validate_common();
+        let result = cli.validate_common().await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -372,8 +372,8 @@ mod tests {
             .contains("Image file not found"));
     }
 
-    #[test]
-    fn test_image_cli_validate_invalid_png() {
+    #[tokio::test]
+    async fn test_image_cli_validate_invalid_png() {
         let mut temp_file = NamedTempFile::new().unwrap();
         temp_file.write_all(b"not a png file").unwrap();
         temp_file.flush().unwrap();
@@ -390,7 +390,7 @@ mod tests {
             },
         };
 
-        let result = cli.validate_common();
+        let result = cli.validate_common().await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -398,8 +398,8 @@ mod tests {
             .contains("Invalid image format"));
     }
 
-    #[test]
-    fn test_image_cli_validate_valid_png() {
+    #[tokio::test]
+    async fn test_image_cli_validate_valid_png() {
         let temp_png = create_test_png();
 
         let cli = ImageCLI {
@@ -414,12 +414,12 @@ mod tests {
             },
         };
 
-        let result = cli.validate_common();
+        let result = cli.validate_common().await;
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_image_cli_validate_directory_instead_of_file() {
+    #[tokio::test]
+    async fn test_image_cli_validate_directory_instead_of_file() {
         let temp_dir = tempfile::TempDir::new().unwrap();
 
         let cli = ImageCLI {
@@ -434,13 +434,13 @@ mod tests {
             },
         };
 
-        let result = cli.validate_common();
+        let result = cli.validate_common().await;
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Cannot read file"));
     }
 
-    #[test]
-    fn test_image_cli_validate_unreadable_file() {
+    #[tokio::test]
+    async fn test_image_cli_validate_unreadable_file() {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -464,7 +464,7 @@ mod tests {
                 },
             };
 
-            let result = cli.validate_common();
+            let result = cli.validate_common().await;
             assert!(result.is_err());
             assert!(result.unwrap_err().to_string().contains("Cannot read file"));
 

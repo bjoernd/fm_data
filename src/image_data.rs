@@ -53,7 +53,10 @@ impl ImagePlayer {
     }
 }
 
-pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> Result<ImagePlayer> {
+pub async fn parse_player_from_ocr<P: AsRef<Path>>(
+    ocr_text: &str,
+    image_path: P,
+) -> Result<ImagePlayer> {
     log::info!("Full OCR text with improvements:\n{}", ocr_text);
 
     let name = extract_player_name(ocr_text)?;
@@ -70,6 +73,7 @@ pub fn parse_player_from_ocr<P: AsRef<Path>>(ocr_text: &str, image_path: P) -> R
         default_paths::FIELD_LAYOUT_FILE,
         default_paths::GOALKEEPER_LAYOUT_FILE,
     )
+    .await
     .map_err(|e| FMDataError::image(format!("Failed to load layouts: {e}")))?;
 
     parse_attributes(&mut player, ocr_text, &layout_manager)?;
@@ -597,12 +601,14 @@ mod tests {
         assert_eq!(result, PlayerType::Goalkeeper);
     }
 
-    #[test]
-    fn test_parse_player_from_ocr_field_player() {
+    #[tokio::test]
+    async fn test_parse_player_from_ocr_field_player() {
         // Create OCR text that matches the structured layout expected by the new parser
         let ocr_text = "Virgil van Dijk\n32 years old\nTECHNICAL MENTAL PHYSICAL\nCorners 7 Aggression 8 Acceleration 11\nCrossing 9 Anticipation 8 Agility 7\nDribbling 10 Bravery 8 Balance 7\nFinishing 6 Composure 18 Jumping Reach 10\nFirst Touch 10 Concentration 8 Natural Fitness 12\nFree Kick Taking 7 Decisions 8 Pace 12\nHeading 7 Determination 10 Stamina 11\nLong Shots 9 Flair 6 Strength 19\nLong Throws 8 Leadership 7\nMarking 9 Off the Ball 9\nPassing 9 Positioning 9\nPenalty Taking 8 Teamwork 9\nTackling 8 Vision 15\nTechnique 10 Work Rate 9\n";
         // Use dummy path for test - footedness detection will fail gracefully and default to BothFooted
-        let player = parse_player_from_ocr(ocr_text, "/nonexistent/test.png").unwrap();
+        let player = parse_player_from_ocr(ocr_text, "/nonexistent/test.png")
+            .await
+            .unwrap();
 
         assert_eq!(player.name, "Virgil van Dijk");
         assert_eq!(player.age, 32);

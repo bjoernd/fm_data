@@ -207,7 +207,7 @@ impl AppRunnerBuilder {
     async fn load_config(config_path: &Path, progress: &dyn ProgressCallback) -> Result<Config> {
         progress.update(5, 100, "Loading configuration...");
 
-        let config = match Config::from_file(config_path) {
+        let config = match Config::from_file(config_path).await {
             Ok(cfg) => {
                 info!("Successfully loaded config from {}", config_path.display());
                 cfg

@@ -8,7 +8,7 @@ use std::time::Instant;
 
 /// Common CLI argument validation trait
 pub trait CLIArgumentValidator {
-    fn validate(&self) -> Result<()>;
+    fn validate(&self) -> impl std::future::Future<Output = Result<()>> + Send;
     fn is_verbose(&self) -> bool;
     fn is_no_progress(&self) -> bool;
     fn config_path(&self) -> &str;
@@ -162,6 +162,7 @@ impl AppRunner {
         let (spreadsheet_id, credfile_path, image_file_path, sheet_name) = self
             .config
             .resolve_image_paths(spreadsheet, credfile, image_file, sheet)
+            .await
             .map_err(|e| {
                 error!("Configuration validation failed: {}", e);
                 e

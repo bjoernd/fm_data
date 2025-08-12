@@ -50,8 +50,8 @@ struct CLIArguments {
 }
 
 impl CLIArgumentValidator for CLIArguments {
-    fn validate(&self) -> Result<()> {
-        self.common.validate_common()
+    async fn validate(&self) -> Result<()> {
+        self.common.validate_common().await
     }
 
     fn is_verbose(&self) -> bool {
@@ -118,6 +118,7 @@ async fn main() -> Result<()> {
             Some(image_file_path.clone()),
             Some(cli.common.sheet.clone()),
         )
+        .await
         .map_err(|e| {
             error!("Configuration validation failed: {}", e);
             e
@@ -178,9 +179,11 @@ async fn main() -> Result<()> {
         .progress()
         .update(60, 100, "Parsing player data and detecting footedness...");
 
-    let player = parse_player_from_ocr(&ocr_text, &image_file_path).map_err(|e| {
-        FMDataError::image(format!("Failed to parse player data from OCR text: {e}"))
-    })?;
+    let player = parse_player_from_ocr(&ocr_text, &image_file_path)
+        .await
+        .map_err(|e| {
+            FMDataError::image(format!("Failed to parse player data from OCR text: {e}"))
+        })?;
 
     info!(
         "Parsed player: {} (age: {}, type: {:?}, footedness: {:?})",

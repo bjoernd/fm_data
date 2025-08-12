@@ -1,8 +1,8 @@
 use crate::error::{FMDataError, Result};
 use crate::types::PlayerType;
 use log::{debug, info, warn};
-use std::fs;
 use std::path::Path;
+use tokio::fs;
 
 /// Layout manager that handles loading and caching of player attribute layouts
 /// from external files or embedded fallbacks
@@ -14,9 +14,9 @@ pub struct LayoutManager {
 
 impl LayoutManager {
     /// Create a new layout manager by loading layouts from files
-    pub fn from_files<P: AsRef<Path>>(field_path: P, gk_path: P) -> Result<Self> {
-        let field_layout = Self::load_layout_from_file(&field_path)?;
-        let goalkeeper_layout = Self::load_layout_from_file(&gk_path)?;
+    pub async fn from_files<P: AsRef<Path>>(field_path: P, gk_path: P) -> Result<Self> {
+        let field_layout = Self::load_layout_from_file(&field_path).await?;
+        let goalkeeper_layout = Self::load_layout_from_file(&gk_path).await?;
 
         debug!(
             "Loaded layouts: {} field rows, {} GK rows",
@@ -31,8 +31,11 @@ impl LayoutManager {
     }
 
     /// Create a layout manager with fallback to embedded layouts if files don't exist
-    pub fn from_files_with_fallback<P: AsRef<Path>>(field_path: P, gk_path: P) -> Result<Self> {
-        match Self::from_files(&field_path, &gk_path) {
+    pub async fn from_files_with_fallback<P: AsRef<Path>>(
+        field_path: P,
+        gk_path: P,
+    ) -> Result<Self> {
+        match Self::from_files(&field_path, &gk_path).await {
             Ok(manager) => {
                 info!("Successfully loaded layouts from external files");
                 Ok(manager)
@@ -185,11 +188,11 @@ impl LayoutManager {
     }
 
     /// Load a layout from a tab-separated file
-    fn load_layout_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<String>>> {
+    async fn load_layout_from_file<P: AsRef<Path>>(path: P) -> Result<Vec<Vec<String>>> {
         let path = path.as_ref();
         debug!("Loading layout from file: {}", path.display());
 
-        let content = fs::read_to_string(path).map_err(|e| {
+        let content = fs::read_to_string(path).await.map_err(|e| {
             FMDataError::image(format!(
                 "Failed to read layout file '{}': {}",
                 path.display(),
@@ -299,8 +302,8 @@ mod tests {
         temp_file
     }
 
-    #[test]
-    fn test_embedded_layout_manager() {
+    #[tokio::test]
+    async fn test_embedded_layout_manager() {
         let manager = LayoutManager::from_embedded();
 
         // Test field player layout
@@ -328,15 +331,15 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_load_layout_from_valid_file() {
+    #[tokio::test]
+    async fn test_load_layout_from_valid_file() {
         let content = "TECHNICAL\tMENTAL\tPHYSICAL\n\
                        Corners\tAggression\tAcceleration\n\
                        Crossing\tAnticipation\tAgility\n";
         let temp_file = create_test_layout_file(content);
         let temp_file2 = create_test_layout_file(content);
 
-        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path());
+        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path()).await;
         assert!(result.is_ok());
 
         let manager = result.unwrap();
@@ -347,8 +350,8 @@ mod tests {
         assert_eq!(layout[2], vec!["Crossing", "Anticipation", "Agility"]);
     }
 
-    #[test]
-    fn test_load_layout_from_file_with_empty_lines() {
+    #[tokio::test]
+    async fn test_load_layout_from_file_with_empty_lines() {
         let content = "TECHNICAL\tMENTAL\tPHYSICAL\n\
                        \n\
                        Corners\tAggression\tAcceleration\n\
@@ -357,7 +360,7 @@ mod tests {
         let temp_file = create_test_layout_file(content);
         let temp_file2 = create_test_layout_file(content);
 
-        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path());
+        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path()).await;
         assert!(result.is_ok());
 
         let manager = result.unwrap();
@@ -366,9 +369,10 @@ mod tests {
         assert_eq!(layout.len(), 3);
     }
 
-    #[test]
-    fn test_load_layout_from_invalid_file() {
-        let result = LayoutManager::from_files("/nonexistent/path1.txt", "/nonexistent/path2.txt");
+    #[tokio::test]
+    async fn test_load_layout_from_invalid_file() {
+        let result =
+            LayoutManager::from_files("/nonexistent/path1.txt", "/nonexistent/path2.txt").await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -376,13 +380,13 @@ mod tests {
             .contains("Failed to read layout file"));
     }
 
-    #[test]
-    fn test_load_layout_with_too_many_columns() {
+    #[tokio::test]
+    async fn test_load_layout_with_too_many_columns() {
         let content = "A\tB\tC\tD\tE\n"; // Too many columns
         let temp_file = create_test_layout_file(content);
         let temp_file2 = create_test_layout_file("GOALKEEPING\tMENTAL\tPHYSICAL\n");
 
-        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path());
+        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path()).await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -390,13 +394,13 @@ mod tests {
             .contains("expected 1-3 columns"));
     }
 
-    #[test]
-    fn test_load_layout_from_empty_file() {
+    #[tokio::test]
+    async fn test_load_layout_from_empty_file() {
         let content = "";
         let temp_file = create_test_layout_file(content);
         let temp_file2 = create_test_layout_file("GOALKEEPING\tMENTAL\tPHYSICAL\n");
 
-        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path());
+        let result = LayoutManager::from_files(temp_file.path(), temp_file2.path()).await;
         assert!(result.is_err());
         assert!(result
             .unwrap_err()
@@ -404,14 +408,15 @@ mod tests {
             .contains("is empty or contains no valid rows"));
     }
 
-    #[test]
-    fn test_from_files_with_fallback_success() {
+    #[tokio::test]
+    async fn test_from_files_with_fallback_success() {
         let content = "TECHNICAL\tMENTAL\tPHYSICAL\n\
                        Corners\tAggression\tAcceleration\n";
         let temp_file = create_test_layout_file(content);
         let temp_file2 = create_test_layout_file(content);
 
-        let result = LayoutManager::from_files_with_fallback(temp_file.path(), temp_file2.path());
+        let result =
+            LayoutManager::from_files_with_fallback(temp_file.path(), temp_file2.path()).await;
         assert!(result.is_ok());
 
         let manager = result.unwrap();
@@ -419,13 +424,14 @@ mod tests {
         assert_eq!(layout.len(), 2);
     }
 
-    #[test]
-    fn test_from_files_with_fallback_uses_embedded() {
+    #[tokio::test]
+    async fn test_from_files_with_fallback_uses_embedded() {
         // Use non-existent files to trigger fallback
         let result = LayoutManager::from_files_with_fallback(
             "/nonexistent/field.txt",
             "/nonexistent/gk.txt",
-        );
+        )
+        .await;
         assert!(result.is_ok());
 
         let manager = result.unwrap();
@@ -435,15 +441,15 @@ mod tests {
         assert_eq!(field_layout[0][0], "TECHNICAL");
     }
 
-    #[test]
-    fn test_validate_valid_layouts() {
+    #[tokio::test]
+    async fn test_validate_valid_layouts() {
         let manager = LayoutManager::from_embedded();
         let result = manager.validate();
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_validate_invalid_layout() {
+    #[tokio::test]
+    async fn test_validate_invalid_layout() {
         // Create a manager with invalid layout
         let mut manager = LayoutManager::from_embedded();
         manager.field_layout = vec![]; // Empty layout should fail validation
@@ -453,8 +459,8 @@ mod tests {
         assert!(result.unwrap_err().to_string().contains("layout is empty"));
     }
 
-    #[test]
-    fn test_validate_layout_insufficient_rows() {
+    #[tokio::test]
+    async fn test_validate_layout_insufficient_rows() {
         let mut manager = LayoutManager::from_embedded();
         // Keep only header row - should fail validation
         manager.field_layout = vec![vec![
@@ -471,8 +477,8 @@ mod tests {
             .contains("should have at least 9 rows"));
     }
 
-    #[test]
-    fn test_validate_layout_invalid_header() {
+    #[tokio::test]
+    async fn test_validate_layout_invalid_header() {
         let mut manager = LayoutManager::from_embedded();
         // Invalid header with wrong number of columns
         manager.field_layout[0] = vec!["TECHNICAL".to_string()]; // Only 1 column instead of 3
