@@ -20,17 +20,36 @@ pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
 
         // Parse age (column B)
         let age = if row.len() > 1 {
-            row[1].trim().parse::<u8>().unwrap_or(0)
+            match row[1].trim().parse::<u8>() {
+                Ok(age) => age,
+                Err(_) => {
+                    log::warn!(
+                        "Invalid age '{}' for player '{}' on row {}, using 0",
+                        row[1].trim(),
+                        player_name,
+                        row_index + 1
+                    );
+                    0
+                }
+            }
         } else {
             0
         };
 
         // Parse footedness (column C)
         let footedness = if row.len() > 2 {
-            row[2]
-                .trim()
-                .parse::<Footedness>()
-                .unwrap_or(Footedness::Right)
+            match row[2].trim().parse::<Footedness>() {
+                Ok(footedness) => footedness,
+                Err(_) => {
+                    log::warn!(
+                        "Invalid footedness '{}' for player '{}' on row {}, using Right",
+                        row[2].trim(),
+                        player_name,
+                        row_index + 1
+                    );
+                    Footedness::Right
+                }
+            }
         } else {
             Footedness::Right
         };

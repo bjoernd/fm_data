@@ -86,11 +86,11 @@ impl AppRunner {
         &self.progress
     }
 
-    /// Get sheets manager reference (panics if authentication not completed)
-    pub fn sheets_manager(&self) -> &SheetsManager {
-        self.sheets_manager
-            .as_ref()
-            .expect("Authentication not completed - call complete_authentication first")
+    /// Get sheets manager reference (returns error if authentication not completed)
+    pub fn sheets_manager(&self) -> Result<&SheetsManager> {
+        self.sheets_manager.as_ref().ok_or_else(|| {
+            FMDataError::auth("Authentication not completed - call complete_authentication first")
+        })
     }
 
     /// Resolve paths for player uploader and setup authentication

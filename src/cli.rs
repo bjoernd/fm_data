@@ -128,15 +128,12 @@ pub fn validate_image_file(image_path: &str) -> Result<()> {
             .build());
     }
 
-    // Check if the file is readable
-    fs::File::open(path).map_err(|_| {
+    // Basic PNG file validation (check magic bytes)
+    let mut file = fs::File::open(path).map_err(|_| {
         ErrorBuilder::new(ErrorCode::E104)
             .with_context(image_path)
             .build()
     })?;
-
-    // Basic PNG file validation (check magic bytes)
-    let mut file = fs::File::open(path).unwrap();
     let mut png_header = [0u8; 8];
     if file.read_exact(&mut png_header).is_ok() {
         let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];

@@ -1614,7 +1614,7 @@ async fn test_image_google_sheets_api_behavior() -> Result<()> {
     // the API only returns those rows, not empty rows
 
     // Scenario 1: One existing player (API returns 1 row)
-    let existing_data_one_player = vec![
+    let existing_data_one_player = [
         vec!["Existing Player".to_string(); 50], // One row with data
     ];
 

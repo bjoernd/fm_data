@@ -115,7 +115,7 @@ mod tests {
             let result = manager.convert_clipboard_image_to_dynamic_image(&image_data);
             assert!(result.is_ok());
 
-            let dynamic_image = result.unwrap();
+            let dynamic_image = result.expect("Failed to convert clipboard image to dynamic image");
             assert_eq!(dynamic_image.width(), 2);
             assert_eq!(dynamic_image.height(), 2);
         }
@@ -156,7 +156,7 @@ mod tests {
             // This should succeed with 0x0 image
             assert!(result.is_ok());
 
-            let dynamic_image = result.unwrap();
+            let dynamic_image = result.expect("Failed to convert clipboard image to dynamic image");
             assert_eq!(dynamic_image.width(), 0);
             assert_eq!(dynamic_image.height(), 0);
         }

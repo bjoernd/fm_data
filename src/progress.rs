@@ -30,7 +30,7 @@ impl ProgressTracker {
             pb.set_style(
                 ProgressStyle::default_bar()
                     .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} {msg}")
-                    .unwrap()
+                    .unwrap_or_else(|_| ProgressStyle::default_bar())
                     .progress_chars("#>-")
             );
             pb.enable_steady_tick(Duration::from_millis(100));
@@ -51,7 +51,7 @@ impl ProgressTracker {
             pb.set_style(
                 ProgressStyle::default_spinner()
                     .template("{spinner:.green} {elapsed_precise} {msg}")
-                    .unwrap(),
+                    .unwrap_or_else(|_| ProgressStyle::default_spinner()),
             );
             pb.set_message(message.to_string());
             pb.enable_steady_tick(Duration::from_millis(100));

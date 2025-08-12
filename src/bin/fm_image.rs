@@ -269,7 +269,7 @@ async fn attempt_google_sheets_upload(
         .progress()
         .update(96, 100, &format!("Validating sheet '{sheet_name}'..."));
 
-    let sheets_manager = app_runner.sheets_manager();
+    let sheets_manager = app_runner.sheets_manager()?;
     sheets_manager
         .verify_sheet_exists(sheet_name, app_runner.progress_reporter())
         .await
