@@ -14,7 +14,7 @@ pub use formatter::format_team_output;
 pub use parser::{parse_role_file, parse_role_file_content, validate_roles};
 pub use types::{
     Assignment, Footedness, Player, PlayerCategory, PlayerFilter, Role, RoleFileContent, Team,
-    ABILITIES, VALID_ROLES,
+    ABILITIES,
 };
 
 // Keep any high-level orchestration functions here if needed

@@ -1,4 +1,5 @@
 use crate::constants::ranges;
+use crate::domain::SpreadsheetId;
 use crate::error::{FMDataError, Result};
 use crate::progress::ProgressReporter;
 use crate::validators::DataValidator;
@@ -14,7 +15,7 @@ use yup_oauth2::{AccessToken, ApplicationSecret};
 
 pub struct SheetsManager {
     client: sheets::spreadsheets::Spreadsheets,
-    spreadsheet_id: String,
+    spreadsheet_id: SpreadsheetId,
 }
 
 impl SheetsManager {
@@ -23,6 +24,7 @@ impl SheetsManager {
         token: AccessToken,
         spreadsheet_id: String,
     ) -> Result<Self> {
+        let spreadsheet_id = SpreadsheetId::new(spreadsheet_id)?;
         let token_str = token
             .token()
             .ok_or_else(|| FMDataError::sheets_api("Failed to get token string"))?;
@@ -50,12 +52,12 @@ impl SheetsManager {
 
         let sc = self
             .client
-            .get(&self.spreadsheet_id, false, &[])
+            .get(self.spreadsheet_id.as_str(), false, &[])
             .await
             .map_err(|e| {
                 FMDataError::sheets_api(format!(
                     "Failed to access spreadsheet '{}': {}",
-                    self.spreadsheet_id, e
+                    self.spreadsheet_id.as_str(), e
                 ))
             })?;
 
@@ -75,12 +77,12 @@ impl SheetsManager {
 
         let sc = self
             .client
-            .get(&self.spreadsheet_id, false, &[])
+            .get(self.spreadsheet_id.as_str(), false, &[])
             .await
             .map_err(|e| {
                 FMDataError::sheets_api(format!(
                     "Failed to access spreadsheet '{}': {}",
-                    self.spreadsheet_id, e
+                    self.spreadsheet_id.as_str(), e
                 ))
             })?;
 
@@ -113,7 +115,7 @@ impl SheetsManager {
 
         let clear_range = format!("{sheet_name}!{}", ranges::UPLOAD_RANGE);
         self.client
-            .values_clear(&self.spreadsheet_id, &clear_range, &ClearValuesRequest {})
+            .values_clear(self.spreadsheet_id.as_str(), &clear_range, &ClearValuesRequest {})
             .await
             .map_err(|e| {
                 FMDataError::sheets_api(format!(
@@ -154,7 +156,7 @@ impl SheetsManager {
         let update = self
             .client
             .values_update(
-                &self.spreadsheet_id,
+                self.spreadsheet_id.as_str(),
                 &new_range,
                 false,
                 DateTimeRenderOption::FormattedString,
@@ -188,7 +190,7 @@ impl SheetsManager {
         let response = self
             .client
             .values_get(
-                &self.spreadsheet_id,
+                self.spreadsheet_id.as_str(),
                 &full_range,
                 DateTimeRenderOption::FormattedString,
                 Dimension::Rows,
@@ -235,7 +237,7 @@ impl SheetsManager {
         let update = self
             .client
             .values_update(
-                &self.spreadsheet_id,
+                self.spreadsheet_id.as_str(),
                 &full_range,
                 false,
                 DateTimeRenderOption::FormattedString,

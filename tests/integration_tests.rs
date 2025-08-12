@@ -168,7 +168,7 @@ async fn test_duplicate_roles_workflow() -> Result<()> {
     assert_eq!(roles.len(), 11);
 
     // Verify duplicate roles are present
-    let gk_count = roles.iter().filter(|r| r.name == "GK").count();
+    let gk_count = roles.iter().filter(|r| r.name.as_str() == "GK").count();
     assert_eq!(gk_count, 2);
 
     // Create mock data with multiple good goalkeepers
@@ -211,7 +211,7 @@ async fn test_config_integration() -> Result<()> {
 
     // Test loading config
     let config = Config::from_file(config_file.path()).await?;
-    assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
+    assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-spreadsheet-id");
     assert_eq!(config.google.team_sheet, "Squad");
     assert_eq!(config.input.role_file, "tests/test_roles.txt");
 
@@ -339,10 +339,10 @@ async fn test_realistic_mock_squad() -> Result<()> {
     let gk_assignment = team
         .assignments
         .iter()
-        .find(|a| a.role.name == "GK")
+        .find(|a| a.role.name.as_str() == "GK")
         .unwrap();
 
-    assert!(gk_assignment.player.name.contains("Alisson")); // Best GK in mock data
+    assert!(gk_assignment.player.name.as_str().contains("Alisson")); // Best GK in mock data
 
     // Verify team has reasonable total score
     assert!(team.total_score() > 150.0); // Should be high with good players
@@ -1746,7 +1746,7 @@ async fn test_image_upload_config_integration() -> Result<()> {
     // Load and test configuration
     let config = Config::from_file(config_file.path()).await?;
 
-    assert_eq!(config.google.spreadsheet_name, "test-image-spreadsheet-id");
+    assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-image-spreadsheet-id");
     assert_eq!(config.google.scouting_sheet, "CustomScoutingSheet");
     assert_eq!(config.input.image_file, image_file.path().to_string_lossy());
 

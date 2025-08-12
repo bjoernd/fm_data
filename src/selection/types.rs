@@ -1,3 +1,4 @@
+use crate::domain::{PlayerId, RoleId};
 use crate::error::{FMDataError, Result};
 use crate::error_helpers::{invalid_category, validation_error};
 use serde::{Deserialize, Serialize};
@@ -60,12 +61,12 @@ impl fmt::Display for PlayerCategory {
 /// Player filter restricting a player to specific categories
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlayerFilter {
-    pub player_name: String,
+    pub player_name: PlayerId,
     pub allowed_categories: Vec<PlayerCategory>,
 }
 
 impl PlayerFilter {
-    pub fn new(player_name: String, allowed_categories: Vec<PlayerCategory>) -> Self {
+    pub fn new(player_name: PlayerId, allowed_categories: Vec<PlayerCategory>) -> Self {
         Self {
             player_name,
             allowed_categories,
@@ -86,19 +87,6 @@ impl RoleFileContent {
     }
 }
 
-/// Valid roles that can be assigned to players
-pub const VALID_ROLES: &[&str] = &[
-    "W(s) R", "W(s) L", "W(a) R", "W(a) L", "IF(s)", "IF(a)", "AP(s)", "AP(a)", "WTM(s)", "WTM(a)",
-    "TQ(a)", "RD(A)", "IW(s)", "IW(a)", "DW(d)", "DW(s)", "WM(d)", "WM(s)", "WM(a)", "WP(s)",
-    "WP(a)", "MEZ(s)", "MEZ(a)", "BWM(d)", "BWM(s)", "BBM", "CAR", "CM(d)", "CM(s)", "CM(a)",
-    "DLP(d)", "DLP(s)", "RPM", "HB", "DM(d)", "DM(s)", "A", "SV(s)", "SV(a)", "RGA", "CD(d)",
-    "CD(s)", "CD(c)", "NCB(d)", "WCB(d)", "WCB(s)", "WCB(a)", "BPD(d)", "BPD(s)", "BPD(c)", "L(s)",
-    "L(a)", "FB(d) R", "FB(s) R", "FB(a) R", "FB(d) L", "FB(s) L", "FB(a) L", "IFB(d) R",
-    "IFB(d) L", "WB(d) R", "WB(s) R", "WB(a) R", "WB(d) L", "WB(s) L", "WB(a) L", "IWB(d) R",
-    "IWB(s) R", "IWB(a) R", "IWB(d) L", "IWB(s) L", "IWB(a) L", "CWB(s) R", "CWB(a) R", "CWB(s) L",
-    "CWB(a) L", "PF(d)", "PF(s)", "PF(a)", "TM(s)", "TM(a)", "AF", "P", "DLF(s)", "DLF(a)",
-    "CF(s)", "CF(a)", "F9", "SS", "EG", "SK(d)", "SK(s)", "SK(a)", "GK",
-];
 
 /// Player abilities tracked in the system
 pub const ABILITIES: &[&str] = &[
@@ -142,30 +130,25 @@ impl std::str::FromStr for Footedness {
 /// A role that can be assigned to a player
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Role {
-    pub name: String,
+    pub name: RoleId,
 }
 
 impl Role {
     /// Create a new role, validating it against the list of valid roles
     pub fn new(name: &str) -> Result<Self> {
-        let name = name.trim();
-        if Self::is_valid_role(name) {
-            Ok(Role {
-                name: name.to_string(),
-            })
-        } else {
-            Err(FMDataError::selection(format!("Invalid role: {name}")))
-        }
+        Ok(Role {
+            name: RoleId::new(name)?,
+        })
     }
 
     /// Check if a role name is valid
     pub fn is_valid_role(name: &str) -> bool {
-        VALID_ROLES.contains(&name.trim())
+        RoleId::is_valid_role(name)
     }
 
     /// Get all valid role names
-    pub fn get_valid_roles() -> Vec<&'static str> {
-        VALID_ROLES.to_vec()
+    pub fn get_valid_roles() -> &'static [&'static str] {
+        RoleId::get_valid_roles()
     }
 }
 
@@ -178,7 +161,7 @@ impl fmt::Display for Role {
 /// A football player with their attributes and role ratings
 #[derive(Debug, Clone, PartialEq)]
 pub struct Player {
-    pub name: String,
+    pub name: PlayerId,
     pub age: u8,
     pub footedness: Footedness,
     pub abilities: Vec<Option<f32>>,
@@ -196,6 +179,8 @@ impl Player {
         dna_score: Option<f32>,
         role_ratings: Vec<Option<f32>>,
     ) -> Result<Self> {
+        let player_id = PlayerId::new(&name)?;
+        
         if abilities.len() != ABILITIES.len() {
             return Err(FMDataError::selection(format!(
                 "Player {} has {} abilities, expected {}",
@@ -205,7 +190,7 @@ impl Player {
             )));
         }
 
-        let expected_roles = VALID_ROLES.len();
+        let expected_roles = RoleId::VALID_ROLES.len();
         if role_ratings.len() != expected_roles {
             return Err(FMDataError::selection(format!(
                 "Player {} has {} role ratings, expected {}",
@@ -216,7 +201,7 @@ impl Player {
         }
 
         Ok(Player {
-            name,
+            name: player_id,
             age,
             footedness,
             abilities,
@@ -227,9 +212,9 @@ impl Player {
 
     /// Get the player's rating for a specific role
     pub fn get_role_rating(&self, role: &Role) -> f32 {
-        let role_index = VALID_ROLES
+        let role_index = RoleId::VALID_ROLES
             .iter()
-            .position(|&r| r == role.name)
+            .position(|&r| r == role.name.as_str())
             .unwrap_or(0);
 
         self.role_ratings

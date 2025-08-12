@@ -7,6 +7,7 @@ pub mod cli;
 pub mod clipboard;
 pub mod config;
 pub mod constants;
+pub mod domain;
 pub mod error;
 pub mod error_helpers;
 pub mod error_messages;
@@ -39,6 +40,7 @@ pub use attributes::{
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use cli::{CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, UploaderCLI};
 pub use config::Config;
+pub use domain::{PlayerId, RoleId, SpreadsheetId};
 pub use error::{FMDataError, Result};
 pub use error_messages::{ErrorBuilder, ErrorCode};
 #[cfg(feature = "image-processing")]

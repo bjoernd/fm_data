@@ -1,7 +1,8 @@
 use super::categories::role_belongs_to_category;
 use super::types::{
-    Assignment, Footedness, Player, PlayerFilter, Role, Team, ABILITIES, VALID_ROLES,
+    Assignment, Footedness, Player, PlayerFilter, Role, Team, ABILITIES,
 };
+use crate::domain::RoleId;
 use crate::constants::data_layout;
 use crate::error::{FMDataError, Result};
 use crate::error_helpers::validation_error;
@@ -75,7 +76,7 @@ pub fn parse_player_data(sheet_data: Vec<Vec<String>>) -> Result<Vec<Player>> {
 
         // Parse role ratings (columns AZ-EQ, indices 51+)
         let mut role_ratings = Vec::new();
-        for i in 0..VALID_ROLES.len() {
+        for i in 0..RoleId::VALID_ROLES.len() {
             let col_index = i + data_layout::ROLE_RATINGS_START_COL; // Role ratings start at column AZ
             let value = if col_index < row.len() {
                 row[col_index].trim().parse::<f32>().ok()
@@ -122,12 +123,12 @@ pub fn is_player_eligible_for_role(
     filters: &[PlayerFilter],
 ) -> bool {
     // Find filter for this player
-    if let Some(filter) = filters.iter().find(|f| f.player_name == player_name) {
+    if let Some(filter) = filters.iter().find(|f| f.player_name.as_str() == player_name) {
         // Player has a filter - check if role belongs to any allowed category
         filter
             .allowed_categories
             .iter()
-            .any(|category| role_belongs_to_category(&role.name, category))
+            .any(|category| role_belongs_to_category(role.name.as_str(), category))
     } else {
         // No filter for this player - eligible for all roles
         true
@@ -168,7 +169,7 @@ pub fn find_optimal_assignments_with_filters(
 
         // Find the eligible player with the highest rating for this role
         for (i, player) in available_players.iter().enumerate() {
-            if is_player_eligible_for_role(&player.name, &role, filters) {
+            if is_player_eligible_for_role(player.name.as_str(), &role, filters) {
                 let score = calculate_assignment_score(player, &role);
                 if score > best_score {
                     best_score = score;

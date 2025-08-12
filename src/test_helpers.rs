@@ -54,7 +54,7 @@ pub fn create_test_player(name: &str, player_index: usize) -> Player {
         .collect();
 
     Player {
-        name: name.to_string(),
+        name: crate::domain::PlayerId::new(name).unwrap(),
         age: ((player_index % 15) + 18) as u8, // Age between 18-32
         footedness: match player_index % 3 {
             0 => Footedness::Right,

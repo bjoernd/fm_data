@@ -207,7 +207,8 @@ fn parse_filters_section(lines: Vec<String>) -> Result<Vec<PlayerFilter>> {
             )));
         }
 
-        filters.push(PlayerFilter::new(player_name, categories));
+        let player_id = crate::domain::PlayerId::new(&player_name)?;
+        filters.push(PlayerFilter::new(player_id, categories));
     }
 
     Ok(filters)

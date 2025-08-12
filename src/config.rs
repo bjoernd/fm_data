@@ -1,4 +1,5 @@
 use crate::constants::defaults;
+use crate::domain::SpreadsheetId;
 use crate::error::Result;
 use crate::error_helpers::{config_missing_field, ErrorContext};
 use crate::validators::{ConfigValidator, FileValidator};
@@ -31,6 +32,39 @@ fn default_token_file() -> String {
         .to_string()
 }
 
+fn default_spreadsheet_id() -> Option<SpreadsheetId> {
+    None
+}
+
+mod spreadsheet_id_serde {
+    use super::SpreadsheetId;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub fn serialize<S>(value: &Option<SpreadsheetId>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match value {
+            Some(id) => id.as_str().serialize(serializer),
+            None => "".serialize(serializer),
+        }
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Option<SpreadsheetId>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        if s.trim().is_empty() {
+            Ok(None)
+        } else {
+            SpreadsheetId::new(s)
+                .map(Some)
+                .map_err(serde::de::Error::custom)
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Config {
     #[serde(default)]
@@ -45,8 +79,8 @@ pub struct GoogleConfig {
     pub creds_file: String,
     #[serde(default = "default_token_file")]
     pub token_file: String,
-    #[serde(default)]
-    pub spreadsheet_name: String,
+    #[serde(default = "default_spreadsheet_id", with = "spreadsheet_id_serde")]
+    pub spreadsheet_name: Option<SpreadsheetId>,
     #[serde(default = "default_team_sheet")]
     pub team_sheet: String,
     #[serde(default = "default_team_perf_sheet")]
@@ -76,7 +110,7 @@ impl Default for GoogleConfig {
         GoogleConfig {
             creds_file: String::new(),
             token_file: default_token_file(),
-            spreadsheet_name: String::new(),
+            spreadsheet_name: None,
             team_sheet: default_team_sheet(),
             team_perf_sheet: default_team_perf_sheet(),
             league_perf_sheet: default_league_perf_sheet(),
@@ -97,6 +131,7 @@ impl Config {
             .filter(|s| !s.as_ref().is_empty())
             .unwrap_or(default_value)
     }
+
 
     pub async fn from_file(config_path: &Path) -> Result<Config> {
         let config_str = fs::read_to_string(config_path)
@@ -146,11 +181,13 @@ impl Config {
     ) -> Result<(String, String, String)> {
         let (default_spreadsheet, default_creds, default_html) = Self::get_default_paths();
 
-        let resolved_spreadsheet = Self::resolve_with_fallback(
-            spreadsheet,
-            self.google.spreadsheet_name.clone(),
-            default_spreadsheet,
-        );
+        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
+            cli_id
+        } else if let Some(config_id) = &self.google.spreadsheet_name {
+            config_id.as_str().to_string()
+        } else {
+            default_spreadsheet
+        };
 
         let resolved_credfile =
             Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
@@ -183,11 +220,13 @@ impl Config {
     ) -> (String, String, String) {
         let (default_spreadsheet, default_creds, default_html) = Self::get_default_paths();
 
-        let resolved_spreadsheet = Self::resolve_with_fallback(
-            spreadsheet,
-            self.google.spreadsheet_name.clone(),
-            default_spreadsheet,
-        );
+        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
+            cli_id
+        } else if let Some(config_id) = &self.google.spreadsheet_name {
+            config_id.as_str().to_string()
+        } else {
+            default_spreadsheet
+        };
 
         let resolved_credfile =
             Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
@@ -207,11 +246,13 @@ impl Config {
     ) -> Result<(String, String, String)> {
         let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
 
-        let resolved_spreadsheet = Self::resolve_with_fallback(
-            spreadsheet,
-            self.google.spreadsheet_name.clone(),
-            default_spreadsheet,
-        );
+        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
+            cli_id
+        } else if let Some(config_id) = &self.google.spreadsheet_name {
+            config_id.as_str().to_string()
+        } else {
+            default_spreadsheet
+        };
 
         let resolved_credfile =
             Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
@@ -247,11 +288,13 @@ impl Config {
     ) -> Result<(String, String, String, String)> {
         let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
 
-        let resolved_spreadsheet = Self::resolve_with_fallback(
-            spreadsheet,
-            self.google.spreadsheet_name.clone(),
-            default_spreadsheet,
-        );
+        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
+            cli_id
+        } else if let Some(config_id) = &self.google.spreadsheet_name {
+            config_id.as_str().to_string()
+        } else {
+            default_spreadsheet
+        };
 
         let resolved_credfile =
             Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
@@ -302,7 +345,7 @@ mod tests {
         assert!(config.google.token_file.contains("fm_data"));
         assert!(config.google.token_file.contains("tokencache.json"));
         assert!(config.google.creds_file.is_empty());
-        assert!(config.google.spreadsheet_name.is_empty());
+        assert!(config.google.spreadsheet_name.is_none());
         assert!(config.input.image_file.is_empty());
     }
 
@@ -330,7 +373,7 @@ mod tests {
         let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
-        assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
+        assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-spreadsheet-id");
         assert_eq!(config.google.team_sheet, "MySquad");
         assert_eq!(config.input.data_html, "/path/to/data.html");
 
@@ -368,7 +411,7 @@ mod tests {
             google: GoogleConfig {
                 creds_file: "config_creds.json".to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: "config_spreadsheet".to_string(),
+                spreadsheet_name: Some(SpreadsheetId::new("config_spreadsheet").unwrap()),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -409,7 +452,7 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string(),
+                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -476,7 +519,7 @@ mod tests {
         let config = Config::from_file(temp_file.path()).await?;
 
         assert_eq!(config.google.creds_file, "/path/to/creds.json");
-        assert_eq!(config.google.spreadsheet_name, "test-spreadsheet-id");
+        assert_eq!(config.google.spreadsheet_name.as_ref().unwrap().as_str(), "test-spreadsheet-id");
         assert_eq!(config.google.team_sheet, "Squad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
@@ -521,7 +564,7 @@ mod tests {
         let config = Config::from_file(temp_file.path()).await?;
 
         assert!(config.google.creds_file.is_empty());
-        assert!(config.google.spreadsheet_name.is_empty());
+        assert!(config.google.spreadsheet_name.is_none());
         assert_eq!(config.google.team_sheet, "Squad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
@@ -551,7 +594,7 @@ mod tests {
         assert_eq!(config.google.creds_file, "/custom/creds.json");
         assert_eq!(config.google.team_sheet, "CustomSquad");
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
-        assert!(config.google.spreadsheet_name.is_empty());
+        assert!(config.google.spreadsheet_name.is_none());
         assert_eq!(config.input.league_perf_html, "/custom/league.html");
         assert!(config.input.data_html.is_empty());
         assert!(config.input.team_perf_html.is_empty());
@@ -569,7 +612,7 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string(),
+                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -636,7 +679,7 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string(),
+                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
@@ -685,7 +728,7 @@ mod tests {
             google: GoogleConfig {
                 creds_file: creds_file.path().to_string_lossy().to_string(),
                 token_file: "tokencache.json".to_string(),
-                spreadsheet_name: "1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc".to_string(),
+                spreadsheet_name: Some(SpreadsheetId::new("1ZrBTdlMlGaLD6LhMs948YvZ41NE71mcy7jhmygJU2Bc").unwrap()),
                 team_sheet: "Squad".to_string(),
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
