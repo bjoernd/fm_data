@@ -1022,14 +1022,19 @@ mod tests {
 
     #[test]
     fn test_image_processor_memory_pressure() {
-        // Test processing multiple images in sequence to check for resource leaks
-        let config = ProcessingConfig::default();
-        let processor = ImageProcessor::new(config).unwrap();
+        use crate::image_processor_pool::ImageProcessorPoolBuilder;
+
+        // Test processing multiple images with better resource management through pooling
+        let pool = ImageProcessorPoolBuilder::new()
+            .with_size(2)
+            .build()
+            .unwrap();
 
         for i in 0..10 {
             let temp_image = create_test_png_with_text();
-
-            // Each processing should be independent and not leak resources
+            
+            // Get a processor from the pool for better resource efficiency
+            let processor = pool.get();
             let result = processor.extract_text(temp_image.path());
 
             match result {
@@ -1183,18 +1188,22 @@ mod tests {
 
     #[test]
     fn test_image_processing_concurrent_access() {
+        use crate::image_processor_pool::ImageProcessorPool;
         use std::sync::Arc;
         use std::thread;
 
         let config = ProcessingConfig::default();
-        let processor = Arc::new(ImageProcessor::new(config).unwrap());
+        // Use a processor pool for clear ownership semantics
+        let pool = Arc::new(ImageProcessorPool::new(2, config).unwrap());
 
-        // Test that multiple threads can use the processor safely
+        // Test that multiple threads can use the pool safely
         let handles: Vec<_> = (0..3)
             .map(|i| {
-                let processor = Arc::clone(&processor);
+                let pool = Arc::clone(&pool);
                 thread::spawn(move || {
                     let temp_image = create_test_png_with_text();
+                    // Get a processor from the pool for this thread
+                    let processor = pool.get();
                     let result = processor.extract_text(temp_image.path());
 
                     // Each thread should get consistent results

@@ -20,6 +20,8 @@ pub mod image_output;
 #[cfg(feature = "image-processing")]
 pub mod image_processor;
 #[cfg(feature = "image-processing")]
+pub mod image_processor_pool;
+#[cfg(feature = "image-processing")]
 pub mod layout_manager;
 #[cfg(feature = "image-processing")]
 pub mod ocr_corrections;
@@ -52,6 +54,8 @@ pub use image_processor::{
     detect_footedness_optional, extract_text_from_image, load_image, preprocess_image,
     ImageProcessor, ProcessingConfig,
 };
+#[cfg(feature = "image-processing")]
+pub use image_processor_pool::{ImageProcessorPool, ImageProcessorPoolBuilder};
 #[cfg(feature = "image-processing")]
 pub use layout_manager::{default_paths, LayoutManager};
 #[cfg(feature = "image-processing")]
