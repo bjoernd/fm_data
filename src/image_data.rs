@@ -18,9 +18,14 @@ pub struct ImagePlayer {
 }
 
 impl ImagePlayer {
-    pub fn new(name: String, age: u8, player_type: PlayerType, footedness: Footedness) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        age: u8,
+        player_type: PlayerType,
+        footedness: Footedness,
+    ) -> Self {
         Self {
-            name,
+            name: name.into(),
             age,
             player_type,
             footedness,
@@ -28,7 +33,8 @@ impl ImagePlayer {
         }
     }
 
-    pub fn add_attribute(&mut self, name: String, value: u8) {
+    pub fn add_attribute(&mut self, name: impl Into<String>, value: u8) {
+        let name = name.into();
         // Use direct attribute access for performance, fallback to HashMap conversion if needed
         match self.attributes.set_by_name(&name, value) {
             Ok(()) => {}
@@ -356,7 +362,7 @@ fn parse_structured_attributes(
                             .replace(")", "")
                     );
 
-                    player.add_attribute(full_attr_name.clone(), value);
+                    player.add_attribute(&full_attr_name, value);
 
                     log::debug!(
                         "Found and added attribute: {} = {} (from line {}: '{}')",

@@ -160,7 +160,7 @@ impl AttributeSet {
 
         // Store any attributes that don't fit the structured format in extra_attributes
         for (key, &value) in attributes {
-            attr_set.extra_attributes.insert(key.clone(), value);
+            attr_set.extra_attributes.insert(key.to_owned(), value);
         }
 
         match *player_type {
@@ -645,7 +645,7 @@ impl AttributeSet {
         );
 
         // Add extra attributes
-        map.extend(self.extra_attributes.clone());
+        map.extend(self.extra_attributes.iter().map(|(k, &v)| (k.clone(), v)));
 
         map
     }
