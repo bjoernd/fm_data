@@ -5,7 +5,10 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub enum ProgressEvent {
     /// Operation started with a total number of steps
-    Started { total_steps: u64, description: String },
+    Started {
+        total_steps: u64,
+        description: String,
+    },
     /// A step was completed with an optional message
     StepCompleted { step: u64, message: String },
     /// Operation finished with a summary message
@@ -149,7 +152,10 @@ impl ProgressTracker {
 impl ProgressEventHandler for ProgressTracker {
     fn handle_event(&self, event: ProgressEvent) {
         match event {
-            ProgressEvent::Started { total_steps, description } => {
+            ProgressEvent::Started {
+                total_steps,
+                description,
+            } => {
                 self.bar.set_length(total_steps);
                 self.bar.set_position(0);
                 self.bar.set_message(description);
@@ -262,7 +268,7 @@ pub fn create_progress_reporter(enabled: bool, verbose: bool) -> Box<dyn Progres
 /// Creates a progress publisher with appropriate handlers based on configuration
 pub fn create_progress_publisher(enabled: bool, verbose: bool) -> ProgressPublisher {
     let mut publisher = ProgressPublisher::new();
-    
+
     if enabled && !verbose {
         let handler = Box::new(ProgressTracker::new(100, true));
         publisher.add_handler(handler);
@@ -270,7 +276,7 @@ pub fn create_progress_publisher(enabled: bool, verbose: bool) -> ProgressPublis
         let handler = Box::new(NoOpEventHandler);
         publisher.add_handler(handler);
     }
-    
+
     publisher
 }
 
@@ -346,12 +352,12 @@ mod tests {
             total_steps: 10,
             description: "Test operation".to_string(),
         };
-        
+
         let step_event = ProgressEvent::StepCompleted {
             step: 5,
             message: "Half done".to_string(),
         };
-        
+
         let finish_event = ProgressEvent::Finished {
             summary: "Complete".to_string(),
         };
@@ -388,7 +394,7 @@ mod tests {
     #[test]
     fn test_progress_publisher_convenience_methods() {
         let publisher = ProgressPublisher::new();
-        
+
         // Test convenience methods don't panic
         publisher.start(10, "Test operation");
         publisher.step(5, "Half done");

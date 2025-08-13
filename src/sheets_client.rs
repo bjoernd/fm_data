@@ -70,7 +70,10 @@ impl SheetsManager {
     }
 
     /// Verify spreadsheet access using event-driven progress reporting
-    pub async fn verify_spreadsheet_access_with_events(&self, progress: &ProgressPublisher) -> Result<()> {
+    pub async fn verify_spreadsheet_access_with_events(
+        &self,
+        progress: &ProgressPublisher,
+    ) -> Result<()> {
         progress.message("Verifying spreadsheet access...");
 
         let sc = self

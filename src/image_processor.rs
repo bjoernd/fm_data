@@ -1032,7 +1032,7 @@ mod tests {
 
         for i in 0..10 {
             let temp_image = create_test_png_with_text();
-            
+
             // Get a processor from the pool for better resource efficiency
             let processor = pool.get();
             let result = processor.extract_text(temp_image.path());

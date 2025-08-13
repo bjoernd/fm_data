@@ -29,6 +29,7 @@ pub mod progress;
 pub mod selection;
 pub mod sheets_client;
 pub mod table;
+pub mod test_builders;
 pub mod test_helpers;
 pub mod types;
 pub mod validation;
@@ -71,6 +72,9 @@ pub use selection::{
 };
 pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
+pub use test_builders::{
+    ConfigDataBuilder, ImageDataBuilder, PlayerDataBuilder, PlayersDataBuilder, RoleFileBuilder,
+};
 pub use types::{Footedness as TypesFootedness, PlayerType};
 pub use validation::Validator;
 pub use validators::{

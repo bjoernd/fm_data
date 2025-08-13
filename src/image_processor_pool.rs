@@ -15,7 +15,7 @@ impl ImageProcessorPool {
             return Err(FMDataError::image("Pool size must be greater than 0"));
         }
 
-        let processors: Result<Vec<_>, _> = (0..size)
+        let processors: std::result::Result<Vec<_>, _> = (0..size)
             .map(|_| ImageProcessor::new(config.clone()))
             .collect();
 
@@ -47,7 +47,7 @@ impl ImageProcessorPool {
             .map(|n| n.get())
             .unwrap_or(4) // Default to 4 if we can't determine
             .min(8); // Cap at 8 to avoid excessive resource usage
-        
+
         Self::new(size, config)
     }
 }
@@ -120,7 +120,7 @@ mod tests {
     fn test_pool_creation() {
         let config = ProcessingConfig::default();
         let pool = ImageProcessorPool::new(3, config).unwrap();
-        
+
         assert_eq!(pool.size(), 3);
     }
 
@@ -128,7 +128,7 @@ mod tests {
     fn test_zero_size_pool_fails() {
         let config = ProcessingConfig::default();
         let result = ImageProcessorPool::new(0, config);
-        
+
         assert!(result.is_err());
     }
 
@@ -136,7 +136,7 @@ mod tests {
     fn test_single_pool() {
         let config = ProcessingConfig::default();
         let pool = ImageProcessorPool::single(config).unwrap();
-        
+
         assert_eq!(pool.size(), 1);
     }
 
@@ -144,7 +144,7 @@ mod tests {
     fn test_sized_for_cpu() {
         let config = ProcessingConfig::default();
         let pool = ImageProcessorPool::sized_for_cpu(config).unwrap();
-        
+
         // Should be at least 1 and at most 8
         assert!(pool.size() >= 1);
         assert!(pool.size() <= 8);
@@ -154,28 +154,26 @@ mod tests {
     fn test_round_robin_allocation() {
         let config = ProcessingConfig::default();
         let pool = ImageProcessorPool::new(3, config).unwrap();
-        
+
         // Get processors multiple times and verify they cycle
         let processor1 = pool.get() as *const ImageProcessor;
         let processor2 = pool.get() as *const ImageProcessor;
         let processor3 = pool.get() as *const ImageProcessor;
         let processor4 = pool.get() as *const ImageProcessor; // Should wrap around
-        
+
         // All processors should be different
         assert_ne!(processor1, processor2);
         assert_ne!(processor2, processor3);
         assert_ne!(processor1, processor3);
-        
+
         // Fourth should be the same as first (round-robin)
         assert_eq!(processor1, processor4);
     }
 
     #[test]
     fn test_builder_default() {
-        let pool = ImageProcessorPoolBuilder::new()
-            .build_single()
-            .unwrap();
-        
+        let pool = ImageProcessorPoolBuilder::new().build_single().unwrap();
+
         assert_eq!(pool.size(), 1);
     }
 
@@ -185,7 +183,7 @@ mod tests {
             .with_size(5)
             .build()
             .unwrap();
-        
+
         assert_eq!(pool.size(), 5);
     }
 
@@ -194,12 +192,12 @@ mod tests {
         let mut config = ProcessingConfig::default();
         config.enable_preprocessing = false;
         config.ocr_language = "deu".to_string();
-        
+
         let pool = ImageProcessorPoolBuilder::new()
             .with_config(config)
             .build_single()
             .unwrap();
-        
+
         assert_eq!(pool.size(), 1);
     }
 
@@ -211,28 +209,30 @@ mod tests {
             .with_language("fra")
             .build()
             .unwrap();
-        
+
         assert_eq!(pool.size(), 2);
     }
 
     #[test]
     fn test_concurrent_access() {
+        use std::sync::Arc;
         use std::thread;
-        
+
         let config = ProcessingConfig::default();
-        let pool = ImageProcessorPool::new(2, config).unwrap();
-        
+        let pool = Arc::new(ImageProcessorPool::new(2, config).unwrap());
+
         // Test that multiple threads can safely get processors
         let handles: Vec<_> = (0..4)
             .map(|_| {
-                thread::spawn(|| {
+                let pool_clone = Arc::clone(&pool);
+                thread::spawn(move || {
                     // Each thread gets a processor (should not panic or deadlock)
-                    let _processor = pool.get();
+                    let _processor = pool_clone.get();
                     "success"
                 })
             })
             .collect();
-        
+
         for handle in handles {
             assert_eq!(handle.join().unwrap(), "success");
         }
