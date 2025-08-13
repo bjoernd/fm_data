@@ -370,14 +370,15 @@ impl AuthValidator {
     }
 
     /// Validate credentials file and its content
-    pub fn validate_credentials_file(path: &str) -> Result<()> {
+    pub async fn validate_credentials_file(path: &str) -> Result<()> {
         use crate::constants::FileExtension;
 
         FileValidator::validate_file_exists(path, "Credentials")?;
         FileValidator::validate_file_extension_typed(path, FileExtension::Json)?;
 
         // Read and validate content
-        let content = std::fs::read_to_string(path)
+        let content = tokio::fs::read_to_string(path)
+            .await
             .map_err(|e| FMDataError::config(format!("Failed to read credentials file: {e}")))?;
 
         Self::validate_credentials_content(&content)?;

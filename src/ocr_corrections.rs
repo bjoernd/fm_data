@@ -41,15 +41,15 @@ impl OCRCorrector {
     }
 
     /// Load OCR corrections from a JSON configuration file
-    pub fn from_file<P: AsRef<Path>>(config_path: P) -> Result<Self> {
-        let config_content = std::fs::read_to_string(config_path)?;
+    pub async fn from_file<P: AsRef<Path>>(config_path: P) -> Result<Self> {
+        let config_content = tokio::fs::read_to_string(config_path).await?;
         let config: OCRCorrectionsConfig = serde_json::from_str(&config_content)?;
         Ok(Self::from_config(config))
     }
 
     /// Load OCR corrections from a JSON file with fallback to defaults
-    pub fn from_file_with_fallback<P: AsRef<Path>>(config_path: P) -> Self {
-        match Self::from_file(config_path) {
+    pub async fn from_file_with_fallback<P: AsRef<Path>>(config_path: P) -> Self {
+        match Self::from_file(config_path).await {
             Ok(corrector) => {
                 log::debug!("Loaded OCR corrections from config file");
                 corrector
@@ -405,18 +405,18 @@ mod tests {
         assert_eq!(corrector.correct_attribute_value("x", "Test"), Some(5));
     }
 
-    #[test]
-    fn test_from_file_with_fallback() {
+    #[tokio::test]
+    async fn test_from_file_with_fallback() {
         // Test with non-existent file - should fall back to defaults
-        let corrector = OCRCorrector::from_file_with_fallback("/nonexistent/config.json");
+        let corrector = OCRCorrector::from_file_with_fallback("/nonexistent/config.json").await;
 
         // Should have default corrections
         assert_eq!(corrector.correct_attribute_name("agtity"), "Agility");
         assert_eq!(corrector.correct_attribute_value("n", "Test"), Some(11));
     }
 
-    #[test]
-    fn test_from_file_valid_config() {
+    #[tokio::test]
+    async fn test_from_file_valid_config() {
         // Create a temporary config file
         let mut temp_file = NamedTempFile::new().unwrap();
         let config_content = r#"{
@@ -429,7 +429,7 @@ mod tests {
         }"#;
         temp_file.write_all(config_content.as_bytes()).unwrap();
 
-        let corrector = OCRCorrector::from_file(temp_file.path()).unwrap();
+        let corrector = OCRCorrector::from_file(temp_file.path()).await.unwrap();
 
         assert_eq!(
             corrector.correct_attribute_name("test_name"),
