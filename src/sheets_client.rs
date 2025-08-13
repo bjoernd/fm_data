@@ -1,7 +1,7 @@
 use crate::constants::ranges;
 use crate::domain::SpreadsheetId;
 use crate::error::{FMDataError, Result};
-use crate::progress::ProgressReporter;
+use crate::progress::{ProgressPublisher, ProgressReporter};
 use crate::validators::DataValidator;
 use log::{debug, error, info};
 use sheets::{
@@ -65,6 +65,29 @@ impl SheetsManager {
         info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
 
         progress.inc(1);
+
+        Ok(())
+    }
+
+    /// Verify spreadsheet access using event-driven progress reporting
+    pub async fn verify_spreadsheet_access_with_events(&self, progress: &ProgressPublisher) -> Result<()> {
+        progress.message("Verifying spreadsheet access...");
+
+        let sc = self
+            .client
+            .get(self.spreadsheet_id.as_str(), false, &[])
+            .await
+            .map_err(|e| {
+                FMDataError::sheets_api(format!(
+                    "Failed to access spreadsheet '{}': {}",
+                    self.spreadsheet_id.as_str(),
+                    e
+                ))
+            })?;
+
+        info!("Connected to spreadsheet {}", sc.body.spreadsheet_id);
+
+        progress.increment(1);
 
         Ok(())
     }
@@ -136,6 +159,35 @@ impl SheetsManager {
         Ok(())
     }
 
+    /// Clear range using event-driven progress reporting
+    pub async fn clear_range_with_events(
+        &self,
+        sheet_name: &str,
+        progress: &ProgressPublisher,
+    ) -> Result<()> {
+        progress.message("Clearing existing data...");
+
+        let clear_range = format!("{sheet_name}!{}", ranges::UPLOAD_RANGE);
+        self.client
+            .values_clear(
+                self.spreadsheet_id.as_str(),
+                &clear_range,
+                &ClearValuesRequest {},
+            )
+            .await
+            .map_err(|e| {
+                FMDataError::sheets_api(format!(
+                    "Error clearing data in range '{clear_range}': {e}"
+                ))
+            })?;
+
+        info!("Cleared old data from {}", clear_range);
+
+        progress.increment(1);
+
+        Ok(())
+    }
+
     pub async fn upload_data(
         &self,
         sheet_name: &str,
@@ -178,6 +230,53 @@ impl SheetsManager {
         info!("Updated data: {}", update.status);
 
         progress.inc(1);
+
+        Ok(())
+    }
+
+    /// Upload data using event-driven progress reporting
+    pub async fn upload_data_with_events(
+        &self,
+        sheet_name: &str,
+        matrix: Vec<Vec<String>>,
+        progress: &ProgressPublisher,
+    ) -> Result<()> {
+        // Validate data before upload
+        DataValidator::validate_non_empty_data(&matrix)?;
+        DataValidator::validate_row_consistency(&matrix)?;
+
+        let row_count = matrix.len();
+
+        progress.message(format!("Uploading {row_count} rows of data..."));
+
+        let new_range = format!("{}!A2:AX{}", sheet_name, matrix.len() + 1);
+        let update_body = ValueRange {
+            values: matrix,
+            major_dimension: Some(Dimension::Rows),
+            range: new_range.clone(),
+        };
+
+        debug!("Updating range: {}", new_range);
+
+        let update = self
+            .client
+            .values_update(
+                self.spreadsheet_id.as_str(),
+                &new_range,
+                false,
+                DateTimeRenderOption::FormattedString,
+                ValueRenderOption::FormattedValue,
+                ValueInputOption::UserEntered,
+                &update_body,
+            )
+            .await
+            .map_err(|e| {
+                FMDataError::sheets_api(format!("Failed to upload data to spreadsheet: {e}"))
+            })?;
+
+        info!("Updated data: {}", update.status);
+
+        progress.increment(1);
 
         Ok(())
     }
