@@ -27,6 +27,7 @@ pub mod layout_manager;
 pub mod ocr_corrections;
 pub mod progress;
 pub mod selection;
+pub mod setup_commands;
 pub mod sheets_client;
 pub mod sheets_repository;
 pub mod table;
@@ -70,6 +71,9 @@ pub use selection::{
     find_optimal_assignments, find_optimal_assignments_with_filters, format_team_output,
     parse_player_data, parse_role_file, parse_role_file_content, Assignment, Footedness, Player,
     PlayerCategory, PlayerFilter, Role, RoleFileContent, Team,
+};
+pub use setup_commands::{
+    AuthenticationSetup, ImageProcessorSetup, PlayerUploaderSetup, SetupCommand, TeamSelectorSetup,
 };
 pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};

@@ -1,4 +1,5 @@
 use crate::error::{FMDataError, Result};
+use crate::setup_commands::SetupCommand;
 use crate::{
     create_authenticator_and_token, get_secure_config_dir, Config, ProgressCallback,
     ProgressReporter, ProgressTracker, SheetsManager,
@@ -93,7 +94,13 @@ impl AppRunner {
         })
     }
 
-    /// Resolve paths for player uploader and setup authentication
+    /// Execute a setup command using the Command pattern
+    pub async fn execute_setup<T: SetupCommand>(&mut self, command: T) -> Result<T::Output> {
+        command.execute(self).await
+    }
+
+    /// Resolve paths for player uploader and setup authentication (deprecated - use Command pattern)
+    #[deprecated(note = "Use PlayerUploaderSetup command with execute_setup() instead")]
     pub async fn setup_for_player_uploader(
         &mut self,
         spreadsheet: Option<String>,
@@ -122,7 +129,8 @@ impl AppRunner {
         Ok((spreadsheet_id, credfile_path, input_path))
     }
 
-    /// Resolve paths for team selector and setup authentication
+    /// Resolve paths for team selector and setup authentication (deprecated - use Command pattern)
+    #[deprecated(note = "Use TeamSelectorSetup command with execute_setup() instead")]
     pub async fn setup_for_team_selector(
         &mut self,
         spreadsheet: Option<String>,
@@ -148,7 +156,8 @@ impl AppRunner {
         Ok((spreadsheet_id, credfile_path, role_file_path))
     }
 
-    /// Resolve paths for image processor and setup authentication
+    /// Resolve paths for image processor and setup authentication (deprecated - use Command pattern)
+    #[deprecated(note = "Use ImageProcessorSetup command with execute_setup() instead")]
     pub async fn setup_for_image_processor(
         &mut self,
         spreadsheet: Option<String>,
@@ -180,7 +189,8 @@ impl AppRunner {
         Ok((spreadsheet_id, credfile_path, image_file_path, sheet_name))
     }
 
-    /// Complete authentication for team selector (called after role file processing)
+    /// Complete authentication for team selector (called after role file processing) (deprecated - use Command pattern)
+    #[deprecated(note = "Use AuthenticationSetup command with execute_setup() instead")]
     pub async fn complete_team_selector_auth(
         &mut self,
         spreadsheet_id: String,

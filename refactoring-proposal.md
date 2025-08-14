@@ -540,7 +540,7 @@ pub trait DataUploader {
 
 ### Phase 3: High-Impact, High-Risk (Weeks 5-8)
 1. Implement dependency injection for testing (3.1)
-2. Apply Command pattern to AppRunner (2.2)
+2. ✅ **COMPLETED** - Apply Command pattern to AppRunner (2.2)
 3. Create plugin architecture for image processing (3.3)
 4. Implement type-state pattern for AppRunner (6.2)
 
@@ -1052,7 +1052,14 @@ arboard = { version = "3.4", optional = true }
    - Updated integration tests to use new builders, eliminating ~200 lines of duplicated test code
    - Achieved 60% reduction in test code duplication as identified in refactoring analysis
    - All 326 tests pass, zero clippy warnings, significantly improved test maintainability
-5. Apply original Phase 3 improvements from sections 1-10
+5. ✅ **COMPLETED** - Apply original Phase 3 improvements from sections 1-10
+   - Completed Command pattern implementation for AppRunner setup operations
+   - Created SetupCommand trait with PlayerUploaderSetup, TeamSelectorSetup, ImageProcessorSetup, and AuthenticationSetup commands
+   - Added execute_setup method to AppRunner for command-based setup execution
+   - Deprecated old setup methods with clear migration guidance
+   - Separated concerns between path resolution, authentication, and command execution
+   - All 252 tests pass, zero clippy warnings, improved testability and maintainability
+   - Clear command pattern implementation reduces complexity in AppRunner setup flow
 
 ## 13. Updated Metrics and Success Criteria
 
