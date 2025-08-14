@@ -181,12 +181,9 @@ impl Config {
         let resolver = PathResolver::new(self);
         resolver.resolve_with_specific(spreadsheet, credfile, |config, spreadsheet, credfile| {
             let (_, _, default_html) = Self::get_default_paths();
-            
-            let resolved_input = Self::resolve_with_fallback(
-                input,
-                config.input.data_html.clone(),
-                default_html,
-            );
+
+            let resolved_input =
+                Self::resolve_with_fallback(input, config.input.data_html.clone(), default_html);
 
             // Validate input-specific path
             FileValidator::validate_file_exists(&resolved_input, "Input HTML")?;
@@ -259,7 +256,7 @@ impl Config {
         sheet: Option<String>,
     ) -> Result<(String, String, String, String)> {
         let resolver = PathResolver::new(self);
-        let (resolved_spreadsheet, resolved_credfile) = 
+        let (resolved_spreadsheet, resolved_credfile) =
             resolver.resolve_common_paths(spreadsheet, credfile)?;
 
         let resolved_image_file = image_file
@@ -340,7 +337,6 @@ impl<'a> PathResolver<'a> {
             self.resolve_common_paths(spreadsheet, credfile)?;
         resolver_fn(self.config, resolved_spreadsheet, resolved_credfile)
     }
-
 }
 
 #[cfg(test)]
