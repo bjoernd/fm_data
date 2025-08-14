@@ -28,6 +28,7 @@ pub mod ocr_corrections;
 pub mod progress;
 pub mod selection;
 pub mod sheets_client;
+pub mod sheets_repository;
 pub mod table;
 pub mod test_builders;
 pub mod test_helpers;

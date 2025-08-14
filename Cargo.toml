@@ -39,6 +39,7 @@ indicatif = "0.17"
 
 # Async runtime - optimized features for our use case
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "time"] }
+async-trait = "0.1"
 
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -55,16 +56,17 @@ sheets = "0.7.0"
 tesseract = { version = "0.14", optional = true }
 image = { version = "0.25", optional = true }
 arboard = { version = "3.4", optional = true }
-tempfile = { version = "3.8", optional = true }
+
+# Test utilities (needed for test_builders module)
+tempfile = "3.8"
 
 [dev-dependencies]
-tempfile = "3.8"
 tokio-test = "0.4"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [features]
 default = []  # No features enabled by default for lighter builds
-image-processing = ["dep:tesseract", "dep:image", "dep:arboard", "dep:tempfile"]
+image-processing = ["dep:tesseract", "dep:image", "dep:arboard"]
 full = ["image-processing"]  # Convenience feature for full functionality
 
 [[bench]]
