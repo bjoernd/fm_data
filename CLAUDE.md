@@ -58,7 +58,7 @@ cargo run --bin fm_image -- -i screenshot.png --no-progress
 # Run image processor with Google Sheets upload (no progress bar)
 cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json --no-progress
 
-# Run tests (174 unit + 24 integration tests)
+# Run tests (248 unit + 28 integration tests = 276 total)
 cargo test
 
 # Run tests with output
@@ -95,6 +95,7 @@ The codebase is organized into a library (`src/lib.rs`) with separate modules fo
 - **`table.rs`**: HTML table extraction, validation, and data processing
 - **`auth.rs`**: Google OAuth2 authentication handling
 - **`sheets_client.rs`**: Google Sheets API operations wrapper (read/write)
+- **`sheets_repository.rs`**: Repository pattern for Google Sheets operations with dependency injection
 - **`progress.rs`**: Progress tracking and user feedback using indicatif
 - **`error.rs`**: Core error types and definitions for the application
 - **`error_helpers.rs`**: Error context helpers and standardized error construction patterns
@@ -102,19 +103,23 @@ The codebase is organized into a library (`src/lib.rs`) with separate modules fo
 - **`app_builder.rs`**: Application builder pattern for creating configured app runners
 - **`app_runner.rs`**: Main application execution logic and CLI argument validation
 - **`constants.rs`**: Application-wide constants and configuration defaults
+- **`domain.rs`**: Domain-specific value objects (PlayerId, RoleId, SpreadsheetId)
 - **`validation.rs`**: Core validation trait definitions and interfaces
 - **`validators.rs`**: Concrete validator implementations for different data types
 - **`test_helpers.rs`**: Shared test utilities and mock data generation
+- **`test_builders.rs`**: Builder pattern implementations for test data construction
 - **`types.rs`**: Shared type definitions (PlayerType, Footedness) for cross-feature compatibility
 
 #### Image Processing (Feature-Gated)
 - **`image_processor.rs`**: OCR text extraction with ImageProcessor struct and configurable pipeline
+- **`image_processor_pool.rs`**: Resource pooling for OCR processors with efficient memory management
 - **`image_data.rs`**: Player data structures optimized with structured attribute parsing
 - **`image_output.rs`**: High-performance formatting using direct attribute access
 - **`image_constants.rs`**: Organized constants for OCR settings, thresholds, and magic numbers
 - **`layout_manager.rs`**: Dynamic layout loading with embedded fallbacks for attribute parsing
 - **`ocr_corrections.rs`**: Table-driven OCR error correction system
 - **`attributes.rs`**: Structured attribute storage with typed enums and O(1) access
+- **`clipboard.rs`**: Cross-platform clipboard management for image paste operations
 - **`selection/`**: Team selection functionality split into focused sub-modules:
   - **`types.rs`**: Core data structures (Player, Role, Team, Assignment, etc.)
   - **`categories.rs`**: Player position categories and role mappings
@@ -140,13 +145,17 @@ The codebase is organized into a library (`src/lib.rs`) with separate modules fo
 - `clap`: Command-line argument parsing
 - `serde`/`serde_json`: Configuration serialization
 - `anyhow`: Error handling
+- `thiserror`: Structured error types with derive macros
 - `tokio`: Async runtime (optimized features: rt-multi-thread, macros, fs, time)
 - `indicatif`: Progress bars and spinners for CLI feedback
 - `tempfile`: Temporary file management with RAII cleanup
+- `dirs`: Cross-platform directory paths
+- `zeroize`: Secure memory clearing for sensitive data
 
 #### Feature-Gated Dependencies (Image Processing)
 - `tesseract`: OCR text extraction from images (optional)
 - `image`: Image loading and processing (optional)
+- `arboard`: Cross-platform clipboard access for image operations (optional)
 
 #### Development Dependencies
 - `criterion`: Performance benchmarking with HTML reports
@@ -729,7 +738,7 @@ This format is compatible with spreadsheet applications and can be imported dire
 
 The codebase includes comprehensive unit and integration tests:
 
-### Unit Tests (111 tests)
+### Unit Tests (248 tests)
 - **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
@@ -743,7 +752,7 @@ The codebase includes comprehensive unit and integration tests:
 - **Image Data tests**: Player data structure validation, layout-based attribute parsing, type detection
 - **Image Output tests**: TSV formatting, data serialization, output validation
 
-### Integration Tests (17 tests)
+### Integration Tests (28 tests)
 - **End-to-end workflow**: Role file → mock data → assignment → output
 - **Error handling**: Invalid roles, missing files, insufficient players
 - **Edge cases**: Exact player counts, large datasets, duplicate roles
@@ -766,7 +775,7 @@ The codebase includes comprehensive unit and integration tests:
 - Role file validation ensures exactly 11 valid Football Manager roles
 - Player filtering system with 9 positional categories covering all 96 roles
 - Sectioned role file format with backward compatibility for legacy files
-- All modules include comprehensive unit tests (198 tests total: 174 unit + 24 integration)
+- All modules include comprehensive unit tests (276 tests total: 248 unit + 28 integration)
 - Structured attribute parsing with hardcoded FM layouts for reliability
 
 ## Code Quality
@@ -776,5 +785,5 @@ The codebase follows Rust best practices and coding standards:
 - **Clippy compliance**: All clippy lints are resolved, including modern format string usage
 - **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
 - **Error handling**: Comprehensive error context using `anyhow` throughout
-- **Testing**: Comprehensive test coverage with 128 tests (unit + integration) for all public APIs
+- **Testing**: Comprehensive test coverage with 276 tests (unit + integration) for all public APIs
 - **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance
