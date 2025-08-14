@@ -533,8 +533,24 @@ pub trait DataUploader {
    - 112+ unit tests covering all domain objects, preventing runtime errors
 
 ### Phase 2: Medium-Impact, Medium-Risk (Weeks 3-4)
-1. Split Config module complexity (2.1)
-2. Refactor CLI validation patterns (1.2)
+1. ✅ **COMPLETED** - Split Config module complexity (2.1) - Improved maintainability
+   - Split large config.rs (873 lines) into focused submodules for better organization
+   - Created config/types.rs with Configuration data structures (GoogleConfig, InputConfig, Config)
+   - Created config/defaults.rs with default value functions and path generation
+   - Created config/paths.rs with PathResolver logic, validation, and template methods
+   - Created config/mod.rs with re-exports and comprehensive API documentation
+   - Maintained full backward compatibility through re-exports
+   - All 270+ tests pass without modification, zero clippy warnings
+   - Achieved improved readability, better separation of concerns, and reduced cognitive load
+2. ✅ **COMPLETED** - Refactor CLI validation patterns (1.2) - Eliminate duplicate CLI wrapper patterns
+   - Created generic StandardCLIWrapper<T> struct to eliminate duplicate CLI validation boilerplate
+   - Added BinarySpecificCLI trait for binary-specific validation and configuration logic
+   - Implemented trait-based customization with AsRef<CommonCLI> for common argument access
+   - Added comprehensive validation methods: validate_all(), is_verbose(), is_no_progress(), config_path()
+   - Implemented BinarySpecificCLI for UploaderCLI, SelectorCLI, and ImageCLI with specific validation rules
+   - Added 8 comprehensive unit tests for all CLI wrapper functionality and edge cases
+   - Eliminated ~30 lines of duplicate code per binary as targeted in refactoring analysis
+   - All 276 tests pass, zero clippy warnings, consistent CLI patterns across all binaries
 3. Implement role validation caching (4.3)
 4. Create trait-based module interfaces (7.2)
 

@@ -43,7 +43,10 @@ pub use attributes::{
     AttributeSet, GoalkeepingAttribute, MentalAttribute, PhysicalAttribute, TechnicalAttribute,
 };
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
-pub use cli::{CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, UploaderCLI};
+pub use cli::{
+    BinarySpecificCLI, CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, StandardCLIWrapper,
+    UploaderCLI,
+};
 pub use config::Config;
 pub use domain::{PlayerId, RoleId, SpreadsheetId};
 pub use error::{FMDataError, Result};

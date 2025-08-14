@@ -278,6 +278,122 @@ impl CommonCLIArgs for ImageCLI {
     }
 }
 
+/// Trait for binary-specific CLI validation and configuration
+pub trait BinarySpecificCLI {
+    /// Perform binary-specific validation beyond common validation
+    fn validate_specific(&self) -> impl std::future::Future<Output = Result<()>> + Send;
+}
+
+/// Generic CLI wrapper that provides standardized CLI argument validation patterns
+/// Eliminates duplicate CLI validation boilerplate across all three binaries
+pub struct StandardCLIWrapper<T: BinarySpecificCLI> {
+    pub specific: T,
+}
+
+impl<T: BinarySpecificCLI> StandardCLIWrapper<T> {
+    /// Create a new CLI wrapper with the specific CLI arguments
+    pub fn new(specific: T) -> Self {
+        Self { specific }
+    }
+
+    /// Get the common CLI arguments from the specific CLI
+    /// This assumes that T has a common field of type CommonCLI
+    pub fn common_args(&self) -> &CommonCLI
+    where
+        T: AsRef<CommonCLI>,
+    {
+        self.specific.as_ref()
+    }
+
+    /// Perform comprehensive validation (common + specific)
+    pub async fn validate_all(&self) -> Result<()>
+    where
+        T: AsRef<CommonCLI>,
+    {
+        // First validate common CLI arguments
+        self.common_args().validate_common()?;
+
+        // Then validate binary-specific arguments
+        self.specific.validate_specific().await?;
+
+        Ok(())
+    }
+
+    /// Check if verbose logging is enabled
+    pub fn is_verbose(&self) -> bool
+    where
+        T: AsRef<CommonCLI>,
+    {
+        self.common_args().verbose
+    }
+
+    /// Check if progress bar is disabled
+    pub fn is_no_progress(&self) -> bool
+    where
+        T: AsRef<CommonCLI>,
+    {
+        self.common_args().no_progress
+    }
+
+    /// Get the config file path
+    pub fn config_path(&self) -> &str
+    where
+        T: AsRef<CommonCLI>,
+    {
+        &self.common_args().config
+    }
+}
+
+// Implement AsRef for the existing CLI structs to make them compatible with the wrapper
+impl AsRef<CommonCLI> for UploaderCLI {
+    fn as_ref(&self) -> &CommonCLI {
+        &self.common
+    }
+}
+
+impl AsRef<CommonCLI> for SelectorCLI {
+    fn as_ref(&self) -> &CommonCLI {
+        &self.common
+    }
+}
+
+impl AsRef<CommonCLI> for ImageCLI {
+    fn as_ref(&self) -> &CommonCLI {
+        &self.common
+    }
+}
+
+// Implement the BinarySpecificCLI trait for each CLI type
+impl BinarySpecificCLI for UploaderCLI {
+    async fn validate_specific(&self) -> Result<()> {
+        // No additional validation needed for uploader beyond common validation
+        Ok(())
+    }
+}
+
+impl BinarySpecificCLI for SelectorCLI {
+    async fn validate_specific(&self) -> Result<()> {
+        // Role file is required for team selection
+        if self.role_file.is_none() {
+            return Err(FMDataError::config(
+                "Role file is required. Use --role-file or -r to specify the path to your role file.".to_string()
+            ));
+        }
+        Ok(())
+    }
+}
+
+impl BinarySpecificCLI for ImageCLI {
+    async fn validate_specific(&self) -> Result<()> {
+        // Validate that the image file exists and is readable (if provided)
+        if let Some(ref image_path) = self.image_file {
+            validate_image_file(image_path).await?;
+        }
+        // If no image file is provided, we'll use clipboard mode (valid)
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -470,5 +586,168 @@ mod tests {
             perms.set_mode(0o644);
             std::fs::set_permissions(temp_png.path(), perms).unwrap();
         }
+    }
+
+    #[tokio::test]
+    async fn test_standard_cli_wrapper_uploader() {
+        let uploader_cli = UploaderCLI {
+            common: CommonCLI {
+                spreadsheet: Some("test_spreadsheet".to_string()),
+                credfile: Some("test_creds.json".to_string()),
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: true,
+                no_progress: false,
+            },
+            input: Some("/path/to/input.html".to_string()),
+        };
+
+        let wrapper = StandardCLIWrapper::new(uploader_cli);
+
+        // Test common CLI methods
+        assert!(wrapper.is_verbose());
+        assert!(!wrapper.is_no_progress());
+        assert_eq!(
+            wrapper.config_path(),
+            crate::constants::config::DEFAULT_CONFIG_FILE
+        );
+
+        // Test access to specific CLI
+        assert_eq!(
+            wrapper.specific.input.as_ref().unwrap(),
+            "/path/to/input.html"
+        );
+
+        // Test validation (should pass with default config file)
+        let validation_result = wrapper.validate_all().await;
+        assert!(validation_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_standard_cli_wrapper_selector_missing_role_file() {
+        let selector_cli = SelectorCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: true,
+            },
+            role_file: None, // Missing role file should cause validation to fail
+        };
+
+        let wrapper = StandardCLIWrapper::new(selector_cli);
+
+        let validation_result = wrapper.validate_all().await;
+        assert!(validation_result.is_err());
+        assert!(validation_result
+            .unwrap_err()
+            .to_string()
+            .contains("Role file is required"));
+    }
+
+    #[tokio::test]
+    async fn test_standard_cli_wrapper_selector_with_role_file() {
+        let selector_cli = SelectorCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: true,
+            },
+            role_file: Some("/path/to/roles.txt".to_string()),
+        };
+
+        let wrapper = StandardCLIWrapper::new(selector_cli);
+
+        // Test specific validation passes when role file is provided
+        let specific_validation = wrapper.specific.validate_specific().await;
+        assert!(specific_validation.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_standard_cli_wrapper_image_clipboard_mode() {
+        let image_cli = ImageCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
+            image_file: None, // Clipboard mode
+            sheet: "Scouting".to_string(),
+        };
+
+        let wrapper = StandardCLIWrapper::new(image_cli);
+
+        // Test validation passes in clipboard mode
+        let validation_result = wrapper.validate_all().await;
+        assert!(validation_result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_standard_cli_wrapper_image_with_file() {
+        let temp_png = create_test_png();
+        let image_cli = ImageCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: crate::constants::config::DEFAULT_CONFIG_FILE.to_string(),
+                verbose: false,
+                no_progress: false,
+            },
+            image_file: Some(temp_png.path().to_string_lossy().to_string()),
+            sheet: "Scouting".to_string(),
+        };
+
+        let wrapper = StandardCLIWrapper::new(image_cli);
+
+        // Test validation passes with valid PNG file
+        let validation_result = wrapper.validate_all().await;
+        assert!(validation_result.is_ok());
+    }
+
+    #[test]
+    fn test_binary_specific_cli_trait_methods() {
+        // Test that all CLI types implement the BinarySpecificCLI trait
+        let uploader_cli = UploaderCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: "test.json".to_string(),
+                verbose: false,
+                no_progress: false,
+            },
+            input: None,
+        };
+
+        let selector_cli = SelectorCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: "test.json".to_string(),
+                verbose: false,
+                no_progress: false,
+            },
+            role_file: Some("roles.txt".to_string()),
+        };
+
+        let image_cli = ImageCLI {
+            common: CommonCLI {
+                spreadsheet: None,
+                credfile: None,
+                config: "test.json".to_string(),
+                verbose: false,
+                no_progress: false,
+            },
+            image_file: None,
+            sheet: "Scouting".to_string(),
+        };
+
+        // Test AsRef implementations work
+        let _: &CommonCLI = uploader_cli.as_ref();
+        let _: &CommonCLI = selector_cli.as_ref();
+        let _: &CommonCLI = image_cli.as_ref();
     }
 }

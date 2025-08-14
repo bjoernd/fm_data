@@ -52,7 +52,10 @@ pub struct GoogleConfig {
     #[serde(default = "super::defaults::default_token_file")]
     pub token_file: String,
     /// Google Sheets spreadsheet ID (validated)
-    #[serde(default = "super::defaults::default_spreadsheet_id", with = "spreadsheet_id_serde")]
+    #[serde(
+        default = "super::defaults::default_spreadsheet_id",
+        with = "spreadsheet_id_serde"
+    )]
     pub spreadsheet_name: Option<SpreadsheetId>,
     /// Sheet name for team data
     #[serde(default = "super::defaults::default_team_sheet")]

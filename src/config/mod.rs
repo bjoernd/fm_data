@@ -7,7 +7,7 @@ and path resolution logic that follows the priority: CLI > config file > default
 # Module Organization
 
 - [`types`]: Core configuration data structures
-- [`defaults`]: Default value functions for configuration fields  
+- [`defaults`]: Default value functions for configuration fields
 - [`paths`]: Path resolution logic with validation
 
 # Example
@@ -41,26 +41,26 @@ use std::path::Path;
 use tokio::fs;
 
 // Re-export main types for convenience
-pub use paths::{PathResolver, resolve_with_fallback};
+pub use paths::{resolve_with_fallback, PathResolver};
 pub use types::{Config, GoogleConfig, InputConfig};
 
 impl Config {
     /// Load configuration from a JSON file with comprehensive error handling
-    /// 
+    ///
     /// This method reads the configuration file asynchronously and deserializes it
     /// from JSON. Missing fields are automatically filled with default values
     /// through serde's `#[serde(default)]` attributes.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `config_path` - Path to the JSON configuration file
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A `Result` containing the loaded configuration or an error with context
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use fm_data::config::Config;
     /// # use std::path::Path;
@@ -81,17 +81,17 @@ impl Config {
     }
 
     /// Create a default configuration with all fields set to their default values
-    /// 
+    ///
     /// This is equivalent to `Config::default()` but provides a more explicit
     /// method name that clearly indicates the intent to create a configuration
     /// with default values.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A new `Config` instance with default values for all fields
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use fm_data::config::Config;
     /// let config = Config::create_default();
@@ -102,17 +102,17 @@ impl Config {
     }
 
     /// Get the default paths used when no configuration is provided
-    /// 
+    ///
     /// This method returns the hardcoded default values for the three most
     /// commonly needed paths: spreadsheet ID, credentials file, and HTML input file.
     /// These defaults are used as the final fallback in the path resolution hierarchy.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// A tuple containing `(spreadsheet_id, credentials_path, html_input_path)`
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// # use fm_data::config::Config;
     /// let (spreadsheet, creds, html) = Config::get_default_paths();

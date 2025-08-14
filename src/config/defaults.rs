@@ -38,7 +38,7 @@ pub fn default_spreadsheet_id() -> Option<SpreadsheetId> {
 }
 
 /// Get default paths for spreadsheet ID, credentials file, and HTML input
-/// 
+///
 /// Returns (spreadsheet_id, credentials_file_path, html_input_path)
 pub fn get_default_paths() -> (String, String, String) {
     let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));

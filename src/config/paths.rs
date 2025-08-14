@@ -16,7 +16,7 @@ impl<'a> PathResolver<'a> {
     }
 
     /// Resolve common paths (spreadsheet and credentials) used by all applications
-    /// 
+    ///
     /// This method handles the standard priority: CLI > config file > defaults
     /// and validates the resolved paths for correctness.
     pub fn resolve_common_paths(
@@ -52,7 +52,7 @@ impl<'a> PathResolver<'a> {
     }
 
     /// Template method for resolving paths with specific validation logic
-    /// 
+    ///
     /// This method first resolves common paths and then applies custom logic
     /// through the provided resolver function. This pattern eliminates duplication
     /// while allowing each application to add its specific path requirements.
@@ -69,7 +69,7 @@ impl<'a> PathResolver<'a> {
 }
 
 /// Helper method to resolve path with fallback priority: CLI > config > default
-/// 
+///
 /// This function implements the standard resolution logic used throughout the application.
 /// It filters out empty values and applies the hierarchical priority system.
 pub fn resolve_with_fallback<T: Clone + AsRef<str>>(
