@@ -178,36 +178,25 @@ impl Config {
         credfile: Option<String>,
         input: Option<String>,
     ) -> Result<(String, String, String)> {
-        let (default_spreadsheet, default_creds, default_html) = Self::get_default_paths();
+        let resolver = PathResolver::new(self);
+        resolver.resolve_with_specific(spreadsheet, credfile, |config, spreadsheet, credfile| {
+            let (_, _, default_html) = Self::get_default_paths();
+            
+            let resolved_input = Self::resolve_with_fallback(
+                input,
+                config.input.data_html.clone(),
+                default_html,
+            );
 
-        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
-            cli_id
-        } else if let Some(config_id) = &self.google.spreadsheet_name {
-            config_id.as_str().to_string()
-        } else {
-            default_spreadsheet
-        };
+            // Validate input-specific path
+            FileValidator::validate_file_exists(&resolved_input, "Input HTML")?;
+            FileValidator::validate_file_extension_typed(
+                &resolved_input,
+                crate::constants::FileExtension::Html,
+            )?;
 
-        let resolved_credfile =
-            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
-
-        let resolved_input =
-            Self::resolve_with_fallback(input, self.input.data_html.clone(), default_html);
-
-        // Validate the resolved paths
-        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension_typed(
-            &resolved_credfile,
-            crate::constants::FileExtension::Json,
-        )?;
-        FileValidator::validate_file_exists(&resolved_input, "Input HTML")?;
-        FileValidator::validate_file_extension_typed(
-            &resolved_input,
-            crate::constants::FileExtension::Html,
-        )?;
-
-        Ok((resolved_spreadsheet, resolved_credfile, resolved_input))
+            Ok((spreadsheet, credfile, resolved_input))
+        })
     }
 
     /// Resolve paths without validation (for testing)
@@ -243,38 +232,22 @@ impl Config {
         credfile: Option<String>,
         role_file: Option<String>,
     ) -> Result<(String, String, String)> {
-        let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
+        let resolver = PathResolver::new(self);
+        resolver.resolve_with_specific(spreadsheet, credfile, |config, spreadsheet, credfile| {
+            let resolved_role_file = role_file
+                .or_else(|| Some(config.input.role_file.clone()))
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| config_missing_field("role_file"))?;
 
-        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
-            cli_id
-        } else if let Some(config_id) = &self.google.spreadsheet_name {
-            config_id.as_str().to_string()
-        } else {
-            default_spreadsheet
-        };
+            // Validate role file specific path
+            FileValidator::validate_file_exists(&resolved_role_file, "Role file")?;
+            FileValidator::validate_file_extension_typed(
+                &resolved_role_file,
+                crate::constants::FileExtension::Txt,
+            )?;
 
-        let resolved_credfile =
-            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
-
-        let resolved_role_file = role_file
-            .or_else(|| Some(self.input.role_file.clone()))
-            .filter(|s| !s.is_empty())
-            .ok_or_else(|| config_missing_field("role_file"))?;
-
-        // Validate the resolved paths
-        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension_typed(
-            &resolved_credfile,
-            crate::constants::FileExtension::Json,
-        )?;
-        FileValidator::validate_file_exists(&resolved_role_file, "Role file")?;
-        FileValidator::validate_file_extension_typed(
-            &resolved_role_file,
-            crate::constants::FileExtension::Txt,
-        )?;
-
-        Ok((resolved_spreadsheet, resolved_credfile, resolved_role_file))
+            Ok((spreadsheet, credfile, resolved_role_file))
+        })
     }
 
     /// Resolve paths for image processor including image file and sheet name
@@ -285,18 +258,9 @@ impl Config {
         image_file: Option<String>,
         sheet: Option<String>,
     ) -> Result<(String, String, String, String)> {
-        let (default_spreadsheet, default_creds, _) = Self::get_default_paths();
-
-        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
-            cli_id
-        } else if let Some(config_id) = &self.google.spreadsheet_name {
-            config_id.as_str().to_string()
-        } else {
-            default_spreadsheet
-        };
-
-        let resolved_credfile =
-            Self::resolve_with_fallback(credfile, self.google.creds_file.clone(), default_creds);
+        let resolver = PathResolver::new(self);
+        let (resolved_spreadsheet, resolved_credfile) = 
+            resolver.resolve_common_paths(spreadsheet, credfile)?;
 
         let resolved_image_file = image_file
             .or_else(|| Some(self.input.image_file.clone()))
@@ -309,13 +273,7 @@ impl Config {
             default_scouting_sheet(),
         );
 
-        // Validate the resolved paths
-        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
-        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
-        FileValidator::validate_file_extension_typed(
-            &resolved_credfile,
-            crate::constants::FileExtension::Json,
-        )?;
+        // Validate image file specific paths
         FileValidator::validate_file_exists(&resolved_image_file, "Image")?;
         crate::cli::validate_image_file(&resolved_image_file).await?;
 
@@ -326,6 +284,63 @@ impl Config {
             resolved_sheet,
         ))
     }
+}
+
+/// PathResolver handles common path resolution patterns
+pub struct PathResolver<'a> {
+    config: &'a Config,
+}
+
+impl<'a> PathResolver<'a> {
+    pub fn new(config: &'a Config) -> Self {
+        Self { config }
+    }
+
+    /// Resolve common paths (spreadsheet and credentials) used by all applications
+    pub fn resolve_common_paths(
+        &self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+    ) -> Result<(String, String)> {
+        let (default_spreadsheet, default_creds, _) = Config::get_default_paths();
+
+        let resolved_spreadsheet = if let Some(cli_id) = spreadsheet {
+            cli_id
+        } else if let Some(config_id) = &self.config.google.spreadsheet_name {
+            config_id.as_str().to_string()
+        } else {
+            default_spreadsheet
+        };
+
+        let resolved_credfile = Config::resolve_with_fallback(
+            credfile,
+            self.config.google.creds_file.clone(),
+            default_creds,
+        );
+
+        // Validate common paths
+        ConfigValidator::validate_spreadsheet_id(&resolved_spreadsheet)?;
+        FileValidator::validate_file_exists(&resolved_credfile, "Credentials")?;
+        FileValidator::validate_file_extension_typed(
+            &resolved_credfile,
+            crate::constants::FileExtension::Json,
+        )?;
+
+        Ok((resolved_spreadsheet, resolved_credfile))
+    }
+
+    /// Template method for resolving paths with specific validation
+    pub fn resolve_with_specific<T>(
+        &self,
+        spreadsheet: Option<String>,
+        credfile: Option<String>,
+        resolver_fn: impl FnOnce(&Config, String, String) -> Result<T>,
+    ) -> Result<T> {
+        let (resolved_spreadsheet, resolved_credfile) =
+            self.resolve_common_paths(spreadsheet, credfile)?;
+        resolver_fn(self.config, resolved_spreadsheet, resolved_credfile)
+    }
+
 }
 
 #[cfg(test)]

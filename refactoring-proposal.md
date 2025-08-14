@@ -507,7 +507,12 @@ pub trait DataUploader {
 ## 8. Implementation Priority
 
 ### Phase 1: High-Impact, Low-Risk (Weeks 1-2)
-1. Extract path resolution logic duplication (1.1)
+1. ✅ **COMPLETED** - Extract path resolution logic duplication (1.1) - Eliminate ~100 lines of duplicated code
+   - Created PathResolver struct with common path resolution patterns
+   - Refactored resolve_paths(), resolve_team_selector_paths(), and resolve_image_paths() to use PathResolver
+   - Extracted common spreadsheet and credentials resolution logic with validation
+   - Maintained backward compatibility and all existing functionality
+   - All 276 tests pass, zero clippy warnings, improved maintainability
 2. ✅ **COMPLETED** - Create error construction macros (1.3) - Reduce boilerplate by 60%
    - Added convenience macros for all error types: config_error!, auth_error!, selection_error!, image_error!, etc.
    - Reduced error construction from 3 lines to 1 line (60% reduction as targeted)

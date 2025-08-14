@@ -238,7 +238,7 @@ pub fn image_error(code: ErrorCode) -> ErrorBuilder {
 
 /// Convenience macros for creating standardized errors with reduced boilerplate
 /// These macros reduce error construction code by ~60% and ensure consistency
-
+///
 /// Create a config error with optional context
 #[macro_export]
 macro_rules! config_error {
