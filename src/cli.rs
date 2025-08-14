@@ -1,6 +1,7 @@
 use crate::error::{FMDataError, Result};
-use crate::error_messages::{ErrorBuilder, ErrorCode};
+use crate::error_messages::ErrorCode;
 use crate::validators::ConfigValidator;
+use crate::{config_error, image_error};
 use clap::Parser;
 
 pub struct CommonArgs {
@@ -117,35 +118,31 @@ pub async fn validate_image_file(image_path: &str) -> Result<()> {
 
     let path = Path::new(image_path);
     if !path.exists() {
-        return Err(ErrorBuilder::new(ErrorCode::E600)
-            .with_context(image_path)
-            .build());
+        return Err(image_error!(ErrorCode::E600, image_path));
     }
 
     if !path.is_file() {
-        return Err(ErrorBuilder::new(ErrorCode::E104)
-            .with_context(format!("path is not a file: {image_path}"))
-            .build());
+        return Err(config_error!(
+            ErrorCode::E104,
+            format!("path is not a file: {image_path}")
+        ));
     }
 
     // Basic PNG file validation (check magic bytes)
-    let mut file = fs::File::open(path).await.map_err(|_| {
-        ErrorBuilder::new(ErrorCode::E104)
-            .with_context(image_path)
-            .build()
-    })?;
+    let mut file = fs::File::open(path)
+        .await
+        .map_err(|_| config_error!(ErrorCode::E104, image_path))?;
     let mut png_header = [0u8; 8];
     if file.read_exact(&mut png_header).await.is_ok() {
         let png_signature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
         if png_header != png_signature {
-            return Err(ErrorBuilder::new(ErrorCode::E601)
-                .with_context(image_path)
-                .build());
+            return Err(image_error!(ErrorCode::E601, image_path));
         }
     } else {
-        return Err(ErrorBuilder::new(ErrorCode::E104)
-            .with_context(format!("unable to read PNG header: {image_path}"))
-            .build());
+        return Err(config_error!(
+            ErrorCode::E104,
+            format!("unable to read PNG header: {image_path}")
+        ));
     }
 
     Ok(())
