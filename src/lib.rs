@@ -33,6 +33,7 @@ pub mod sheets_repository;
 pub mod table;
 pub mod test_builders;
 pub mod test_helpers;
+pub mod traits;
 pub mod types;
 pub mod validation;
 pub mod validators;
@@ -82,6 +83,10 @@ pub use sheets_client::SheetsManager;
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
 pub use test_builders::{
     ConfigDataBuilder, ImageDataBuilder, PlayerDataBuilder, PlayersDataBuilder, RoleFileBuilder,
+};
+pub use traits::{
+    DataUploader, DefaultTableProcessor, DefaultTeamSelector, PlayerDataSource, SheetsDataUploader,
+    SheetsPlayerDataSource, TableProcessor, TeamSelector,
 };
 pub use types::{Footedness as TypesFootedness, PlayerType};
 pub use validation::Validator;
