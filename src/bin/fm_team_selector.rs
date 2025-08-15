@@ -1,6 +1,6 @@
 use clap::Parser;
 use fm_data::constants::ranges;
-use fm_data::error::Result;
+use fm_data::error::{FMDataError, Result};
 use fm_data::{
     find_optimal_assignments_with_filters, format_team_output, parse_player_data,
     parse_role_file_content, AppRunnerBuilder, CLIArgumentValidator, CommonCLIArgs, SelectorCLI,
@@ -59,22 +59,23 @@ impl CLIArgumentValidator for CLIArguments {
 async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
-    // Use AppRunnerBuilder for consolidated setup and get resolved paths
-    let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_team_selector")
-        .build_basic()
+    // Use new type-state pattern for setup
+    let configured_runner = AppRunnerBuilder::from_cli(&cli, "fm_team_selector")
+        .build_new()
         .await?;
 
-    // Setup for team selector and get resolved paths
-    let (spreadsheet, credfile, role_file_path) = app_runner
-        .setup_for_team_selector(
+    // First resolve paths using config
+    let (spreadsheet_id, credfile_path, role_file_path) = configured_runner
+        .config()
+        .resolve_team_selector_paths(
             cli.common.common.spreadsheet,
             cli.common.common.credfile,
             cli.common.role_file,
         )
-        .await?;
+        .map_err(|e| FMDataError::config(format!("Configuration validation failed: {e}")))?;
 
-    // Parse role file
-    app_runner
+    // Parse role file before authentication
+    configured_runner
         .progress()
         .update(10, 100, "Loading and validating roles...");
     let role_file_content = parse_role_file_content(&role_file_path)
@@ -93,16 +94,16 @@ async fn main() -> Result<()> {
     debug!("Roles: {:?}", role_file_content.roles);
     debug!("Filters: {:?}", role_file_content.filters);
 
-    // Complete authentication after role file processing
-    app_runner
-        .complete_team_selector_auth(spreadsheet.clone(), credfile.clone())
+    // Now authenticate with resolved paths
+    let app_runner = configured_runner
+        .authenticate(spreadsheet_id, credfile_path, 20)
         .await?;
 
     // Download player data from Google Sheets
     app_runner
         .progress()
         .update(50, 100, "Downloading player data from Google Sheets...");
-    let sheets_manager = app_runner.sheets_manager_fallible()?;
+    let sheets_manager = app_runner.sheets_manager();
     let sheet_data = sheets_manager
         .read_data(
             &app_runner.config().google.team_sheet,

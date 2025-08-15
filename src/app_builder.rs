@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::{AppRunner, CLIArgumentValidator, Config, ProgressCallback, ProgressTracker, LegacyAppRunner};
+use crate::{AppRunner, CLIArgumentValidator, Config, ProgressCallback, ProgressTracker};
 use log::{info, warn};
 use std::path::Path;
 use std::time::Instant;
@@ -96,57 +96,6 @@ impl AppRunnerBuilder {
         self
     }
 
-    /// Build AppRunner with full authentication setup for uploader (legacy method)
-    #[deprecated(note = "Use build_new().configure().authenticate() instead")]
-    pub async fn build_uploader(self) -> Result<LegacyAppRunner> {
-        // Store values before self is moved
-        let spreadsheet_id = self.spreadsheet_id.clone();
-        let creds_file = self.creds_file.clone();
-        let input_file = self.input_file.clone();
-
-        let mut app_runner = self.build_basic().await?;
-
-        // Resolve paths and setup authentication for uploader
-        let (_spreadsheet_id, _credfile_path, _input_path) = app_runner
-            .setup_for_player_uploader(spreadsheet_id, creds_file, input_file)
-            .await?;
-
-        Ok(app_runner)
-    }
-
-    /// Build AppRunner with authentication setup for team selector (legacy method)
-    #[deprecated(note = "Use build_new().configure().authenticate() instead")]
-    pub async fn build_team_selector(self) -> Result<LegacyAppRunner> {
-        // Store values before self is moved
-        let spreadsheet_id = self.spreadsheet_id.clone();
-        let creds_file = self.creds_file.clone();
-        let role_file = self.role_file.clone();
-
-        let mut app_runner = self.build_basic().await?;
-
-        // Resolve paths for team selector (authentication will be completed later)
-        let (_spreadsheet_id, _credfile_path, _role_file_path) = app_runner
-            .setup_for_team_selector(spreadsheet_id, creds_file, role_file)
-            .await?;
-
-        Ok(app_runner)
-    }
-
-    /// Build basic AppRunner without authentication (legacy method)
-    #[deprecated(note = "Use build_new().configure() instead")]
-    pub async fn build_basic(self) -> Result<LegacyAppRunner> {
-        let (config, progress, start_time) = self.build_minimal().await?;
-
-        // Convert to legacy format for backward compatibility
-        Ok(AppRunner {
-            config: Some(config),
-            progress: Some(progress),
-            sheets_manager: None,
-            start_time,
-            state: std::marker::PhantomData,
-        })
-    }
-
     /// Build new type-safe AppRunner (Configured state)
     pub async fn build_new(self) -> Result<AppRunner<crate::app_runner::Configured>> {
         // Store configuration before consuming self
@@ -169,8 +118,7 @@ impl AppRunnerBuilder {
 
         // Create progress tracker
         let show_progress = !self.no_progress && !self.verbose;
-        let progress = ProgressTracker::new(100, show_progress)
-            ;
+        let progress = ProgressTracker::new(100, show_progress);
         let progress_ref: &dyn ProgressCallback = &progress;
 
         progress_ref.update(0, 100, "Starting process...");

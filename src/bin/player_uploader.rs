@@ -52,18 +52,24 @@ impl CLIArgumentValidator for CLIArguments {
 async fn main() -> Result<()> {
     let cli = CLIArguments::parse();
 
-    // Use AppRunnerBuilder for consolidated setup and authentication
-    let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_google_up")
-        .build_basic()
+    // Use new type-state pattern for setup and authentication
+    let configured_runner = AppRunnerBuilder::from_cli(&cli, "fm_google_up")
+        .build_new()
         .await?;
 
-    // Setup for player uploader and get resolved paths
-    let (_spreadsheet_id, _credfile_path, input_path) = app_runner
-        .setup_for_player_uploader(
+    // First resolve paths using config
+    let (spreadsheet_id, credfile_path, input_path) = configured_runner
+        .config()
+        .resolve_paths(
             cli.common.common.spreadsheet,
             cli.common.common.credfile,
             cli.common.input,
         )
+        .map_err(|e| FMDataError::config(format!("Configuration validation failed: {e}")))?;
+
+    // Now authenticate with resolved paths
+    let app_runner = configured_runner
+        .authenticate(spreadsheet_id, credfile_path, 10)
         .await?;
 
     // Read table from HTML
@@ -100,7 +106,7 @@ async fn main() -> Result<()> {
         .update(70, 100, "Preparing data for upload...");
     let matrix = process_table_data(&table)?;
 
-    let sheets_manager = app_runner.sheets_manager_fallible()?;
+    let sheets_manager = app_runner.sheets_manager();
     sheets_manager
         .clear_range(
             &app_runner.config().google.team_sheet,

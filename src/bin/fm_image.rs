@@ -78,9 +78,9 @@ async fn main() -> Result<()> {
         cli.common.common.no_progress = true;
     }
 
-    // Use AppRunnerBuilder for consolidated setup (without authentication)
-    let mut app_runner = AppRunnerBuilder::from_cli(&cli, "fm_image")
-        .build_basic()
+    // Use new type-state pattern for setup
+    let configured_runner = AppRunnerBuilder::from_cli(&cli, "fm_image")
+        .build_new()
         .await?;
 
     if is_clipboard_mode {
@@ -110,8 +110,8 @@ async fn main() -> Result<()> {
         };
 
     // Resolve paths for potential Google Sheets upload
-    let (spreadsheet_id, credfile_path, _, sheet_name) = app_runner
-        .config
+    let (spreadsheet_id, credfile_path, _, sheet_name) = configured_runner
+        .config()
         .resolve_image_paths(
             cli.common.common.spreadsheet.clone(),
             cli.common.common.credfile.clone(),
@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
     );
 
     // Step 1: Load and validate PNG image file
-    app_runner
+    configured_runner
         .progress()
         .update(10, 100, "Loading PNG screenshot...");
 
@@ -151,7 +151,7 @@ async fn main() -> Result<()> {
     info!("Image file validated: {}", image_file_path);
 
     // Step 2: Extract text using OCR with new ImageProcessor
-    app_runner
+    configured_runner
         .progress()
         .update(30, 100, "Extracting text with OCR...");
 
@@ -175,7 +175,7 @@ async fn main() -> Result<()> {
     }
 
     // Step 3: Parse player data from OCR text (includes footedness detection)
-    app_runner
+    configured_runner
         .progress()
         .update(60, 100, "Parsing player data and detecting footedness...");
 
@@ -193,7 +193,7 @@ async fn main() -> Result<()> {
     debug!("Player has {} attributes", attr_hashmap.len());
 
     // Step 4: Format output data
-    app_runner
+    configured_runner
         .progress()
         .update(90, 100, "Formatting output data...");
 
@@ -205,7 +205,7 @@ async fn main() -> Result<()> {
     );
     info!("Output formatting completed");
 
-    app_runner.finish("Image processing");
+    configured_runner.finish("Image processing");
 
     // Output the player data to stdout FIRST (preserve existing behavior)
     if cli.is_verbose() {
@@ -219,7 +219,7 @@ async fn main() -> Result<()> {
     // Attempt Google Sheets upload if configured (only after stdout output)
     if sheets_upload_configured {
         match attempt_google_sheets_upload(
-            &mut app_runner,
+            configured_runner,
             &spreadsheet_id,
             &credfile_path,
             &sheet_name,
@@ -244,16 +244,16 @@ async fn main() -> Result<()> {
 
 /// Attempt to upload player data to Google Sheets
 async fn attempt_google_sheets_upload(
-    app_runner: &mut AppRunner,
+    configured_runner: AppRunner<fm_data::app_runner::Configured>,
     spreadsheet_id: &str,
     credfile_path: &str,
     sheet_name: &str,
     _formatted_output: &str,
     _player_name: &str,
 ) -> Result<()> {
-    // Complete authentication setup (this will create the sheets manager)
-    app_runner
-        .complete_authentication(spreadsheet_id.to_string(), credfile_path.to_string(), 95)
+    // Authenticate and get app_runner
+    let app_runner = configured_runner
+        .authenticate(spreadsheet_id.to_string(), credfile_path.to_string(), 95)
         .await
         .map_err(|e| {
             FMDataError::auth(format!(
@@ -272,7 +272,7 @@ async fn attempt_google_sheets_upload(
         .progress()
         .update(96, 100, &format!("Validating sheet '{sheet_name}'..."));
 
-    let sheets_manager = app_runner.sheets_manager()?;
+    let sheets_manager = app_runner.sheets_manager();
     sheets_manager
         .verify_sheet_exists(sheet_name, app_runner.progress_reporter())
         .await
