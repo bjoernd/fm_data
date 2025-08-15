@@ -82,6 +82,7 @@ pub use setup_commands::{
     AuthenticationSetup, ImageProcessorSetup, PlayerUploaderSetup, SetupCommand, TeamSelectorSetup,
 };
 pub use sheets_client::SheetsManager;
+pub use sheets_repository::{GoogleSheetsRepository, MockSheetsRepository, SheetsRepository};
 pub use table::{process_table_data, read_table, validate_data_size, validate_table_structure};
 pub use test_builders::{
     ConfigDataBuilder, ImageDataBuilder, PlayerDataBuilder, PlayersDataBuilder, RoleFileBuilder,
