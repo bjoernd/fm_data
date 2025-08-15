@@ -1,6 +1,7 @@
 use crate::constants::ranges;
 use crate::domain::SpreadsheetId;
 use crate::error::{FMDataError, Result};
+use crate::error_helpers::SheetsResult;
 use crate::progress::{ProgressPublisher, ProgressReporter};
 use crate::validators::DataValidator;
 use log::{debug, error, info};
@@ -305,9 +306,7 @@ impl SheetsManager {
                 ValueRenderOption::FormattedValue,
             )
             .await
-            .map_err(|e| {
-                FMDataError::sheets_api(format!("Failed to read data from {full_range}: {e}"))
-            })?;
+            .range_context(&full_range)?;
 
         let values = response.body.values;
         info!("Read {} rows from {}", values.len(), full_range);

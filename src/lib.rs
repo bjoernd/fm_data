@@ -53,6 +53,7 @@ pub use cli::{
 pub use config::Config;
 pub use domain::{PlayerId, RoleId, SpreadsheetId};
 pub use error::{FMDataError, Result};
+pub use error_helpers::{ConfigResult, ErrorContext, SelectionResult, SheetsResult, TableResult};
 pub use error_messages::{ErrorBuilder, ErrorCode};
 #[cfg(feature = "image-processing")]
 pub use image_data::{parse_player_from_ocr, ImagePlayer};

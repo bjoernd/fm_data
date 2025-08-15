@@ -123,3 +123,161 @@ pub fn table_processing_error(
 
     FMDataError::table(format!("Table processing error{location}: {message}"))
 }
+
+/// Domain-specific extension trait for configuration-related Results
+pub trait ConfigResult<T> {
+    /// Add configuration operation context
+    fn config_context(self, operation: &str) -> Result<T, FMDataError>;
+
+    /// Add file path context for configuration files
+    fn file_context(self, path: &str) -> Result<T, FMDataError>;
+
+    /// Add field validation context
+    fn field_context(self, field_name: &str) -> Result<T, FMDataError>;
+
+    /// Add JSON parsing context
+    fn json_context(self, description: &str) -> Result<T, FMDataError>;
+}
+
+impl<T, E> ConfigResult<T> for Result<T, E>
+where
+    E: std::fmt::Display,
+{
+    fn config_context(self, operation: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::config(format!("Configuration {operation}: {e}")))
+    }
+
+    fn file_context(self, path: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::config(format!("Config file '{path}': {e}")))
+    }
+
+    fn field_context(self, field_name: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::config(format!("Config field '{field_name}': {e}")))
+    }
+
+    fn json_context(self, description: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::config(format!("JSON {description}: {e}")))
+    }
+}
+
+/// Domain-specific extension trait for Google Sheets-related Results  
+pub trait SheetsResult<T> {
+    /// Add Google Sheets operation context
+    fn sheets_context(self, operation: &str) -> Result<T, FMDataError>;
+
+    /// Add range-specific context  
+    fn range_context(self, range: &str) -> Result<T, FMDataError>;
+
+    /// Add sheet name context
+    fn sheet_context(self, sheet_name: &str) -> Result<T, FMDataError>;
+
+    /// Add authentication context for Sheets operations
+    fn auth_context(self, context: &str) -> Result<T, FMDataError>;
+
+    /// Add data validation context for Sheets operations
+    fn data_context(self, description: &str) -> Result<T, FMDataError>;
+}
+
+impl<T, E> SheetsResult<T> for Result<T, E>
+where
+    E: std::fmt::Display,
+{
+    fn sheets_context(self, operation: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::sheets_api(format!("Sheets {operation}: {e}")))
+    }
+
+    fn range_context(self, range: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::sheets_api(format!("Range '{range}': {e}")))
+    }
+
+    fn sheet_context(self, sheet_name: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::sheets_api(format!("Sheet '{sheet_name}': {e}")))
+    }
+
+    fn auth_context(self, context: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::auth(format!("Sheets authentication ({context}): {e}")))
+    }
+
+    fn data_context(self, description: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::sheets_api(format!("Data {description}: {e}")))
+    }
+}
+
+/// Domain-specific extension trait for selection/team assignment Results
+pub trait SelectionResult<T> {
+    /// Add role validation context
+    fn role_context(self, role_name: &str) -> Result<T, FMDataError>;
+
+    /// Add player context
+    fn player_context(self, player_name: &str) -> Result<T, FMDataError>;
+
+    /// Add category context
+    fn category_context(self, category: &str) -> Result<T, FMDataError>;
+
+    /// Add assignment algorithm context
+    fn assignment_context(self, description: &str) -> Result<T, FMDataError>;
+
+    /// Add filter processing context
+    fn filter_context(self, line_num: usize) -> Result<T, FMDataError>;
+}
+
+impl<T, E> SelectionResult<T> for Result<T, E>
+where
+    E: std::fmt::Display,
+{
+    fn role_context(self, role_name: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::selection(format!("Role '{role_name}': {e}")))
+    }
+
+    fn player_context(self, player_name: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::selection(format!("Player '{player_name}': {e}")))
+    }
+
+    fn category_context(self, category: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::selection(format!("Category '{category}': {e}")))
+    }
+
+    fn assignment_context(self, description: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::selection(format!("Assignment {description}: {e}")))
+    }
+
+    fn filter_context(self, line_num: usize) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::selection(format!("Filter line {line_num}: {e}")))
+    }
+}
+
+/// Domain-specific extension trait for table processing Results
+pub trait TableResult<T> {
+    /// Add table parsing context
+    fn table_context(self, operation: &str) -> Result<T, FMDataError>;
+
+    /// Add row-specific context
+    fn row_context(self, row_num: usize) -> Result<T, FMDataError>;
+
+    /// Add column-specific context
+    fn column_context(self, column_name: &str) -> Result<T, FMDataError>;
+
+    /// Add validation context
+    fn validate_context(self, check: &str) -> Result<T, FMDataError>;
+}
+
+impl<T, E> TableResult<T> for Result<T, E>
+where
+    E: std::fmt::Display,
+{
+    fn table_context(self, operation: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::table(format!("Table {operation}: {e}")))
+    }
+
+    fn row_context(self, row_num: usize) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::table(format!("Row {row_num}: {e}")))
+    }
+
+    fn column_context(self, column_name: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::table(format!("Column '{column_name}': {e}")))
+    }
+
+    fn validate_context(self, check: &str) -> Result<T, FMDataError> {
+        self.map_err(|e| FMDataError::table(format!("Validation ({check}): {e}")))
+    }
+}

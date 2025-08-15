@@ -1,4 +1,5 @@
 use crate::error::{FMDataError, Result};
+use crate::error_helpers::ConfigResult;
 use arboard::{Clipboard, ImageData};
 use image::{DynamicImage, ImageBuffer, Rgba};
 use std::io::{stdin, stdout, Write};
@@ -12,8 +13,7 @@ pub struct ClipboardManager {
 impl ClipboardManager {
     /// Create a new clipboard manager
     pub fn new() -> Result<Self> {
-        let clipboard = Clipboard::new()
-            .map_err(|e| FMDataError::config(format!("Failed to initialize clipboard: {e}")))?;
+        let clipboard = Clipboard::new().config_context("initialize clipboard")?;
 
         Ok(Self { clipboard })
     }
@@ -25,31 +25,27 @@ impl ClipboardManager {
         println!("💡 Copy an image (Cmd+C) and press Enter to paste it, or Ctrl+C to cancel");
 
         print!("Press Enter when ready to paste: ");
-        stdout()
-            .flush()
-            .map_err(|e| FMDataError::config(format!("Failed to flush stdout: {e}")))?;
+        stdout().flush().config_context("flush stdout")?;
 
         // Wait for user to press Enter
         let mut input = String::new();
         stdin()
             .read_line(&mut input)
-            .map_err(|e| FMDataError::config(format!("Failed to read from stdin: {e}")))?;
+            .config_context("read from stdin")?;
 
         // Try to get image from clipboard
-        let image_data = self.clipboard.get_image().map_err(|e| {
-            FMDataError::config(format!("Failed to get image from clipboard: {e}. Make sure you have copied an image (Cmd+C) before pressing Enter."))
-        })?;
+        let image_data = self.clipboard.get_image().config_context("get image from clipboard. Make sure you have copied an image (Cmd+C) before pressing Enter")?;
 
         // Convert arboard ImageData to image crate format
         let dynamic_image = self.convert_clipboard_image_to_dynamic_image(&image_data)?;
 
         // Save to temporary file
-        let temp_file = NamedTempFile::with_suffix(".png")
-            .map_err(|e| FMDataError::config(format!("Failed to create temporary file: {e}")))?;
+        let temp_file =
+            NamedTempFile::with_suffix(".png").config_context("create temporary file")?;
 
-        dynamic_image.save(temp_file.path()).map_err(|e| {
-            FMDataError::config(format!("Failed to save image to temporary file: {e}"))
-        })?;
+        dynamic_image
+            .save(temp_file.path())
+            .config_context("save image to temporary file")?;
 
         println!("✅ Successfully pasted image from clipboard");
         Ok(temp_file)
