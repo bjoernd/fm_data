@@ -100,16 +100,16 @@ async fn main() -> Result<()> {
         .update(70, 100, "Preparing data for upload...");
     let matrix = process_table_data(&table)?;
 
-    let sheets_manager = app_runner.sheets_manager()?;
+    let sheets_manager = app_runner.sheets_manager_fallible()?;
     sheets_manager
         .clear_range(
-            &app_runner.config.google.team_sheet,
+            &app_runner.config().google.team_sheet,
             app_runner.progress_reporter(),
         )
         .await?;
     sheets_manager
         .upload_data(
-            &app_runner.config.google.team_sheet,
+            &app_runner.config().google.team_sheet,
             matrix,
             app_runner.progress_reporter(),
         )

@@ -1,5 +1,5 @@
 use crate::error::Result;
-use crate::{AppRunner, CLIArgumentValidator, Config, ProgressCallback, ProgressTracker};
+use crate::{AppRunner, CLIArgumentValidator, Config, ProgressCallback, ProgressTracker, LegacyAppRunner};
 use log::{info, warn};
 use std::path::Path;
 use std::time::Instant;
@@ -96,8 +96,9 @@ impl AppRunnerBuilder {
         self
     }
 
-    /// Build AppRunner with full authentication setup for uploader
-    pub async fn build_uploader(self) -> Result<AppRunner> {
+    /// Build AppRunner with full authentication setup for uploader (legacy method)
+    #[deprecated(note = "Use build_new().configure().authenticate() instead")]
+    pub async fn build_uploader(self) -> Result<LegacyAppRunner> {
         // Store values before self is moved
         let spreadsheet_id = self.spreadsheet_id.clone();
         let creds_file = self.creds_file.clone();
@@ -113,8 +114,9 @@ impl AppRunnerBuilder {
         Ok(app_runner)
     }
 
-    /// Build AppRunner with authentication setup for team selector
-    pub async fn build_team_selector(self) -> Result<AppRunner> {
+    /// Build AppRunner with authentication setup for team selector (legacy method)
+    #[deprecated(note = "Use build_new().configure().authenticate() instead")]
+    pub async fn build_team_selector(self) -> Result<LegacyAppRunner> {
         // Store values before self is moved
         let spreadsheet_id = self.spreadsheet_id.clone();
         let creds_file = self.creds_file.clone();
@@ -130,40 +132,34 @@ impl AppRunnerBuilder {
         Ok(app_runner)
     }
 
-    /// Build basic AppRunner without authentication
-    pub async fn build_basic(self) -> Result<AppRunner> {
-        let start_time = Instant::now();
+    /// Build basic AppRunner without authentication (legacy method)
+    #[deprecated(note = "Use build_new().configure() instead")]
+    pub async fn build_basic(self) -> Result<LegacyAppRunner> {
+        let (config, progress, start_time) = self.build_minimal().await?;
 
-        // Set up logging level based on verbose flag
-        Self::setup_logging(self.verbose, &self.binary_name);
-
-        info!("Starting {}", self.binary_name);
-
-        // Create progress tracker
-        let show_progress = !self.no_progress && !self.verbose;
-        let progress = ProgressTracker::new(100, show_progress);
-        let progress_ref: &dyn ProgressCallback = &progress;
-
-        progress_ref.update(0, 100, "Starting process...");
-
-        // Read config file
-        let config_path = Path::new(
-            self.config_file
-                .as_deref()
-                .unwrap_or(crate::constants::config::DEFAULT_CONFIG_FILE),
-        );
-        let config = Self::load_config(config_path, progress_ref).await?;
-
+        // Convert to legacy format for backward compatibility
         Ok(AppRunner {
-            config,
-            progress,
+            config: Some(config),
+            progress: Some(progress),
             sheets_manager: None,
             start_time,
+            state: std::marker::PhantomData,
         })
     }
 
+    /// Build new type-safe AppRunner (Configured state)
+    pub async fn build_new(self) -> Result<AppRunner<crate::app_runner::Configured>> {
+        // Store configuration before consuming self
+        let show_progress = !self.no_progress && !self.verbose;
+        let (config, _progress, _start_time) = self.build_minimal().await?;
+
+        // Create uninitialized AppRunner and configure it
+        let app_runner = AppRunner::<crate::app_runner::Uninitialized>::new();
+        app_runner.configure(config, show_progress)
+    }
+
     /// Build minimal components for backward compatibility
-    pub async fn build_minimal(self) -> Result<(Config, ProgressTracker, Instant)> {
+    async fn build_minimal(self) -> Result<(Config, ProgressTracker, Instant)> {
         let start_time = Instant::now();
 
         // Set up logging level based on verbose flag
@@ -173,7 +169,8 @@ impl AppRunnerBuilder {
 
         // Create progress tracker
         let show_progress = !self.no_progress && !self.verbose;
-        let progress = ProgressTracker::new(100, show_progress);
+        let progress = ProgressTracker::new(100, show_progress)
+            ;
         let progress_ref: &dyn ProgressCallback = &progress;
 
         progress_ref.update(0, 100, "Starting process...");

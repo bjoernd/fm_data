@@ -1,4 +1,4 @@
-use crate::app_runner::AppRunner;
+use crate::app_runner::{AppRunner, Authenticated};
 use crate::error::Result;
 use async_trait::async_trait;
 use log::{debug, error};
@@ -8,7 +8,7 @@ use log::{debug, error};
 pub trait SetupCommand {
     type Output;
 
-    async fn execute(&self, app_runner: &mut AppRunner) -> Result<Self::Output>;
+    async fn execute(&self, app_runner: &mut AppRunner<Authenticated>) -> Result<Self::Output>;
 }
 
 /// Setup command for player uploader binary
@@ -36,12 +36,12 @@ impl PlayerUploaderSetup {
 impl SetupCommand for PlayerUploaderSetup {
     type Output = (String, String, String); // (spreadsheet_id, credfile_path, input_path)
 
-    async fn execute(&self, app_runner: &mut AppRunner) -> Result<Self::Output> {
+    async fn execute(&self, app_runner: &mut AppRunner<Authenticated>) -> Result<Self::Output> {
         let progress = app_runner.progress();
         progress.update(5, 100, "Resolving configuration paths...");
 
         let (spreadsheet_id, credfile_path, input_path) = app_runner
-            .config
+            .config()
             .resolve_paths(
                 self.spreadsheet.clone(),
                 self.credfile.clone(),
@@ -56,10 +56,8 @@ impl SetupCommand for PlayerUploaderSetup {
         debug!("Using credentials file: {}", credfile_path);
         debug!("Using input HTML file: {}", input_path);
 
-        // Complete authentication setup
-        app_runner
-            .complete_authentication(spreadsheet_id.clone(), credfile_path.clone(), 10)
-            .await?;
+        // AppRunner is already authenticated, no need to call complete_authentication
+        // The type system guarantees this
 
         Ok((spreadsheet_id, credfile_path, input_path))
     }
@@ -90,12 +88,12 @@ impl TeamSelectorSetup {
 impl SetupCommand for TeamSelectorSetup {
     type Output = (String, String, String); // (spreadsheet_id, credfile_path, role_file_path)
 
-    async fn execute(&self, app_runner: &mut AppRunner) -> Result<Self::Output> {
+    async fn execute(&self, app_runner: &mut AppRunner<Authenticated>) -> Result<Self::Output> {
         let progress = app_runner.progress();
         progress.update(5, 100, "Resolving configuration paths...");
 
         let (spreadsheet_id, credfile_path, role_file_path) = app_runner
-            .config
+            .config()
             .resolve_team_selector_paths(
                 self.spreadsheet.clone(),
                 self.credfile.clone(),
@@ -110,7 +108,8 @@ impl SetupCommand for TeamSelectorSetup {
         debug!("Using credentials file: {}", credfile_path);
         debug!("Using role file: {}", role_file_path);
 
-        // Note: Authentication is delayed for team selector to allow role file processing
+        // AppRunner is already authenticated, no need for delayed authentication
+        // The type system guarantees this
         Ok((spreadsheet_id, credfile_path, role_file_path))
     }
 }
@@ -143,12 +142,12 @@ impl ImageProcessorSetup {
 impl SetupCommand for ImageProcessorSetup {
     type Output = (String, String, String, String); // (spreadsheet_id, credfile_path, image_file_path, sheet_name)
 
-    async fn execute(&self, app_runner: &mut AppRunner) -> Result<Self::Output> {
+    async fn execute(&self, app_runner: &mut AppRunner<Authenticated>) -> Result<Self::Output> {
         let progress = app_runner.progress();
         progress.update(5, 100, "Resolving configuration paths...");
 
         let (spreadsheet_id, credfile_path, image_file_path, sheet_name) = app_runner
-            .config
+            .config()
             .resolve_image_paths(
                 self.spreadsheet.clone(),
                 self.credfile.clone(),
@@ -166,10 +165,8 @@ impl SetupCommand for ImageProcessorSetup {
         debug!("Using image file: {}", image_file_path);
         debug!("Using sheet: {}", sheet_name);
 
-        // Complete authentication setup
-        app_runner
-            .complete_authentication(spreadsheet_id.clone(), credfile_path.clone(), 10)
-            .await?;
+        // AppRunner is already authenticated, no need to call complete_authentication
+        // The type system guarantees this
 
         Ok((spreadsheet_id, credfile_path, image_file_path, sheet_name))
     }
@@ -196,14 +193,11 @@ impl AuthenticationSetup {
 impl SetupCommand for AuthenticationSetup {
     type Output = ();
 
-    async fn execute(&self, app_runner: &mut AppRunner) -> Result<Self::Output> {
-        app_runner
-            .complete_authentication(
-                self.spreadsheet_id.clone(),
-                self.credfile_path.clone(),
-                self.auth_progress_start,
-            )
-            .await
+    async fn execute(&self, _app_runner: &mut AppRunner<Authenticated>) -> Result<Self::Output> {
+        // AppRunner is already authenticated in the Authenticated state
+        // This command is now redundant but kept for compatibility
+        debug!("Authentication already completed - AppRunner is in Authenticated state");
+        Ok(())
     }
 }
 

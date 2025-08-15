@@ -102,10 +102,10 @@ async fn main() -> Result<()> {
     app_runner
         .progress()
         .update(50, 100, "Downloading player data from Google Sheets...");
-    let sheets_manager = app_runner.sheets_manager()?;
+    let sheets_manager = app_runner.sheets_manager_fallible()?;
     let sheet_data = sheets_manager
         .read_data(
-            &app_runner.config.google.team_sheet,
+            &app_runner.config().google.team_sheet,
             ranges::DOWNLOAD_RANGE,
             app_runner.progress_reporter(),
         )

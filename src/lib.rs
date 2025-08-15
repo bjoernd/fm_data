@@ -39,7 +39,7 @@ pub mod validation;
 pub mod validators;
 
 pub use app_builder::AppRunnerBuilder;
-pub use app_runner::{AppRunner, CLIArgumentValidator};
+pub use app_runner::{AppRunner, CLIArgumentValidator, LegacyAppRunner, Uninitialized, Configured, Authenticated};
 pub use attributes::{
     AttributeSet, GoalkeepingAttribute, MentalAttribute, PhysicalAttribute, TechnicalAttribute,
 };
