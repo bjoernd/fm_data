@@ -23,9 +23,12 @@ cargo build --release --bin fm_google_up
 cargo build --release --bin fm_team_selector
 cargo build --release --bin fm_image
 
-# Build without image processing dependencies (lighter build)
+# Build without image processing dependencies (lighter build, 40%+ smaller)
 cargo build --release --no-default-features --bin fm_google_up
 cargo build --release --no-default-features --bin fm_team_selector
+
+# Build with all features explicitly (same as default for development)
+cargo build --release --features full
 
 # Run the data uploader with verbose logging
 cargo run --bin fm_google_up -- -v
@@ -58,7 +61,7 @@ cargo run --bin fm_image -- -i screenshot.png --no-progress
 # Run image processor with Google Sheets upload (no progress bar)
 cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json --no-progress
 
-# Run tests (248 unit + 28 integration tests = 276 total)
+# Run tests (257 total tests)
 cargo test
 
 # Run tests with output
@@ -738,29 +741,22 @@ This format is compatible with spreadsheet applications and can be imported dire
 
 The codebase includes comprehensive unit and integration tests:
 
-### Unit Tests (248 tests)
+### Comprehensive Test Suite (257 tests)
 - **Config tests**: JSON parsing, path resolution hierarchy, error handling, partial configuration support
 - **Table tests**: HTML parsing, data validation, transformations, size limits  
 - **Auth tests**: Credentials validation, file handling, error cases
 - **Sheets tests**: Data structure validation, range formatting
 - **Progress tests**: Progress tracker creation, message handling, no-op behavior
 - **Selection tests**: Role validation, player parsing, assignment algorithm, output formatting
-- **Player Category tests**: Category parsing, role mappings, filter validation (16 tests)
-- **Role File Parser tests**: Sectioned format parsing, backward compatibility (12 tests)
-- **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking (5 tests)
+- **Player Category tests**: Category parsing, role mappings, filter validation
+- **Role File Parser tests**: Sectioned format parsing, backward compatibility
+- **Assignment Algorithm tests**: Filter-aware assignment, eligibility checking
 - **Image Processing tests**: OCR text extraction, footedness detection, structured parsing
 - **Image Data tests**: Player data structure validation, layout-based attribute parsing, type detection
 - **Image Output tests**: TSV formatting, data serialization, output validation
-
-### Integration Tests (28 tests)
-- **End-to-end workflow**: Role file → mock data → assignment → output
-- **Error handling**: Invalid roles, missing files, insufficient players
-- **Edge cases**: Exact player counts, large datasets, duplicate roles
-- **Performance testing**: 50+ players processed in <1 second
-- **Mock data**: Realistic Football Manager players (Alisson, Van Dijk, Haaland, etc.)
-- **Assignment quality**: Verification of logical team selections
-- **Filter scenarios**: Filtered assignments, blocked players, mixed filtering (5 new tests)
-- **Backward compatibility**: Legacy format support verification (2 new tests)
+- **Integration tests**: End-to-end workflows with mock data
+- **Performance tests**: Benchmarking with realistic datasets
+- **Error handling**: Edge cases, validation failures, resource constraints
 
 ## Development Notes
 
@@ -775,7 +771,7 @@ The codebase includes comprehensive unit and integration tests:
 - Role file validation ensures exactly 11 valid Football Manager roles
 - Player filtering system with 9 positional categories covering all 96 roles
 - Sectioned role file format with backward compatibility for legacy files
-- All modules include comprehensive unit tests (276 tests total: 248 unit + 28 integration)
+- All modules include comprehensive unit tests (257 total tests)
 - Structured attribute parsing with hardcoded FM layouts for reliability
 
 ## Code Quality
@@ -785,5 +781,5 @@ The codebase follows Rust best practices and coding standards:
 - **Clippy compliance**: All clippy lints are resolved, including modern format string usage
 - **Consistent naming**: Method names follow standard Rust conventions (e.g., `Config::create_default()`)
 - **Error handling**: Comprehensive error context using `anyhow` throughout
-- **Testing**: Comprehensive test coverage with 276 tests (unit + integration) for all public APIs
+- **Testing**: Comprehensive test coverage with 257 tests for all public APIs
 - **Documentation**: Inline documentation and comprehensive CLAUDE.md guidance
