@@ -3,42 +3,108 @@ use crate::image_data::ImagePlayer;
 use crate::types::{Footedness, PlayerType};
 use log::{debug, warn};
 
-/// Check for zero values in relevant attributes and print warnings
-/// Uses unified attribute iteration instead of category-specific logic
+/// Check for zero values in attributes and print warnings
+/// Uses unified attribute checking without category-based logic
 fn check_zero_attributes(player: &ImagePlayer) {
-    // Iterate through all attributes and check based on player type appropriateness
-    for attr_index in 0..Attribute::count() {
-        let attr = unsafe { std::mem::transmute::<u8, Attribute>(attr_index as u8) };
+    // Define attributes that should be checked based on player type
+    let attributes_to_check: Vec<Attribute> = match player.player_type {
+        PlayerType::FieldPlayer => {
+            // Technical, Mental, Physical attributes
+            vec![
+                // Technical attributes
+                Attribute::Corners,
+                Attribute::Crossing,
+                Attribute::Dribbling,
+                Attribute::Finishing,
+                Attribute::FirstTouch,
+                Attribute::FreeKickTaking,
+                Attribute::Heading,
+                Attribute::LongShots,
+                Attribute::LongThrows,
+                Attribute::Marking,
+                Attribute::Passing,
+                Attribute::PenaltyTaking,
+                Attribute::Tackling,
+                Attribute::Technique,
+                // Mental attributes
+                Attribute::Aggression,
+                Attribute::Anticipation,
+                Attribute::Bravery,
+                Attribute::Composure,
+                Attribute::Concentration,
+                Attribute::Decisions,
+                Attribute::Determination,
+                Attribute::Flair,
+                Attribute::Leadership,
+                Attribute::OffTheBall,
+                Attribute::Positioning,
+                Attribute::Teamwork,
+                Attribute::Vision,
+                Attribute::WorkRate,
+                // Physical attributes
+                Attribute::Acceleration,
+                Attribute::Agility,
+                Attribute::Balance,
+                Attribute::JumpingReach,
+                Attribute::NaturalFitness,
+                Attribute::Pace,
+                Attribute::Stamina,
+                Attribute::Strength,
+            ]
+        }
+        PlayerType::Goalkeeper => {
+            // Mental, Physical, Goalkeeping attributes
+            vec![
+                // Mental attributes
+                Attribute::Aggression,
+                Attribute::Anticipation,
+                Attribute::Bravery,
+                Attribute::Composure,
+                Attribute::Concentration,
+                Attribute::Decisions,
+                Attribute::Determination,
+                Attribute::Flair,
+                Attribute::Leadership,
+                Attribute::OffTheBall,
+                Attribute::Positioning,
+                Attribute::Teamwork,
+                Attribute::Vision,
+                Attribute::WorkRate,
+                // Physical attributes
+                Attribute::Acceleration,
+                Attribute::Agility,
+                Attribute::Balance,
+                Attribute::JumpingReach,
+                Attribute::NaturalFitness,
+                Attribute::Pace,
+                Attribute::Stamina,
+                Attribute::Strength,
+                // Goalkeeping attributes
+                Attribute::AerialReach,
+                Attribute::CommandOfArea,
+                Attribute::Communication,
+                Attribute::Eccentricity,
+                Attribute::GoalkeepingFirstTouch,
+                Attribute::Handling,
+                Attribute::Kicking,
+                Attribute::OneOnOnes,
+                Attribute::GoalkeepingPassing,
+                Attribute::PunchingTendency,
+                Attribute::Reflexes,
+                Attribute::RushingOutTendency,
+                Attribute::Throwing,
+                Attribute::GoalkeepingWorkRate,
+            ]
+        }
+    };
+
+    // Check each relevant attribute for zero values
+    for attr in attributes_to_check {
         let value = player.attributes.get(attr);
-
-        // Only check attributes that are relevant for this player type
-        let is_relevant = match player.player_type {
-            PlayerType::FieldPlayer => {
-                attr.is_technical() || attr.is_mental() || attr.is_physical()
-            }
-            PlayerType::Goalkeeper => {
-                attr.is_goalkeeping() || attr.is_mental() || attr.is_physical()
-            }
-        };
-
-        // Warn if relevant attribute has zero value
-        if is_relevant && value == 0 {
-            let category = if attr.is_technical() {
-                "technical"
-            } else if attr.is_mental() {
-                "mental"
-            } else if attr.is_physical() {
-                "physical"
-            } else if attr.is_goalkeeping() {
-                "goalkeeping"
-            } else {
-                "unknown"
-            };
-
+        if value == 0 {
             warn!(
-                "Warning: {} has 0 value for {} attribute '{}'",
+                "Warning: {} has 0 value for attribute '{}'",
                 player.name,
-                category,
                 attr.display_name()
             );
         }
@@ -181,52 +247,29 @@ pub fn format_player_data_verbose(player: &ImagePlayer) -> String {
         ],
     );
 
-    // Check if we should show goalkeeping attributes
-    let goalkeeping_attrs = [
-        Attribute::AerialReach,
-        Attribute::CommandOfArea,
-        Attribute::Communication,
-        Attribute::Eccentricity,
-        Attribute::GoalkeepingFirstTouch,
-        Attribute::Handling,
-        Attribute::Kicking,
-        Attribute::OneOnOnes,
-        Attribute::GoalkeepingPassing,
-        Attribute::PunchingTendency,
-        Attribute::Reflexes,
-        Attribute::RushingOutTendency,
-        Attribute::Throwing,
-        Attribute::GoalkeepingWorkRate,
-    ];
-
-    let has_gk_attrs = goalkeeping_attrs
-        .iter()
-        .any(|&attr| player.attributes.get(attr) > 0);
-
-    if matches!(player.player_type, PlayerType::Goalkeeper) || has_gk_attrs {
-        output.push("".to_string());
-        output.push("GOALKEEPING ATTRIBUTES:".to_string());
-        add_unified_attribute_group(
-            &mut output,
-            player,
-            &[
-                (Attribute::AerialReach, "Aerial Reach"),
-                (Attribute::CommandOfArea, "Command Of Area"),
-                (Attribute::Communication, "Communication"),
-                (Attribute::Eccentricity, "Eccentricity"),
-                (Attribute::GoalkeepingFirstTouch, "First Touch"),
-                (Attribute::Handling, "Handling"),
-                (Attribute::Kicking, "Kicking"),
-                (Attribute::OneOnOnes, "One On Ones"),
-                (Attribute::GoalkeepingPassing, "Passing"),
-                (Attribute::PunchingTendency, "Punching (Tendency)"),
-                (Attribute::Reflexes, "Reflexes"),
-                (Attribute::RushingOutTendency, "Rushing Out (Tendency)"),
-                (Attribute::Throwing, "Throwing"),
-                (Attribute::GoalkeepingWorkRate, "Work Rate"),
-            ],
-        );
-    }
+    // Always show goalkeeping attributes - unified approach without player type dependency
+    output.push("".to_string());
+    output.push("GOALKEEPING ATTRIBUTES:".to_string());
+    add_unified_attribute_group(
+        &mut output,
+        player,
+        &[
+            (Attribute::AerialReach, "Aerial Reach"),
+            (Attribute::CommandOfArea, "Command Of Area"),
+            (Attribute::Communication, "Communication"),
+            (Attribute::Eccentricity, "Eccentricity"),
+            (Attribute::GoalkeepingFirstTouch, "First Touch"),
+            (Attribute::Handling, "Handling"),
+            (Attribute::Kicking, "Kicking"),
+            (Attribute::OneOnOnes, "One On Ones"),
+            (Attribute::GoalkeepingPassing, "Passing"),
+            (Attribute::PunchingTendency, "Punching (Tendency)"),
+            (Attribute::Reflexes, "Reflexes"),
+            (Attribute::RushingOutTendency, "Rushing Out (Tendency)"),
+            (Attribute::Throwing, "Throwing"),
+            (Attribute::GoalkeepingWorkRate, "Work Rate"),
+        ],
+    );
 
     output.join("\n")
 }

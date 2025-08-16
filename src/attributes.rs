@@ -71,26 +71,6 @@ impl Attribute {
         50
     }
 
-    /// Check if this attribute is valid for field players
-    pub const fn is_technical(&self) -> bool {
-        matches!(*self as usize, 0..=13)
-    }
-
-    /// Check if this attribute is mental (valid for all players)
-    pub const fn is_mental(&self) -> bool {
-        matches!(*self as usize, 14..=27)
-    }
-
-    /// Check if this attribute is physical (valid for all players)
-    pub const fn is_physical(&self) -> bool {
-        matches!(*self as usize, 28..=35)
-    }
-
-    /// Check if this attribute is goalkeeping (valid for goalkeepers only)
-    pub const fn is_goalkeeping(&self) -> bool {
-        matches!(*self as usize, 36..=49)
-    }
-
     /// Get the display name for this attribute
     pub const fn display_name(&self) -> &'static str {
         match self {
@@ -541,37 +521,6 @@ mod tests {
             assert_eq!(attrs.get(Attribute::Determination), 0);
             assert_eq!(attrs.get(Attribute::Pace), 0);
             assert_eq!(attrs.get(Attribute::Reflexes), 0);
-        }
-
-        #[test]
-        fn test_attribute_enum_properties() {
-            // Test technical attributes
-            assert!(Attribute::Corners.is_technical());
-            assert!(Attribute::Technique.is_technical());
-            assert!(!Attribute::Determination.is_technical());
-            assert!(!Attribute::Pace.is_technical());
-            assert!(!Attribute::Reflexes.is_technical());
-
-            // Test mental attributes
-            assert!(Attribute::Determination.is_mental());
-            assert!(Attribute::Vision.is_mental());
-            assert!(!Attribute::Corners.is_mental());
-            assert!(!Attribute::Pace.is_mental());
-            assert!(!Attribute::Reflexes.is_mental());
-
-            // Test physical attributes
-            assert!(Attribute::Pace.is_physical());
-            assert!(Attribute::Strength.is_physical());
-            assert!(!Attribute::Corners.is_physical());
-            assert!(!Attribute::Determination.is_physical());
-            assert!(!Attribute::Reflexes.is_physical());
-
-            // Test goalkeeping attributes
-            assert!(Attribute::Reflexes.is_goalkeeping());
-            assert!(Attribute::Handling.is_goalkeeping());
-            assert!(!Attribute::Corners.is_goalkeeping());
-            assert!(!Attribute::Determination.is_goalkeeping());
-            assert!(!Attribute::Pace.is_goalkeeping());
         }
 
         #[test]

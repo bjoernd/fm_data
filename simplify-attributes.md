@@ -149,20 +149,20 @@ impl PlayerAttributes {
 
 ### Phase 5: Clean Up and Remove Legacy Code
 
-**Step 5.1: Remove old enum types**
-- Delete TechnicalAttribute, GoalkeepingAttribute, MentalAttribute, PhysicalAttribute enums
-- Remove AttributeSet struct entirely
-- Clean up unused imports
+**Step 5.1: Remove old enum types** ✅ COMPLETED
+- ✅ Delete TechnicalAttribute, GoalkeepingAttribute, MentalAttribute, PhysicalAttribute enums
+- ✅ Remove AttributeSet struct entirely
+- ✅ Clean up unused imports
 
-**Step 5.2: Remove category-based logic**
-- Remove player-type-dependent attribute access
-- Delete section prefix logic
-- Clean up attribute name mapping functions
+**Step 5.2: Remove category-based logic** ✅ COMPLETED
+- ✅ Remove player-type-dependent attribute access
+- ✅ Delete section prefix logic  
+- ✅ Clean up attribute name mapping functions
 
-**Step 5.3: Update tests**
-- Remove category-specific tests
-- Update all attribute access in tests to use new system
-- Ensure integration tests still pass
+**Step 5.3: Update tests** ✅ COMPLETED
+- ✅ Remove category-specific tests
+- ✅ Update all attribute access in tests to use new system
+- ✅ Ensure integration tests still pass
 
 **Step 5.4: Update documentation**
 - Update CLAUDE.md to reflect simplified attribute system
