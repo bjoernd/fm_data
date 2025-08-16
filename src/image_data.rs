@@ -295,22 +295,21 @@ fn parse_structured_attributes(
     player: &mut ImagePlayer,
     lines: &[&str],
     layout: &[Vec<String>],
-    first_section_name: &str,
 ) -> Result<()> {
-    // Find the start of attribute section by looking for the header line
+    // Find the start of attribute section by looking for any attribute name from our layout
     let mut attr_start_line = None;
     for (line_idx, line) in lines.iter().enumerate() {
-        if line.contains(first_section_name) {
+        // Look for any attribute that appears in our layout
+        if layout.iter().any(|row| {
+            row.iter()
+                .any(|attr| !attr.is_empty() && line.contains(attr))
+        }) {
             attr_start_line = Some(line_idx);
             break;
         }
     }
 
-    let start_idx = attr_start_line.ok_or_else(|| {
-        FMDataError::image(format!(
-            "Could not find {first_section_name} section header"
-        ))
-    })?;
+    let start_idx = attr_start_line.unwrap_or(0); // Start from beginning if no specific section found
 
     log::debug!("Found attribute section starting at line {}", start_idx);
 
@@ -321,7 +320,7 @@ fn parse_structured_attributes(
     let search_lines = &lines[start_idx..];
 
     // Parse each expected attribute by searching through all lines
-    for (layout_idx, expected_attrs) in layout.iter().enumerate().skip(1) {
+    for (layout_idx, expected_attrs) in layout.iter().enumerate() {
         log::debug!(
             "=== Processing layout row {}: {:?} ===",
             layout_idx,

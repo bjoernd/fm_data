@@ -132,10 +132,10 @@ impl PlayerAttributes {
 
 ### Phase 4: Update Layout and Parsing Systems
 
-**Step 4.1: Simplify layout management**
-- Remove player-type-specific layout logic from LayoutManager
-- Update layout files to use unified attribute names
-- Remove "first section" concept and player type branching
+**Step 4.1: Simplify layout management** ✅ COMPLETED
+- ✅ Remove player-type-specific layout logic from LayoutManager
+- ✅ Update layout files to use unified attribute names
+- ✅ Remove "first section" concept and player type branching
 
 **Step 4.2: Update structured parsing**
 - Modify `parse_structured_attributes` to use unified names
