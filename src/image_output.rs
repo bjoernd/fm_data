@@ -59,84 +59,41 @@ pub fn format_player_data(player: &ImagePlayer) -> String {
     output.push(player.age.to_string());
     output.push(format_footedness(&player.footedness));
 
-    // Technical attributes (in exact specification order)
-    // Using unified attribute system - no more player-type branching
-    let technical_attrs = [
-        Attribute::Corners,
-        Attribute::Crossing,
-        Attribute::Dribbling,
-        Attribute::Finishing,
-        Attribute::FirstTouch,
-        Attribute::FreeKickTaking,
-        Attribute::Heading,
-        Attribute::LongShots,
-        Attribute::LongThrows,
-        Attribute::Marking,
-        Attribute::Passing,
-        Attribute::PenaltyTaking,
-        Attribute::Tackling,
-        Attribute::Technique,
-    ];
-
-    for attr in technical_attrs {
+    // Technical attributes (enum indexes 0-13) - always included, 0 for goalkeepers
+    for attr_index in 0..=13 {
+        let attr = unsafe { std::mem::transmute::<u8, Attribute>(attr_index) };
         output.push(player.attributes.get(attr).to_string());
     }
 
-    // Mental attributes (in exact specification order) - common to all players
-    let mental_attrs = [
-        Attribute::Aggression,
-        Attribute::Anticipation,
-        Attribute::Bravery,
-        Attribute::Composure,
-        Attribute::Concentration,
-        Attribute::Decisions,
-        Attribute::Determination,
-        Attribute::Flair,
-        Attribute::Leadership,
-        Attribute::OffTheBall,
-        Attribute::Positioning,
-        Attribute::Teamwork,
-        Attribute::Vision,
-        Attribute::WorkRate,
-    ];
-
-    for attr in mental_attrs {
+    // Mental attributes (enum indexes 14-27) - common to all players
+    for attr_index in 14..=27 {
+        let attr = unsafe { std::mem::transmute::<u8, Attribute>(attr_index) };
         output.push(player.attributes.get(attr).to_string());
     }
 
-    // Physical attributes (in exact specification order) - common to all players
-    let physical_attrs = [
-        Attribute::Acceleration,
-        Attribute::Agility,
-        Attribute::Balance,
-        Attribute::JumpingReach,
-        Attribute::NaturalFitness,
-        Attribute::Pace,
-        Attribute::Stamina,
-        Attribute::Strength,
-    ];
-
-    for attr in physical_attrs {
+    // Physical attributes (enum indexes 28-35) - common to all players
+    for attr_index in 28..=35 {
+        let attr = unsafe { std::mem::transmute::<u8, Attribute>(attr_index) };
         output.push(player.attributes.get(attr).to_string());
     }
 
-    // Goalkeeping attributes (in exact specification order)
-    // Using unified system - these will be 0 for field players automatically
-    let goalkeeping_attrs = [
-        Attribute::AerialReach,
-        Attribute::CommandOfArea,
-        Attribute::Communication,
-        Attribute::Eccentricity,
-        Attribute::Handling,
-        Attribute::Kicking,
-        Attribute::OneOnOnes,
-        Attribute::PunchingTendency,
-        Attribute::Reflexes,
-        Attribute::RushingOutTendency,
-        Attribute::Throwing,
+    // Goalkeeping attributes - always included, 0 for field players
+    // Using specific enum indexes that match the original specification
+    let gk_attrs = [
+        36, // AerialReach
+        37, // CommandOfArea
+        38, // Communication
+        39, // Eccentricity
+        41, // Handling
+        42, // Kicking
+        43, // OneOnOnes
+        45, // PunchingTendency
+        46, // Reflexes
+        47, // RushingOutTendency
+        48, // Throwing
     ];
-
-    for attr in goalkeeping_attrs {
+    for &attr_index in &gk_attrs {
+        let attr = unsafe { std::mem::transmute::<u8, Attribute>(attr_index) };
         output.push(player.attributes.get(attr).to_string());
     }
 
