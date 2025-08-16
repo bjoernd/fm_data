@@ -3,124 +3,43 @@ use crate::image_data::ImagePlayer;
 use crate::types::{Footedness, PlayerType};
 use log::{debug, warn};
 
-/// Check for zero values in relevant attribute categories and print warnings
+/// Check for zero values in relevant attributes and print warnings
+/// Uses unified attribute iteration instead of category-specific logic
 fn check_zero_attributes(player: &ImagePlayer) {
-    // Use unified attribute system - much simpler than category-based approach
-    match player.player_type {
-        PlayerType::FieldPlayer => {
-            // Check technical attributes for field players
-            let technical_attrs = [
-                (Attribute::Corners, "Corners"),
-                (Attribute::Crossing, "Crossing"),
-                (Attribute::Dribbling, "Dribbling"),
-                (Attribute::Finishing, "Finishing"),
-                (Attribute::FirstTouch, "First Touch"),
-                (Attribute::FreeKickTaking, "Free Kick Taking"),
-                (Attribute::Heading, "Heading"),
-                (Attribute::LongShots, "Long Shots"),
-                (Attribute::LongThrows, "Long Throws"),
-                (Attribute::Marking, "Marking"),
-                (Attribute::Passing, "Passing"),
-                (Attribute::PenaltyTaking, "Penalty Taking"),
-                (Attribute::Tackling, "Tackling"),
-                (Attribute::Technique, "Technique"),
-            ];
+    // Iterate through all attributes and check based on player type appropriateness
+    for attr_index in 0..Attribute::count() {
+        let attr = unsafe { std::mem::transmute::<u8, Attribute>(attr_index as u8) };
+        let value = player.attributes.get(attr);
 
-            for (attr, name) in technical_attrs {
-                if player.attributes.get(attr) == 0 {
-                    warn!(
-                        "Warning: {} has 0 value for technical attribute '{}'",
-                        player.name, name
-                    );
-                }
+        // Only check attributes that are relevant for this player type
+        let is_relevant = match player.player_type {
+            PlayerType::FieldPlayer => {
+                attr.is_technical() || attr.is_mental() || attr.is_physical()
             }
-
-            // Check mental and physical attributes (common to all players)
-            check_mental_attributes(player);
-            check_physical_attributes(player);
-        }
-        PlayerType::Goalkeeper => {
-            // Check goalkeeping attributes for goalkeepers
-            let gk_attrs = [
-                (Attribute::AerialReach, "Aerial Reach"),
-                (Attribute::CommandOfArea, "Command Of Area"),
-                (Attribute::Communication, "Communication"),
-                (Attribute::Eccentricity, "Eccentricity"),
-                (Attribute::GoalkeepingFirstTouch, "First Touch"),
-                (Attribute::Handling, "Handling"),
-                (Attribute::Kicking, "Kicking"),
-                (Attribute::OneOnOnes, "One On Ones"),
-                (Attribute::GoalkeepingPassing, "Passing"),
-                (Attribute::PunchingTendency, "Punching (Tendency)"),
-                (Attribute::Reflexes, "Reflexes"),
-                (Attribute::RushingOutTendency, "Rushing Out (Tendency)"),
-                (Attribute::Throwing, "Throwing"),
-                (Attribute::GoalkeepingWorkRate, "Work Rate"),
-            ];
-
-            for (attr, name) in gk_attrs {
-                if player.attributes.get(attr) == 0 {
-                    warn!(
-                        "Warning: {} has 0 value for goalkeeping attribute '{}'",
-                        player.name, name
-                    );
-                }
+            PlayerType::Goalkeeper => {
+                attr.is_goalkeeping() || attr.is_mental() || attr.is_physical()
             }
+        };
 
-            // Check mental and physical attributes (common to all players)
-            check_mental_attributes(player);
-            check_physical_attributes(player);
-        }
-    }
-}
+        // Warn if relevant attribute has zero value
+        if is_relevant && value == 0 {
+            let category = if attr.is_technical() {
+                "technical"
+            } else if attr.is_mental() {
+                "mental"
+            } else if attr.is_physical() {
+                "physical"
+            } else if attr.is_goalkeeping() {
+                "goalkeeping"
+            } else {
+                "unknown"
+            };
 
-/// Check mental attributes for zero values
-fn check_mental_attributes(player: &ImagePlayer) {
-    let mental_attrs = [
-        (Attribute::Aggression, "Aggression"),
-        (Attribute::Anticipation, "Anticipation"),
-        (Attribute::Bravery, "Bravery"),
-        (Attribute::Composure, "Composure"),
-        (Attribute::Concentration, "Concentration"),
-        (Attribute::Decisions, "Decisions"),
-        (Attribute::Determination, "Determination"),
-        (Attribute::Flair, "Flair"),
-        (Attribute::Leadership, "Leadership"),
-        (Attribute::OffTheBall, "Off the Ball"),
-        (Attribute::Positioning, "Positioning"),
-        (Attribute::Teamwork, "Teamwork"),
-        (Attribute::Vision, "Vision"),
-        (Attribute::WorkRate, "Work Rate"),
-    ];
-
-    for (attr, name) in mental_attrs {
-        if player.attributes.get(attr) == 0 {
             warn!(
-                "Warning: {} has 0 value for mental attribute '{}'",
-                player.name, name
-            );
-        }
-    }
-}
-
-/// Check physical attributes for zero values
-fn check_physical_attributes(player: &ImagePlayer) {
-    let physical_attrs = [
-        (Attribute::Acceleration, "Acceleration"),
-        (Attribute::Agility, "Agility"),
-        (Attribute::Balance, "Balance"),
-        (Attribute::JumpingReach, "Jumping Reach"),
-        (Attribute::NaturalFitness, "Natural Fitness"),
-        (Attribute::Pace, "Pace"),
-        (Attribute::Stamina, "Stamina"),
-        (Attribute::Strength, "Strength"),
-    ];
-
-    for (attr, name) in physical_attrs {
-        if player.attributes.get(attr) == 0 {
-            warn!(
-                "Warning: {} has 0 value for physical attribute '{}'",
-                player.name, name
+                "Warning: {} has 0 value for {} attribute '{}'",
+                player.name,
+                category,
+                attr.display_name()
             );
         }
     }

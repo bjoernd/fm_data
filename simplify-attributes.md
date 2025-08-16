@@ -120,10 +120,10 @@ impl PlayerAttributes {
 - ✅ Eliminate player-type branching in format_player_data
 - ✅ Update verbose formatting to use unified structure
 
-**Step 3.2: Update attribute display**
-- Remove check_zero_attributes category-specific logic
-- Use unified attribute iteration
-- Simplify warning generation
+**Step 3.2: Update attribute display** ✅ COMPLETED
+- ✅ Remove check_zero_attributes category-specific logic
+- ✅ Use unified attribute iteration
+- ✅ Simplify warning generation
 
 **Step 3.3: Update TSV output format**
 - Ensure output order matches existing specification
