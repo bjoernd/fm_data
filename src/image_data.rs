@@ -342,23 +342,13 @@ fn parse_structured_attributes(
                 }
 
                 if let Some(value) = find_attribute_value_in_line(line, attr_name, &corrector) {
-                    // Determine the correct section prefix for this attribute
-                    let section_prefix = get_correct_section_prefix(attr_name, &player.player_type);
-                    let full_attr_name = format!(
-                        "{}_{}",
-                        section_prefix,
-                        attr_name
-                            .to_lowercase()
-                            .replace(" ", "_")
-                            .replace("(", "")
-                            .replace(")", "")
-                    );
-
-                    player.add_attribute(&full_attr_name, value);
+                    // Use unified attribute system - try multiple name formats
+                    // The PlayerAttributes system handles name resolution automatically
+                    player.add_attribute(attr_name, value);
 
                     log::debug!(
                         "Found and added attribute: {} = {} (from line {}: '{}')",
-                        full_attr_name,
+                        attr_name,
                         value,
                         start_idx + search_idx,
                         line
@@ -407,48 +397,6 @@ fn extract_value_after_position(
         }
     }
     None
-}
-
-fn get_correct_section_prefix(attr_name: &str, player_type: &PlayerType) -> &'static str {
-    // For goalkeepers, some technical attributes appear in the goalkeeping column
-    // but should still be stored as technical attributes
-    match player_type {
-        PlayerType::Goalkeeper => {
-            match attr_name {
-                "Passing" | "First Touch" => "technical", // These are technical attributes even for GKs
-                "Aerial Reach"
-                | "Command Of Area"
-                | "Communication"
-                | "Eccentricity"
-                | "Handling"
-                | "Kicking"
-                | "One On Ones"
-                | "Punching (Tendency)"
-                | "Reflexes"
-                | "Rushing Out (Tendency)"
-                | "Throwing" => "goalkeeping",
-                "Aggression" | "Anticipation" | "Bravery" | "Composure" | "Concentration"
-                | "Decisions" | "Determination" | "Flair" | "Leadership" | "Off the Ball"
-                | "Positioning" | "Teamwork" | "Vision" | "Work Rate" => "mental",
-                "Acceleration" | "Agility" | "Balance" | "Jumping Reach" | "Natural Fitness"
-                | "Pace" | "Stamina" | "Strength" => "physical",
-                _ => "technical", // Default fallback
-            }
-        }
-        PlayerType::FieldPlayer => {
-            match attr_name {
-                "Corners" | "Crossing" | "Dribbling" | "Finishing" | "First Touch"
-                | "Free Kick Taking" | "Heading" | "Long Shots" | "Long Throws" | "Marking"
-                | "Passing" | "Penalty Taking" | "Tackling" | "Technique" => "technical",
-                "Aggression" | "Anticipation" | "Bravery" | "Composure" | "Concentration"
-                | "Decisions" | "Determination" | "Flair" | "Leadership" | "Off the Ball"
-                | "Positioning" | "Teamwork" | "Vision" | "Work Rate" => "mental",
-                "Acceleration" | "Agility" | "Balance" | "Jumping Reach" | "Natural Fitness"
-                | "Pace" | "Stamina" | "Strength" => "physical",
-                _ => "technical", // Default fallback
-            }
-        }
-    }
 }
 
 fn validate_required_attributes(player: &ImagePlayer) -> Result<()> {
