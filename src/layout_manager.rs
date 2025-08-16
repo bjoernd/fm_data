@@ -339,7 +339,7 @@ mod tests {
     async fn test_validate_invalid_layout() {
         // Create a manager with invalid layout
         let mut manager = LayoutManager::from_embedded();
-        manager.field_layout = vec![]; // Empty layout should fail validation
+        manager.layout = vec![]; // Empty layout should fail validation
 
         let result = manager.validate();
         assert!(result.is_err());

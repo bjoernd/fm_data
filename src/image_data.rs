@@ -67,12 +67,9 @@ pub async fn parse_player_from_ocr<P: AsRef<Path>>(
     let mut player = ImagePlayer::new(name, age, player_type, footedness);
 
     // Load layout manager with fallback to embedded layouts
-    let layout_manager = LayoutManager::from_files_with_fallback(
-        default_paths::FIELD_LAYOUT_FILE,
-        default_paths::GOALKEEPER_LAYOUT_FILE,
-    )
-    .await
-    .map_err(|e| FMDataError::image(format!("Failed to load layouts: {e}")))?;
+    let layout_manager = LayoutManager::from_files_with_fallback(default_paths::LAYOUT_FILE)
+        .await
+        .map_err(|e| FMDataError::image(format!("Failed to load layouts: {e}")))?;
 
     parse_attributes(&mut player, ocr_text, &layout_manager)?;
 
@@ -278,11 +275,10 @@ fn parse_attributes(
 ) -> Result<()> {
     let lines: Vec<&str> = ocr_text.lines().collect();
 
-    // Use structured parsing with dynamic layout
-    let layout = layout_manager.get_layout(&player.player_type);
-    let first_section_name = layout_manager.get_first_section_name(&player.player_type);
+    // Use structured parsing with unified layout
+    let layout = layout_manager.get_layout();
 
-    parse_structured_attributes(player, &lines, layout, first_section_name)?;
+    parse_structured_attributes(player, &lines, layout)?;
 
     let attr_hashmap = player.attributes.to_hashmap();
     log::debug!("Parsed {} total attributes", attr_hashmap.len());

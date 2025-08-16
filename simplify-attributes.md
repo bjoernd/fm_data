@@ -137,10 +137,10 @@ impl PlayerAttributes {
 - ✅ Update layout files to use unified attribute names
 - ✅ Remove "first section" concept and player type branching
 
-**Step 4.2: Update structured parsing**
-- Modify `parse_structured_attributes` to use unified names
-- Remove `get_correct_section_prefix` function
-- Simplify attribute name resolution
+**Step 4.2: Update structured parsing** ✅ COMPLETED
+- ✅ Modify `parse_structured_attributes` to use unified names
+- ✅ Remove `get_correct_section_prefix` function
+- ✅ Simplify attribute name resolution
 
 **Step 4.3: Update OCR corrections**
 - Ensure OCR corrections work with unified attribute names
