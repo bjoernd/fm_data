@@ -42,9 +42,7 @@ pub use app_builder::AppRunnerBuilder;
 pub use app_runner::{
     AppRunner, Authenticated, CLIArgumentValidator, Configured, LegacyAppRunner, Uninitialized,
 };
-pub use attributes::{
-    AttributeSet, GoalkeepingAttribute, MentalAttribute, PhysicalAttribute, TechnicalAttribute,
-};
+pub use attributes::{Attribute, PlayerAttributes};
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use cli::{
     BinarySpecificCLI, CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, StandardCLIWrapper,
