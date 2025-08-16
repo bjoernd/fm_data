@@ -187,15 +187,17 @@ impl Default for OCRCorrector {
 fn default_attribute_name_corrections() -> HashMap<String, String> {
     let mut corrections = HashMap::new();
 
-    // Tendency misspellings
+    // Tendency misspellings (updated for unified attribute names)
     corrections.insert(
         "rushing out (tendeney)".to_string(),
-        "Rushing Out (Tendency)".to_string(),
+        "Rushing Out".to_string(),
     );
+    corrections.insert("punching (tendeney)".to_string(), "Punching".to_string());
     corrections.insert(
-        "punching (tendeney)".to_string(),
-        "Punching (Tendency)".to_string(),
+        "rushing out (tendency)".to_string(),
+        "Rushing Out".to_string(),
     );
+    corrections.insert("punching (tendency)".to_string(), "Punching".to_string());
 
     // Spacing issues
     corrections.insert("offthe ball".to_string(), "Off the Ball".to_string());
@@ -269,7 +271,7 @@ mod tests {
         // Test exact corrections
         assert_eq!(
             corrector.correct_attribute_name("rushing out (tendeney)"),
-            "Rushing Out (Tendency)"
+            "Rushing Out"
         );
         assert_eq!(
             corrector.correct_attribute_name("offthe ball"),
@@ -364,7 +366,7 @@ mod tests {
         assert_eq!(
             corrector.find_corrected_attribute_in_line(
                 "Rushing Out (Tendeney) 10 Teamwork",
-                "Rushing Out (Tendency)"
+                "Rushing Out"
             ),
             Some(0)
         );
@@ -445,11 +447,11 @@ mod tests {
         // Test all default attribute name corrections
         assert_eq!(
             corrector.correct_attribute_name("rushing out (tendeney)"),
-            "Rushing Out (Tendency)"
+            "Rushing Out"
         );
         assert_eq!(
             corrector.correct_attribute_name("punching (tendeney)"),
-            "Punching (Tendency)"
+            "Punching"
         );
         assert_eq!(
             corrector.correct_attribute_name("offthe ball"),

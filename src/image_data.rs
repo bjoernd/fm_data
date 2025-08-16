@@ -701,7 +701,7 @@ mod tests {
         assert_eq!(
             find_attribute_value_in_line(
                 "Rushing Out (Tendeney) 10 Teamwork",
-                "Rushing Out (Tendency)",
+                "Rushing Out",
                 &corrector
             ),
             Some(10)
@@ -709,7 +709,7 @@ mod tests {
         assert_eq!(
             find_attribute_value_in_line(
                 "Punching (Tendeney) 15 Off the Ball",
-                "Punching (Tendency)",
+                "Punching",
                 &corrector
             ),
             Some(15)
