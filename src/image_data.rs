@@ -1,4 +1,4 @@
-use crate::attributes::AttributeSet;
+use crate::attributes::PlayerAttributes;
 use crate::error::FMDataError;
 use crate::image_constants::age_name;
 use crate::image_processor;
@@ -14,7 +14,7 @@ pub struct ImagePlayer {
     pub age: u8,
     pub player_type: PlayerType,
     pub footedness: Footedness,
-    pub attributes: AttributeSet,
+    pub attributes: PlayerAttributes,
 }
 
 impl ImagePlayer {
@@ -29,26 +29,18 @@ impl ImagePlayer {
             age,
             player_type,
             footedness,
-            attributes: AttributeSet::new(player_type),
+            attributes: PlayerAttributes::new(),
         }
     }
 
     pub fn add_attribute(&mut self, name: impl Into<String>, value: u8) {
         let name = name.into();
-        // Use direct attribute access for performance, fallback to HashMap conversion if needed
+        // Use unified attribute system - much simpler now
         match self.attributes.set_by_name(&name, value) {
             Ok(()) => {}
             Err(err) => {
-                // Log the error but don't fail - maintain backward compatibility
-                log::debug!(
-                    "Failed to set attribute {} directly: {}, falling back to HashMap conversion",
-                    name,
-                    err
-                );
-                // Fallback to the old method for unknown attributes
-                let mut hashmap = self.attributes.to_hashmap();
-                hashmap.insert(name, value);
-                self.attributes = AttributeSet::from_hashmap(&hashmap, &self.player_type);
+                // Log the error but continue - unknown attributes are simply ignored
+                log::debug!("Failed to set attribute {}: {}", name, err);
             }
         }
     }
