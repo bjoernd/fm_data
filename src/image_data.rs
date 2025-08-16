@@ -1,4 +1,4 @@
-use crate::attributes::PlayerAttributes;
+use crate::attributes::{Attribute, PlayerAttributes};
 use crate::error::FMDataError;
 use crate::image_constants::age_name;
 use crate::image_processor;
@@ -400,14 +400,31 @@ fn extract_value_after_position(
 }
 
 fn validate_required_attributes(player: &ImagePlayer) -> Result<()> {
+    // Check for required attributes based on player type using unified attribute system
+    // This is more efficient than the old HashMap approach as it avoids string conversions
     match player.player_type {
         PlayerType::Goalkeeper => {
-            // Goalkeepers should have non-zero goalkeeping attributes
-            let attr_hashmap = player.attributes.to_hashmap();
-            if !attr_hashmap
-                .iter()
-                .any(|(k, &v)| k.starts_with("goalkeeping_") && v > 0)
-            {
+            // Check for at least one non-zero goalkeeping attribute
+            let has_goalkeeping = [
+                Attribute::AerialReach,
+                Attribute::CommandOfArea,
+                Attribute::Communication,
+                Attribute::Eccentricity,
+                Attribute::GoalkeepingFirstTouch,
+                Attribute::Handling,
+                Attribute::Kicking,
+                Attribute::OneOnOnes,
+                Attribute::GoalkeepingPassing,
+                Attribute::PunchingTendency,
+                Attribute::Reflexes,
+                Attribute::RushingOutTendency,
+                Attribute::Throwing,
+                Attribute::GoalkeepingWorkRate,
+            ]
+            .iter()
+            .any(|&attr| player.attributes.get(attr) > 0);
+
+            if !has_goalkeeping {
                 return Err(FMDataError::image(
                     "Goalkeeper missing required GOALKEEPING attributes",
                 )
@@ -415,17 +432,57 @@ fn validate_required_attributes(player: &ImagePlayer) -> Result<()> {
             }
         }
         PlayerType::FieldPlayer => {
-            // Field players should have non-zero technical, mental, and physical attributes
-            let attr_hashmap = player.attributes.to_hashmap();
-            let has_technical = attr_hashmap
-                .iter()
-                .any(|(k, &v)| k.starts_with("technical_") && v > 0);
-            let has_mental = attr_hashmap
-                .iter()
-                .any(|(k, &v)| k.starts_with("mental_") && v > 0);
-            let has_physical = attr_hashmap
-                .iter()
-                .any(|(k, &v)| k.starts_with("physical_") && v > 0);
+            // Check for at least one non-zero attribute in each required category
+            let has_technical = [
+                Attribute::Corners,
+                Attribute::Crossing,
+                Attribute::Dribbling,
+                Attribute::Finishing,
+                Attribute::FirstTouch,
+                Attribute::FreeKickTaking,
+                Attribute::Heading,
+                Attribute::LongShots,
+                Attribute::LongThrows,
+                Attribute::Marking,
+                Attribute::Passing,
+                Attribute::PenaltyTaking,
+                Attribute::Tackling,
+                Attribute::Technique,
+            ]
+            .iter()
+            .any(|&attr| player.attributes.get(attr) > 0);
+
+            let has_mental = [
+                Attribute::Aggression,
+                Attribute::Anticipation,
+                Attribute::Bravery,
+                Attribute::Composure,
+                Attribute::Concentration,
+                Attribute::Decisions,
+                Attribute::Determination,
+                Attribute::Flair,
+                Attribute::Leadership,
+                Attribute::OffTheBall,
+                Attribute::Positioning,
+                Attribute::Teamwork,
+                Attribute::Vision,
+                Attribute::WorkRate,
+            ]
+            .iter()
+            .any(|&attr| player.attributes.get(attr) > 0);
+
+            let has_physical = [
+                Attribute::Acceleration,
+                Attribute::Agility,
+                Attribute::Balance,
+                Attribute::JumpingReach,
+                Attribute::NaturalFitness,
+                Attribute::Pace,
+                Attribute::Stamina,
+                Attribute::Strength,
+            ]
+            .iter()
+            .any(|&attr| player.attributes.get(attr) > 0);
 
             if !has_technical || !has_mental || !has_physical {
                 return Err(
