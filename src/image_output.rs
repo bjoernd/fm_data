@@ -9,7 +9,7 @@ fn check_zero_attributes(player: &ImagePlayer) {
     // Define attributes that should be checked based on player type
     let attributes_to_check: Vec<Attribute> = match player.player_type {
         PlayerType::FieldPlayer => {
-            // Technical, Mental, Physical attributes
+            // All relevant field player attributes
             vec![
                 // Technical attributes
                 Attribute::Corners,

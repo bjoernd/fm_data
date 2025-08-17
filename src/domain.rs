@@ -930,22 +930,6 @@ impl AttributeName {
         )
     }
 
-    /// Get the attribute category
-    pub fn category(&self) -> AttributeCategory {
-        if self.is_technical() {
-            AttributeCategory::Technical
-        } else if self.is_mental() {
-            AttributeCategory::Mental
-        } else if self.is_physical() {
-            AttributeCategory::Physical
-        } else if self.is_goalkeeping() {
-            AttributeCategory::Goalkeeping
-        } else {
-            // This should never happen if validation is working correctly
-            AttributeCategory::Technical
-        }
-    }
-
     /// Get the underlying string value
     pub fn as_str(&self) -> &str {
         &self.0
@@ -954,33 +938,6 @@ impl AttributeName {
     /// Convert to String
     pub fn into_string(self) -> String {
         self.0
-    }
-}
-
-/// Attribute categories in Football Manager
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum AttributeCategory {
-    Technical,
-    Mental,
-    Physical,
-    Goalkeeping,
-}
-
-impl AttributeCategory {
-    /// Get the string representation of the category
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            AttributeCategory::Technical => "Technical",
-            AttributeCategory::Mental => "Mental",
-            AttributeCategory::Physical => "Physical",
-            AttributeCategory::Goalkeeping => "Goalkeeping",
-        }
-    }
-}
-
-impl fmt::Display for AttributeCategory {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
     }
 }
 
@@ -1779,7 +1736,6 @@ mod tests {
             assert!(!attr.is_mental());
             assert!(!attr.is_physical());
             assert!(!attr.is_goalkeeping());
-            assert_eq!(attr.category(), AttributeCategory::Technical);
         }
 
         #[test]
@@ -1790,7 +1746,6 @@ mod tests {
             assert!(attr.is_mental());
             assert!(!attr.is_physical());
             assert!(!attr.is_goalkeeping());
-            assert_eq!(attr.category(), AttributeCategory::Mental);
         }
 
         #[test]
@@ -1801,7 +1756,6 @@ mod tests {
             assert!(!attr.is_mental());
             assert!(attr.is_physical());
             assert!(!attr.is_goalkeeping());
-            assert_eq!(attr.category(), AttributeCategory::Physical);
         }
 
         #[test]
@@ -1812,7 +1766,6 @@ mod tests {
             assert!(!attr.is_mental());
             assert!(!attr.is_physical());
             assert!(attr.is_goalkeeping());
-            assert_eq!(attr.category(), AttributeCategory::Goalkeeping);
         }
 
         #[test]
@@ -1867,22 +1820,6 @@ mod tests {
         fn test_attribute_name_trim() {
             let attr = AttributeName::new("  Passing  ").unwrap();
             assert_eq!(attr.as_str(), "Passing");
-        }
-
-        #[test]
-        fn test_attribute_category_display() {
-            assert_eq!(format!("{}", AttributeCategory::Technical), "Technical");
-            assert_eq!(format!("{}", AttributeCategory::Mental), "Mental");
-            assert_eq!(format!("{}", AttributeCategory::Physical), "Physical");
-            assert_eq!(format!("{}", AttributeCategory::Goalkeeping), "Goalkeeping");
-        }
-
-        #[test]
-        fn test_attribute_category_as_str() {
-            assert_eq!(AttributeCategory::Technical.as_str(), "Technical");
-            assert_eq!(AttributeCategory::Mental.as_str(), "Mental");
-            assert_eq!(AttributeCategory::Physical.as_str(), "Physical");
-            assert_eq!(AttributeCategory::Goalkeeping.as_str(), "Goalkeeping");
         }
     }
 }

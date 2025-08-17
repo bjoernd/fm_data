@@ -121,7 +121,7 @@ The codebase is organized into a library (`src/lib.rs`) with separate modules fo
 - **`image_constants.rs`**: Organized constants for OCR settings, thresholds, and magic numbers
 - **`layout_manager.rs`**: Dynamic layout loading with embedded fallbacks for attribute parsing
 - **`ocr_corrections.rs`**: Table-driven OCR error correction system
-- **`attributes.rs`**: Structured attribute storage with typed enums and O(1) access
+- **`attributes.rs`**: Unified attribute storage with single enum and O(1) access
 - **`clipboard.rs`**: Cross-platform clipboard management for image paste operations
 - **`selection/`**: Team selection functionality split into focused sub-modules:
   - **`types.rs`**: Core data structures (Player, Role, Team, Assignment, etc.)
@@ -196,9 +196,9 @@ Configuration includes Google API credentials, spreadsheet IDs, sheet names, inp
 #### Image Processor (`fm_image`)
 - Processes PNG screenshots of Football Manager player attributes pages using configurable pipeline
 - Uses Tesseract OCR with ImageProcessor struct providing RAII resource management
-- Parses technical, mental, physical, and goalkeeping attributes using structured layouts
+- Parses all Football Manager attributes using structured layouts
 - **Advanced OCR Error Correction**: Table-driven system with 100+ correction patterns
-- **Performance Optimized**: 21x faster attribute access through structured AttributeSet
+- **Performance Optimized**: Direct attribute access through unified PlayerAttributes structure
 - Detects player footedness through color analysis with optional fallback
 - **Layout Management**: Dynamic layout loading with embedded fallbacks for reliability
 - **Automatic Cleanup**: Temporary file management with proper error handling
@@ -546,9 +546,9 @@ The image processor uses **structured layout-based parsing** to extract data rel
 - **Age**: Parsed using "X years old" pattern (more reliable than standalone numbers)
 - **Player type**: Detected by presence of "GOALKEEPING" text (goalkeeper vs field player)
 - **Footedness**: Detected through color analysis of foot icons (left/right/both feet)
-- **Attributes**: Extracted using deterministic layouts based on player type
-  - **Field players**: 15 rows × 3 columns (Technical, Mental, Physical)
-  - **Goalkeepers**: 15 rows × 3 columns (Goalkeeping, Mental, Physical)
+- **Attributes**: Extracted using deterministic layouts with unified attribute system
+  - **All players**: 15 rows × 3 columns containing all 47 Football Manager attributes
+  - **Unified access**: Single attribute enum covering technical, mental, physical, and goalkeeping attributes
 
 ### Structured Attribute Parsing
 
@@ -663,10 +663,12 @@ The tool outputs tab-separated values (TSV) format with the following columns:
 2. Age
 3. Footedness (Left, Right, Both)
 4. Player type (Outfield, Goalkeeper)
-5. Technical attributes (15 values)
-6. Mental attributes (14 values)  
-7. Physical attributes (5 values)
-8. Goalkeeping attributes (7 values, when applicable)
+5. All 47 Football Manager attributes in consistent order
+   - Technical attributes (14 values)
+   - Mental attributes (14 values)
+   - Physical attributes (5 values)
+   - Goalkeeping attributes (7 values)
+   - Additional attributes (7 values)
 
 This format is compatible with spreadsheet applications and can be imported directly into Google Sheets for further analysis.
 
@@ -680,7 +682,7 @@ This format is compatible with spreadsheet applications and can be imported dire
 **Missing or incorrect attributes**:
 - Most common OCR errors are automatically corrected (see OCR Error Correction System above)
 - Check that screenshot shows the complete attributes page in the standard FM layout
-- Ensure the attribute section headers (TECHNICAL/GOALKEEPING, MENTAL, PHYSICAL) are visible
+- Ensure all attribute section headers are visible and readable
 - Verify the image is in PNG format
 - Use verbose mode (`-v`) to see structured parsing and correction debug information
 

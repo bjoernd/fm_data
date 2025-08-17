@@ -427,7 +427,7 @@ fn validate_required_attributes(player: &ImagePlayer) -> Result<()> {
             }
         }
         PlayerType::FieldPlayer => {
-            // Check for at least one non-zero attribute in each required category
+            // Check for at least one non-zero attribute in each major attribute group
             let has_technical = [
                 Attribute::Corners,
                 Attribute::Crossing,
