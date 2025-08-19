@@ -50,6 +50,21 @@ fn create_large_attribute_dataset() -> Vec<PlayerAttributes> {
         attr_set.set(Attribute::Stamina, (i % 20 + 1) as u8);
         attr_set.set(Attribute::Strength, (i % 20 + 1) as u8);
 
+        // Set goalkeeping attributes
+        attr_set.set(Attribute::AerialReach, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::CommandOfArea, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::Communication, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::Eccentricity, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::GoalkeepingFirstTouch, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::Handling, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::Kicking, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::OneOnOnes, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::GoalkeepingPassing, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::PunchingTendency, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::Reflexes, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::RushingOutTendency, (i % 20 + 1) as u8);
+        attr_set.set(Attribute::Throwing, (i % 20 + 1) as u8);
+
         attributes.push(attr_set);
     }
 
@@ -156,6 +171,36 @@ fn bench_unified_attribute_access(c: &mut Criterion) {
                 sum += attr_set.get_by_name(black_box("Passing")).unwrap_or(0) as u32;
                 sum += attr_set.get_by_name(black_box("Vision")).unwrap_or(0) as u32;
                 sum += attr_set.get_by_name(black_box("Pace")).unwrap_or(0) as u32;
+            }
+            black_box(sum)
+        })
+    });
+
+    c.bench_function("unified_goalkeeping_access", |b| {
+        b.iter(|| {
+            let mut sum = 0u32;
+            for attr_set in &attributes {
+                sum += attr_set.get(black_box(Attribute::Reflexes)) as u32;
+                sum += attr_set.get(black_box(Attribute::Handling)) as u32;
+                sum += attr_set.get(black_box(Attribute::OneOnOnes)) as u32;
+            }
+            black_box(sum)
+        })
+    });
+
+    c.bench_function("unified_mixed_attributes_access", |b| {
+        b.iter(|| {
+            let mut sum = 0u32;
+            for attr_set in &attributes {
+                // Mix of technical, mental, physical, and goalkeeping
+                sum += attr_set.get(black_box(Attribute::Passing)) as u32; // Technical
+                sum += attr_set.get(black_box(Attribute::Vision)) as u32; // Mental
+                sum += attr_set.get(black_box(Attribute::Pace)) as u32; // Physical
+                sum += attr_set.get(black_box(Attribute::Reflexes)) as u32; // Goalkeeping
+                sum += attr_set.get(black_box(Attribute::Finishing)) as u32; // Technical
+                sum += attr_set.get(black_box(Attribute::Decisions)) as u32; // Mental
+                sum += attr_set.get(black_box(Attribute::Strength)) as u32; // Physical
+                sum += attr_set.get(black_box(Attribute::Handling)) as u32; // Goalkeeping
             }
             black_box(sum)
         })
