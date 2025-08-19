@@ -37,6 +37,10 @@ log = "0.4"
 # Progress reporting
 indicatif = "0.17"
 
+# Terminal UI
+ratatui = "0.24"
+crossterm = "0.27"
+
 # Async runtime - optimized features for our use case
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "fs", "time"] }
 async-trait = "0.1"
