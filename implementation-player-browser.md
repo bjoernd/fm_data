@@ -163,7 +163,7 @@ impl BrowserRepository {
 
 **Commands**: `cargo test --test integration_tests`
 
-### Step 2.2: Update Configuration System
+### Step 2.2: Update Configuration System **[COMPLETED]**
 **File**: `src/config.rs`
 - Add `browser_sheet` field to config structure
 - Default value should be "Squad" or similar

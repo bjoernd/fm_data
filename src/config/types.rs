@@ -69,6 +69,9 @@ pub struct GoogleConfig {
     /// Sheet name for scouting data
     #[serde(default = "super::defaults::default_scouting_sheet")]
     pub scouting_sheet: String,
+    /// Sheet name for browser data (player browsing)
+    #[serde(default = "super::defaults::default_browser_sheet")]
+    pub browser_sheet: String,
 }
 
 /// Input file path configuration for various data sources
@@ -101,6 +104,7 @@ impl Default for GoogleConfig {
             team_perf_sheet: super::defaults::default_team_perf_sheet(),
             league_perf_sheet: super::defaults::default_league_perf_sheet(),
             scouting_sheet: super::defaults::default_scouting_sheet(),
+            browser_sheet: super::defaults::default_browser_sheet(),
         }
     }
 }

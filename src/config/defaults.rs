@@ -22,6 +22,11 @@ pub fn default_scouting_sheet() -> String {
     String::from(defaults::SCOUTING_SHEET)
 }
 
+/// Default browser sheet name
+pub fn default_browser_sheet() -> String {
+    String::from(defaults::BROWSER_SHEET)
+}
+
 /// Default OAuth token cache file path
 pub fn default_token_file() -> String {
     dirs::config_dir()

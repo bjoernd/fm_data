@@ -139,6 +139,7 @@ mod tests {
         assert_eq!(config.google.team_perf_sheet, "Stats_Team");
         assert_eq!(config.google.league_perf_sheet, "Stats_Division");
         assert_eq!(config.google.scouting_sheet, "Scouting");
+        assert_eq!(config.google.browser_sheet, "Squad");
         assert!(config.google.token_file.contains("fm_data"));
         assert!(config.google.token_file.contains("tokencache.json"));
         assert!(config.google.creds_file.is_empty());
@@ -328,6 +329,7 @@ mod tests {
                 team_perf_sheet: "Stats_Team".to_string(),
                 league_perf_sheet: "Stats_Division".to_string(),
                 scouting_sheet: "Scouting".to_string(),
+                browser_sheet: "Squad".to_string(),
             },
             input: types::InputConfig {
                 data_html: "config_data.html".to_string(),

@@ -23,6 +23,9 @@ pub mod defaults {
 
     /// Default name for the scouting sheet used by image processor
     pub const SCOUTING_SHEET: &str = "Scouting";
+
+    /// Default name for the browser sheet used by player browser
+    pub const BROWSER_SHEET: &str = "Squad";
 }
 
 /// Data layout constants for column positions in spreadsheets
