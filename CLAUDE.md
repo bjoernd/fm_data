@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Rust-based Football Manager data analysis toolkit with three main binaries:
+This is a Rust-based Football Manager data analysis toolkit with four main binaries:
 
 1. **`fm_google_up`** - Extracts player data from HTML exports and uploads them to Google Sheets
 2. **`fm_team_selector`** - Analyzes player data from Google Sheets to find optimal team assignments
 3. **`fm_image`** - Extracts player data from Football Manager PNG screenshots using OCR and optionally uploads to Google Sheets
+4. **`fm_player_browser`** - Interactive terminal UI for browsing player data from Google Sheets with navigation
 
 All tools share common authentication, configuration, and Google Sheets integration infrastructure.
 
@@ -22,10 +23,12 @@ cargo build --release
 cargo build --release --bin fm_google_up
 cargo build --release --bin fm_team_selector
 cargo build --release --bin fm_image
+cargo build --release --bin fm_player_browser
 
 # Build without image processing dependencies (lighter build, 40%+ smaller)
 cargo build --release --no-default-features --bin fm_google_up
 cargo build --release --no-default-features --bin fm_team_selector
+cargo build --release --no-default-features --bin fm_player_browser
 
 # Build with all features explicitly (same as default for development)
 cargo build --release --features full
@@ -42,6 +45,9 @@ cargo run --bin fm_image -- -i player_screenshot.png -v
 # Run the image processor with clipboard paste (copy image with Cmd+C first)
 cargo run --bin fm_image -- -v
 
+# Run the player browser (interactive TUI)
+cargo run --bin fm_player_browser
+
 # Run the image processor with Google Sheets upload (file mode)
 cargo run --bin fm_image -- -i player_screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json -v
 
@@ -52,11 +58,13 @@ cargo run --bin fm_image -- -s YOUR_SPREADSHEET_ID --credfile credentials.json -
 cargo run --bin fm_google_up -- -c custom_config.json
 cargo run --bin fm_team_selector -- -r roles.txt -c custom_config.json
 cargo run --bin fm_image -- -i screenshot.png -c custom_config.json
+cargo run --bin fm_player_browser -- -c custom_config.json
 
 # Run with progress bar disabled (useful for scripting)
 cargo run --bin fm_google_up -- --no-progress
 cargo run --bin fm_team_selector -- -r roles.txt --no-progress
 cargo run --bin fm_image -- -i screenshot.png --no-progress
+# Note: fm_player_browser automatically disables progress bar to avoid TUI conflicts
 
 # Run image processor with Google Sheets upload (no progress bar)
 cargo run --bin fm_image -- -i screenshot.png -s YOUR_SPREADSHEET_ID --credfile credentials.json --no-progress
@@ -480,6 +488,75 @@ cargo run --bin fm_team_selector -- -r examples/formation_legacy.txt --no-progre
 3. **Comments**: Use `#` at the start of lines for comments in both sections
 4. **Whitespace**: Leading/trailing spaces are automatically trimmed
 5. **Case Sensitivity**: Category names are case-insensitive (`GOAL` = `goal` = `Goal`)
+
+## Player Browser Usage
+
+The `fm_player_browser` tool provides an interactive terminal UI for browsing Football Manager player data from Google Sheets. It displays all 145 columns of player data (A2:EQ58 range) in a navigable table format.
+
+### Key Features
+
+- **Interactive Navigation**: Use arrow keys to navigate through player data
+- **Complete Data Display**: Shows all 145 fields including attributes, DNA, and role ratings
+- **Cell Highlighting**: Selected cell highlighted with visual feedback
+- **Automatic Progress Disable**: Progress bar automatically disabled to prevent TUI conflicts
+- **Google Sheets Integration**: Reads data directly from configured spreadsheet
+
+### Navigation Controls
+
+- **Arrow Keys**: Navigate up/down between players, left/right between attributes
+- **Q or Esc**: Quit the browser and return to terminal
+- **Boundary Checking**: Navigation stops at table edges
+
+### Usage Examples
+
+```bash
+# Basic usage (uses config file)
+cargo run --bin fm_player_browser
+
+# With custom spreadsheet and credentials
+cargo run --bin fm_player_browser -- -s YOUR_SPREADSHEET_ID --credfile credentials.json
+
+# With custom config file
+cargo run --bin fm_player_browser -- -c browser_config.json
+
+# Verbose mode for debugging
+cargo run --bin fm_player_browser -- -v
+
+# Override default sheet name
+cargo run --bin fm_player_browser -- -s YOUR_SPREADSHEET_ID --credfile credentials.json --sheet "MySquad"
+```
+
+### Configuration
+
+The browser uses the `browser_sheet` field in configuration (defaults to "Squad"):
+
+```json
+{
+  "google": {
+    "spreadsheet_name": "YOUR_SPREADSHEET_ID",
+    "creds_file": "credentials.json",
+    "browser_sheet": "Squad"
+  }
+}
+```
+
+### Data Range and Format
+
+- **Range**: A2:EQ58 (145 columns, up to 57 players)
+- **Columns**: Name, Age, Foot, 47 FM attributes, DNA, 94 role ratings
+- **Filtering**: Only displays players with non-empty names
+- **Format**: Numeric values displayed with 2 decimal places
+
+### Error Handling
+
+The browser provides clear feedback for common issues:
+
+- **Authentication failures**: Clear error messages with guidance
+- **Empty spreadsheet**: Instructions for data format requirements  
+- **No players found**: Validation checklist for data structure
+- **Network errors**: Automatic retry and error context
+
+**Note**: Progress tracking is automatically disabled for this tool to prevent interference with the terminal UI.
 
 ## Image Processor Usage
 

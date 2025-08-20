@@ -44,7 +44,8 @@ impl CLIArgumentValidator for CLIArguments {
     }
 
     fn is_no_progress(&self) -> bool {
-        self.common.common.no_progress
+        // Always disable progress bar for browser - it interferes with TUI
+        true
     }
 
     fn config_path(&self) -> &str {
