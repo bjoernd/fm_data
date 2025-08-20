@@ -4,6 +4,7 @@ pub mod attributes;
 pub mod auth;
 pub mod browser;
 pub mod browser_repository;
+pub mod browser_ui;
 pub mod cli;
 #[cfg(feature = "image-processing")]
 pub mod clipboard;
@@ -48,6 +49,7 @@ pub use attributes::{Attribute, PlayerAttributes};
 pub use auth::{create_authenticator_and_token, get_secure_config_dir};
 pub use browser::{BrowserPlayer, COLUMN_HEADERS};
 pub use browser_repository::{BrowserDataSource, BrowserRepository};
+pub use browser_ui::{restore_terminal, setup_terminal, BrowserApp};
 pub use cli::{
     BinarySpecificCLI, CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, StandardCLIWrapper,
     UploaderCLI,
