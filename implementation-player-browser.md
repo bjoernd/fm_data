@@ -180,7 +180,7 @@ cargo clippy --allow-dirty --fix
 cargo fmt
 ```
 
-## Phase 3: Basic Terminal UI Structure
+## Phase 3: Basic Terminal UI Structure **[COMPLETED]**
 
 ### Step 3.1: Create Browser UI Module **[COMPLETED]**
 **File**: `src/browser_ui.rs` (new module)
@@ -246,7 +246,7 @@ impl BrowserApp {
 **Test**: Create basic UI tests (terminal setup/teardown)
 **Commands**: `cargo test browser_ui::tests --lib`
 
-### Step 3.2: Implement Basic Table Rendering
+### Step 3.2: Implement Basic Table Rendering **[COMPLETED]**
 **File**: `src/browser_ui.rs`
 - Implement `draw()` method with ratatui Table widget
 - Display all player data in table format
@@ -256,7 +256,7 @@ impl BrowserApp {
 **Test**: Manual testing with sample data
 **Commands**: Create a simple test that verifies table creation
 
-### Step 3.3: Run Tests and Linting
+### Step 3.3: Run Tests and Linting **[COMPLETED]**
 **Commands**:
 ```bash
 cargo test
