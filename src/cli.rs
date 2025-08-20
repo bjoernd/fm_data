@@ -278,6 +278,22 @@ impl CommonCLIArgs for ImageCLI {
     }
 }
 
+#[derive(Parser, Debug)]
+pub struct BrowserCLI {
+    #[command(flatten)]
+    pub common: CommonCLI,
+}
+
+impl CommonCLIArgs for BrowserCLI {
+    fn get_common_args(&self) -> CommonArgs {
+        self.common.to_common_args()
+    }
+
+    async fn validate_common(&self) -> Result<()> {
+        self.common.validate_common()
+    }
+}
+
 /// Trait for binary-specific CLI validation and configuration
 pub trait BinarySpecificCLI {
     /// Perform binary-specific validation beyond common validation

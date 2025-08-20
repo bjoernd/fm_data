@@ -22,6 +22,10 @@ name = "fm_image"
 path = "src/bin/fm_image.rs"
 required-features = ["image-processing"]
 
+[[bin]]
+name = "fm_player_browser"
+path = "src/bin/fm_player_browser.rs"
+
 [dependencies]
 # Core error handling and utilities
 anyhow = "1.0"

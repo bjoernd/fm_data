@@ -51,8 +51,8 @@ pub use browser::{BrowserPlayer, COLUMN_HEADERS};
 pub use browser_repository::{BrowserDataSource, BrowserRepository};
 pub use browser_ui::{restore_terminal, setup_terminal, BrowserApp};
 pub use cli::{
-    BinarySpecificCLI, CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI, StandardCLIWrapper,
-    UploaderCLI,
+    BinarySpecificCLI, BrowserCLI, CommonArgs, CommonCLIArgs, ImageCLI, SelectorCLI,
+    StandardCLIWrapper, UploaderCLI,
 };
 pub use config::Config;
 pub use domain::{PlayerId, RoleId, SpreadsheetId};
